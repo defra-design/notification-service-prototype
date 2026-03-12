@@ -688,13 +688,26 @@ module.exports = (router) => {
       }
     }
 
-    // Handle remove consignee
+    // Store selected consignee when coming from address-consignee-search
+    const consigneeId = req.query.consignee
     if (req.query.removeConsignee === '1') {
+      delete data.consigneeId
       delete data.consigneeName
+      delete data.consigneeAddress
+      delete data.consigneeCountry
       delete data.consigneeAddressLine1
       delete data.consigneeAddressLine2
       delete data.consigneeTown
       delete data.consigneePostcode
+    } else if (consigneeId) {
+      const consignees = require('../../data/consignees.js')
+      const selectedConsignee = consignees.find(c => String(c.id) === String(consigneeId))
+      if (selectedConsignee) {
+        data.consigneeId = selectedConsignee.id
+        data.consigneeName = selectedConsignee.name
+        data.consigneeAddress = selectedConsignee.address
+        data.consigneeCountry = selectedConsignee.country
+      }
     }
 
     // Pass consignor explicitly (session may not persist nested objects reliably)
@@ -704,14 +717,20 @@ module.exports = (router) => {
     const consignorCountry = (selected && selected.country) || data.consignorCountry || ''
     const hasConsignor = !!(selected || data.consignorId)
 
-    // Consignee (UK address) – build display string
-    const hasConsignee = !!(data.consigneeName && data.consigneeAddressLine1 && data.consigneeTown && data.consigneePostcode)
+    // Consignee – build display (from search selection or manual form)
+    const hasConsigneeFromSearch = !!(data.consigneeId && data.consigneeName && data.consigneeAddress && data.consigneeCountry)
+    const hasConsigneeFromForm = !!(data.consigneeName && data.consigneeAddressLine1 && data.consigneeTown && data.consigneePostcode)
+    const hasConsignee = hasConsigneeFromSearch || hasConsigneeFromForm
     const consigneeAddressLines = []
-    if (data.consigneeName) consigneeAddressLines.push(data.consigneeName)
-    if (data.consigneeAddressLine1) consigneeAddressLines.push(data.consigneeAddressLine1)
-    if (data.consigneeAddressLine2) consigneeAddressLines.push(data.consigneeAddressLine2)
-    if (data.consigneeTown) consigneeAddressLines.push(data.consigneeTown)
-    if (data.consigneePostcode) consigneeAddressLines.push(data.consigneePostcode + ' United Kingdom')
+    if (hasConsigneeFromSearch) {
+      consigneeAddressLines.push(data.consigneeName, data.consigneeAddress, data.consigneeCountry)
+    } else if (hasConsigneeFromForm) {
+      if (data.consigneeName) consigneeAddressLines.push(data.consigneeName)
+      if (data.consigneeAddressLine1) consigneeAddressLines.push(data.consigneeAddressLine1)
+      if (data.consigneeAddressLine2) consigneeAddressLines.push(data.consigneeAddressLine2)
+      if (data.consigneeTown) consigneeAddressLines.push(data.consigneeTown)
+      if (data.consigneePostcode) consigneeAddressLines.push(data.consigneePostcode + ' United Kingdom')
+    }
 
     res.render('v1-baseline/create/addresses', {
       consignorName,
@@ -771,6 +790,47 @@ module.exports = (router) => {
     delete data.errors
     delete data.errorList
     res.redirect(`${BASE}/create/addresses`)
+  })
+
+  router.get(`${BASE}/create/address-consignee-search`, (req, res) => {
+    const data = req.session.data || {}
+    const consignees = require('../../data/consignees.js')
+    const searchName = (req.query.searchName || data.searchConsigneeName || '').trim().toLowerCase()
+    const searchAddress = (req.query.searchAddress || data.searchConsigneeAddress || '').trim().toLowerCase()
+    const searchCountry = (req.query.searchCountry || data.searchConsigneeCountry || '').trim()
+    const page = parseInt(req.query.page, 10) || 1
+    const perPage = 10
+
+    data.searchConsigneeName = req.query.searchName ?? data.searchConsigneeName
+    data.searchConsigneeAddress = req.query.searchAddress ?? data.searchConsigneeAddress
+    data.searchConsigneeCountry = req.query.searchCountry ?? data.searchConsigneeCountry
+
+    let filtered = consignees
+    if (searchName) {
+      filtered = filtered.filter(c => c.name.toLowerCase().includes(searchName))
+    }
+    if (searchAddress) {
+      filtered = filtered.filter(c => c.address.toLowerCase().includes(searchAddress))
+    }
+    if (searchCountry) {
+      filtered = filtered.filter(c => c.country === searchCountry)
+    }
+
+    const total = filtered.length
+    const totalPages = Math.max(1, Math.ceil(total / perPage))
+    const pageNum = Math.max(1, Math.min(page, totalPages))
+    const start = (pageNum - 1) * perPage
+    const results = filtered.slice(start, start + perPage)
+
+    const countries = [...new Set(consignees.map(c => c.country))].sort()
+
+    res.render('v1-baseline/create/address-consignee-search', {
+      results,
+      countries,
+      page: pageNum,
+      totalPages,
+      total
+    })
   })
 
   router.get(`${BASE}/create/address-consignor-search`, (req, res) => {
