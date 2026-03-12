@@ -8,6 +8,11 @@
 const govukPrototypeKit = require('govuk-prototype-kit')
 const router = govukPrototypeKit.requests.setupRouter()
 
+// Index – prototype home (GOV.UK logo links here)
+router.get('/', (req, res) => {
+  res.render('index')
+})
+
 // Sign in – how do you want to sign in?
 router.get('/sign-in', (req, res) => {
   res.render('sign-in')

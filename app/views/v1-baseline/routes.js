@@ -664,15 +664,156 @@ module.exports = (router) => {
   })
 
   router.get(`${BASE}/create/addresses`, (req, res) => {
-    delete req.session.data.errors
-    delete req.session.data.errorList
-    res.render('v1-baseline/create/addresses')
+    const data = req.session.data || {}
+    delete data.errors
+    delete data.errorList
+
+    // Store selected consignor when coming from address-consignor-search
+    const consignorId = req.query.consignor
+    if (req.query.removeConsignor === '1') {
+      delete data.consignorId
+      delete data.consignorName
+      delete data.consignorAddress
+      delete data.consignorCountry
+      delete data.consignor
+    } else if (consignorId) {
+      const consignors = require('../../data/consignors.js')
+      const selected = consignors.find(c => String(c.id) === String(consignorId))
+      if (selected) {
+        data.consignorId = selected.id
+        data.consignorName = selected.name
+        data.consignorAddress = selected.address
+        data.consignorCountry = selected.country
+        data.consignor = selected
+      }
+    }
+
+    // Handle remove consignee
+    if (req.query.removeConsignee === '1') {
+      delete data.consigneeName
+      delete data.consigneeAddressLine1
+      delete data.consigneeAddressLine2
+      delete data.consigneeTown
+      delete data.consigneePostcode
+    }
+
+    // Pass consignor explicitly (session may not persist nested objects reliably)
+    const selected = data.consignor || (data.consignorName && { name: data.consignorName, address: data.consignorAddress, country: data.consignorCountry })
+    const consignorName = (selected && selected.name) || data.consignorName || ''
+    const consignorAddress = (selected && selected.address) || data.consignorAddress || ''
+    const consignorCountry = (selected && selected.country) || data.consignorCountry || ''
+    const hasConsignor = !!(selected || data.consignorId)
+
+    // Consignee (UK address) – build display string
+    const hasConsignee = !!(data.consigneeName && data.consigneeAddressLine1 && data.consigneeTown && data.consigneePostcode)
+    const consigneeAddressLines = []
+    if (data.consigneeName) consigneeAddressLines.push(data.consigneeName)
+    if (data.consigneeAddressLine1) consigneeAddressLines.push(data.consigneeAddressLine1)
+    if (data.consigneeAddressLine2) consigneeAddressLines.push(data.consigneeAddressLine2)
+    if (data.consigneeTown) consigneeAddressLines.push(data.consigneeTown)
+    if (data.consigneePostcode) consigneeAddressLines.push(data.consigneePostcode + ' United Kingdom')
+
+    res.render('v1-baseline/create/addresses', {
+      consignorName,
+      consignorAddress,
+      consignorCountry,
+      hasConsignor,
+      hasConsignee,
+      consigneeAddressLines
+    })
   })
 
   router.post(`${BASE}/create/addresses`, (req, res) => {
     delete req.session.data.errors
     delete req.session.data.errorList
     res.redirect(`${BASE}/dashboard`)
+  })
+
+  router.get(`${BASE}/create/address-consignee`, (req, res) => {
+    const data = req.session.data || {}
+    delete data.errors
+    delete data.errorList
+    res.render('v1-baseline/create/address-consignee')
+  })
+
+  router.post(`${BASE}/create/address-consignee`, (req, res) => {
+    const data = req.session.data || {}
+    const consigneeName = (data.consigneeName || '').trim()
+    const consigneeAddressLine1 = (data.consigneeAddressLine1 || '').trim()
+    const consigneeTown = (data.consigneeTown || '').trim()
+    const consigneePostcode = (data.consigneePostcode || '').trim()
+
+    const errors = {}
+    const errorList = []
+    if (!consigneeName) {
+      errors.consigneeName = 'Enter the name or organisation'
+      errorList.push({ href: '#consigneeName', text: 'Enter the name or organisation' })
+    }
+    if (!consigneeAddressLine1) {
+      errors.consigneeAddressLine1 = 'Enter address line 1'
+      errorList.push({ href: '#consigneeAddressLine1', text: 'Enter address line 1' })
+    }
+    if (!consigneeTown) {
+      errors.consigneeTown = 'Enter the town or city'
+      errorList.push({ href: '#consigneeTown', text: 'Enter the town or city' })
+    }
+    if (!consigneePostcode) {
+      errors.consigneePostcode = 'Enter the postcode'
+      errorList.push({ href: '#consigneePostcode', text: 'Enter the postcode' })
+    }
+
+    if (errorList.length > 0) {
+      data.errors = errors
+      data.errorList = errorList
+      return res.redirect(`${BASE}/create/address-consignee`)
+    }
+
+    delete data.errors
+    delete data.errorList
+    res.redirect(`${BASE}/create/addresses`)
+  })
+
+  router.get(`${BASE}/create/address-consignor-search`, (req, res) => {
+    const data = req.session.data || {}
+    const consignors = require('../../data/consignors.js')
+    const euCountries = require('../../data/eu-countries.js')
+    const searchName = (req.query.searchName || data.searchName || '').trim().toLowerCase()
+    const searchAddress = (req.query.searchAddress || data.searchAddress || '').trim().toLowerCase()
+    const searchCountry = (req.query.searchCountry || data.searchCountry || '').trim()
+    const page = parseInt(req.query.page, 10) || 1
+    const perPage = 10
+
+    data.searchName = req.query.searchName ?? data.searchName
+    data.searchAddress = req.query.searchAddress ?? data.searchAddress
+    data.searchCountry = req.query.searchCountry ?? data.searchCountry
+
+    let filtered = consignors
+    if (searchName) {
+      filtered = filtered.filter(c => c.name.toLowerCase().includes(searchName))
+    }
+    if (searchAddress) {
+      filtered = filtered.filter(c => c.address.toLowerCase().includes(searchAddress))
+    }
+    if (searchCountry) {
+      filtered = filtered.filter(c => c.country === searchCountry)
+    }
+
+    const total = filtered.length
+    const totalPages = Math.max(1, Math.ceil(total / perPage))
+    const pageNum = Math.max(1, Math.min(page, totalPages))
+    const start = (pageNum - 1) * perPage
+    const results = filtered.slice(start, start + perPage)
+
+    const countriesFromData = [...new Set(consignors.map(c => c.country))]
+    const countries = [...new Set([...euCountries, ...countriesFromData])].sort()
+
+    res.render('v1-baseline/create/address-consignor-search', {
+      results,
+      countries,
+      page: pageNum,
+      totalPages,
+      total
+    })
   })
 
   router.get(`${BASE}/create/accompanying-documents-prefill`, (req, res) => {
