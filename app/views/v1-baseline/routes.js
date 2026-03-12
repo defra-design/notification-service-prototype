@@ -4,9 +4,587 @@
 //
 
 const BASE = '/v1-baseline'
+const notifications = require('../../data/notifications')
+
+const FILTER_KEYS = ['filterKeyword', 'filterCommodity', 'filterOrigin', 'filterConsignee', 'filterDestination', 'filterStatus', 'filterStartDate', 'filterEndDate']
+
+function filterNotifications (filterData) {
+  return notifications.filter(n => {
+    const keyword = (filterData.keyword || '').trim().toLowerCase()
+    if (keyword) {
+      const search = `${n.reference} ${n.commodity} ${n.origin} ${n.consignee} ${n.consignor}`.toLowerCase()
+      if (!search.includes(keyword)) return false
+    }
+
+    const commodity = (filterData.commodity || '').trim().toLowerCase()
+    if (commodity && !n.commodity.toLowerCase().includes(commodity)) return false
+
+    const origin = (filterData.origin || '').trim().toLowerCase()
+    if (origin && !n.origin.toLowerCase().includes(origin)) return false
+
+    const consignee = (filterData.consignee || '').trim().toLowerCase()
+    if (consignee) {
+      const match = n.consignee.toLowerCase().includes(consignee) || n.consignor.toLowerCase().includes(consignee)
+      if (!match) return false
+    }
+
+    const status = (filterData.status || '').trim().toLowerCase()
+    if (status && n.status !== status) return false
+
+    return true
+  })
+}
 
 module.exports = (router) => {
   router.get(`${BASE}/start`, (req, res) => {
     res.render('v1-baseline/start')
+  })
+
+  router.get(`${BASE}/dashboard`, (req, res) => {
+    const data = req.session.data || {}
+    const filterData = {
+      keyword: data.filterKeyword,
+      commodity: data.filterCommodity,
+      origin: data.filterOrigin,
+      consignee: data.filterConsignee,
+      destination: data.filterDestination,
+      status: data.filterStatus,
+      startDate: data.filterStartDate,
+      endDate: data.filterEndDate
+    }
+    const filtered = filterNotifications(filterData)
+    req.session.data.resultsCount = filtered.length
+    res.locals.notifications = filtered
+    res.render('v1-baseline/dashboard')
+  })
+
+  router.get(`${BASE}/create/import-type`, (req, res) => {
+    delete req.session.data.errors
+    delete req.session.data.errorList
+    res.render('v1-baseline/create/import-type')
+  })
+
+  router.post(`${BASE}/create/import-type`, (req, res) => {
+    const importType = req.session.data.importType
+    if (!importType || importType.trim() === '') {
+      req.session.data.errors = { importType: 'Select what you are importing' }
+      req.session.data.errorList = [{ href: '#import-type-1', text: 'Select what you are importing' }]
+      return res.redirect(`${BASE}/create/import-type`)
+    }
+    delete req.session.data.errors
+    delete req.session.data.errorList
+    res.redirect(`${BASE}/create/origin`)
+  })
+
+  router.get(`${BASE}/create/import-type-prefill`, (req, res) => {
+    req.session.data.importType = 'live-animals'
+    delete req.session.data.errors
+    delete req.session.data.errorList
+    res.redirect(`${BASE}/create/origin`)
+  })
+
+  router.get(`${BASE}/create/origin`, (req, res) => {
+    delete req.session.data.errors
+    delete req.session.data.errorList
+    const euCountries = require('../../data/eu-countries.js')
+    const euCountryCodes = require('../../data/eu-country-codes.js')
+    res.render('v1-baseline/create/origin', {
+      euCountries,
+      euCountryCodes
+    })
+  })
+
+  router.post(`${BASE}/create/origin`, (req, res) => {
+    const countryOfOrigin = req.session.data.countryOfOrigin
+    const regionOfOriginRequired = req.session.data.regionOfOriginRequired
+    const errors = {}
+    const errorList = []
+
+    if (!countryOfOrigin || countryOfOrigin.trim() === '') {
+      errors.countryOfOrigin = 'Select a country'
+      errorList.push({ href: '#countryOfOrigin', text: 'Select a country' })
+    }
+    if (!regionOfOriginRequired || regionOfOriginRequired.trim() === '') {
+      errors.regionOfOriginRequired = 'Select if the consignment requires a region of origin code'
+      errorList.push({ href: '#region-of-origin-1', text: 'Select if the consignment requires a region of origin code' })
+    }
+
+    if (Object.keys(errors).length > 0) {
+      req.session.data.errors = errors
+      req.session.data.errorList = errorList
+      return res.redirect(`${BASE}/create/origin`)
+    }
+
+    delete req.session.data.errors
+    delete req.session.data.errorList
+    res.redirect(`${BASE}/create/commodity`)
+  })
+
+  router.get(`${BASE}/create/origin-prefill`, (req, res) => {
+    req.session.data.countryOfOrigin = 'France'
+    req.session.data.regionOfOriginRequired = 'no'
+    delete req.session.data.errors
+    delete req.session.data.errorList
+    res.redirect(`${BASE}/create/commodity`)
+  })
+
+  router.get(`${BASE}/create/commodity`, (req, res) => {
+    delete req.session.data.errors
+    delete req.session.data.errorList
+    const commodities = require('../../data/commodity-list.js')
+    res.render('v1-baseline/create/commodity', {
+      commodities
+    })
+  })
+
+  router.post(`${BASE}/create/commodity`, (req, res) => {
+    const commodity = req.session.data.commodity
+    const errors = {}
+    const errorList = []
+
+    if (!commodity || commodity.trim() === '') {
+      errors.commodity = 'Select a commodity'
+      errorList.push({ href: '#commodity', text: 'Select a commodity' })
+    }
+
+    if (Object.keys(errors).length > 0) {
+      req.session.data.errors = errors
+      req.session.data.errorList = errorList
+      return res.redirect(`${BASE}/create/commodity`)
+    }
+
+    delete req.session.data.errors
+    delete req.session.data.errorList
+    res.redirect(`${BASE}/create/commodity-species`)
+  })
+
+  router.get(`${BASE}/create/commodity-prefill`, (req, res) => {
+    req.session.data.commodity = 'Cow'
+    delete req.session.data.errors
+    delete req.session.data.errorList
+    res.redirect(`${BASE}/create/commodity-species`)
+  })
+
+  router.get(`${BASE}/create/commodity-species`, (req, res) => {
+    delete req.session.data.errors
+    delete req.session.data.errorList
+    const commodity = req.session.data.commodity
+    const commoditiesData = require('../../data/commodities.js')
+    const commodityDetails = commodity ? commoditiesData[commodity] : null
+
+    if (!commodityDetails) {
+      return res.redirect(`${BASE}/create/commodity`)
+    }
+
+    const commodityTypeItems = commodityDetails.commodityTypes.map(t => ({
+      value: t.toLowerCase(),
+      text: t
+    }))
+    const selectedSpecies = req.session.data.commoditySpecies || []
+    const speciesItems = commodityDetails.species.map(s => ({
+      value: s,
+      text: s,
+      checked: selectedSpecies.indexOf(s) !== -1
+    }))
+
+    res.render('v1-baseline/create/commodity-species', {
+      commodityDetails,
+      commodityTypeItems,
+      speciesItems
+    })
+  })
+
+  router.post(`${BASE}/create/commodity-species`, (req, res) => {
+    const species = req.session.data.commoditySpecies
+    const errors = {}
+    const errorList = []
+
+    if (!species || !Array.isArray(species) || species.length === 0) {
+      errors.commoditySpecies = 'Select at least one species'
+      errorList.push({ href: '#commoditySpecies-1', text: 'Select at least one species' })
+    }
+
+    if (Object.keys(errors).length > 0) {
+      req.session.data.errors = errors
+      req.session.data.errorList = errorList
+      return res.redirect(`${BASE}/create/commodity-species`)
+    }
+
+    delete req.session.data.errors
+    delete req.session.data.errorList
+    res.redirect(`${BASE}/create/import-reason`)
+  })
+
+  router.get(`${BASE}/create/commodity-species-prefill`, (req, res) => {
+    const commodityDetails = req.session.data.commodity ? require('../../data/commodities.js')[req.session.data.commodity] : null
+    req.session.data.commoditySpecies = commodityDetails ? [commodityDetails.species[0]] : ['Bos taurus']
+    req.session.data.commodityType = 'domestic'
+    delete req.session.data.errors
+    delete req.session.data.errorList
+    res.redirect(`${BASE}/create/import-reason`)
+  })
+
+  router.get(`${BASE}/create/import-reason`, (req, res) => {
+    delete req.session.data.errors
+    delete req.session.data.errorList
+    const commoditySpecies = req.session.data.commoditySpecies || []
+    const horseSpecies = require('../../data/commodity-list.js').horseSpecies
+    const showTemporaryAdmissionHorses = commoditySpecies.some(s => horseSpecies.includes(s))
+    const internalMarketPurposes = require('../../data/internal-market-purposes.js')
+
+    const purposeItems = internalMarketPurposes.map(p => ({
+      value: p.value,
+      text: p.text,
+      hint: p.hint ? { text: p.hint } : undefined,
+      checked: req.session.data.internalMarketPurpose === p.value
+    }))
+
+    const escapeHtml = (s) => String(s)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+
+    const purposeError = req.session.data.errors && req.session.data.errors.internalMarketPurpose
+    const purposeConditionalHtml = `
+      <div class="govuk-form-group govuk-!-margin-top-3 ${purposeError ? 'govuk-form-group--error' : ''}">
+        <fieldset class="govuk-fieldset" ${purposeError ? 'aria-describedby="internal-market-purpose-error"' : ''}>
+          <legend class="govuk-fieldset__legend govuk-fieldset__legend--s">
+            Purpose in the internal market
+          </legend>
+          ${purposeError ? `<p id="internal-market-purpose-error" class="govuk-error-message"><span class="govuk-visually-hidden">Error:</span> ${escapeHtml(purposeError)}</p>` : ''}
+          <div class="govuk-radios govuk-radios--small" data-module="govuk-radios">
+            ${purposeItems.map((item, i) => `
+              <div class="govuk-radios__item">
+                <input class="govuk-radios__input" id="internal-market-purpose-${i}" name="internalMarketPurpose" type="radio" value="${escapeHtml(item.value)}" ${item.checked ? 'checked' : ''}>
+                <label class="govuk-label govuk-radios__label" for="internal-market-purpose-${i}">${escapeHtml(item.text)}</label>
+                ${item.hint ? `<div class="govuk-hint govuk-radios__hint">${escapeHtml(item.hint.text)}</div>` : ''}
+              </div>
+            `).join('')}
+          </div>
+        </fieldset>
+      </div>
+    `
+
+    const importReasonItems = [
+      {
+        value: 'internal-market',
+        text: 'Internal market',
+        hint: { text: 'The consignment is intended for sale or use in Great Britain (England, Scotland or Wales).' },
+        conditional: { html: purposeConditionalHtml }
+      },
+      {
+        value: 're-entry',
+        text: 'Re-entry',
+        hint: { text: 'The consignment is authorised for re-entry or includes rejected exports that are re-entering Great Britain.' }
+      }
+    ]
+    if (showTemporaryAdmissionHorses) {
+      importReasonItems.push({
+        value: 'temporary-admission-horses',
+        text: 'Temporary admission horses',
+        hint: { text: 'For horses authorised for temporary entry.' }
+      })
+    }
+
+    res.render('v1-baseline/create/import-reason', {
+      importReasonItems
+    })
+  })
+
+  router.post(`${BASE}/create/import-reason`, (req, res) => {
+    const importReason = req.session.data.importReason
+    const internalMarketPurpose = req.session.data.internalMarketPurpose
+    const commoditySpecies = req.session.data.commoditySpecies || []
+    const horseSpecies = require('../../data/commodity-list.js').horseSpecies
+    const showTemporaryAdmissionHorses = commoditySpecies.some(s => horseSpecies.includes(s))
+    const errors = {}
+    const errorList = []
+
+    if (!importReason || importReason.trim() === '') {
+      errors.importReason = 'Select the main reason for importing the animals'
+      errorList.push({ href: '#import-reason-1', text: 'Select the main reason for importing the animals' })
+    } else if (importReason === 'temporary-admission-horses' && !showTemporaryAdmissionHorses) {
+      errors.importReason = 'Temporary admission horses is only available when importing horses'
+      errorList.push({ href: '#import-reason-1', text: 'Select a valid reason for importing the animals' })
+    } else if (importReason === 'internal-market' && (!internalMarketPurpose || internalMarketPurpose.trim() === '')) {
+      errors.internalMarketPurpose = 'Select the purpose in the internal market'
+      errorList.push({ href: '#internal-market-purpose-0', text: 'Select the purpose in the internal market' })
+    }
+
+    if (Object.keys(errors).length > 0) {
+      req.session.data.errors = errors
+      req.session.data.errorList = errorList
+      return res.redirect(`${BASE}/create/import-reason`)
+    }
+
+    delete req.session.data.errors
+    delete req.session.data.errorList
+    res.redirect(`${BASE}/create/commodity-quantities`)
+  })
+
+  router.get(`${BASE}/create/import-reason-prefill`, (req, res) => {
+    req.session.data.importReason = 'internal-market'
+    req.session.data.internalMarketPurpose = 'breeding'
+    delete req.session.data.errors
+    delete req.session.data.errorList
+    res.redirect(`${BASE}/create/commodity-quantities`)
+  })
+
+  router.get(`${BASE}/create/commodity-quantities`, (req, res) => {
+    delete req.session.data.errors
+    delete req.session.data.errorList
+    const commodity = req.session.data.commodity
+    const commoditySpecies = req.session.data.commoditySpecies || []
+    const commodityType = req.session.data.commodityType || 'domestic'
+    const commoditiesData = require('../../data/commodities.js')
+    const commodityDetails = commodity ? commoditiesData[commodity] : null
+
+    if (!commodityDetails || commoditySpecies.length === 0) {
+      return res.redirect(`${BASE}/create/commodity-species`)
+    }
+
+    const typeLabel = commodityType === 'game' ? 'Game' : 'Domestic'
+    const speciesRows = commoditySpecies.map(s => {
+      const key = s.replace(/\s+/g, '_').toLowerCase().replace(/[^a-z0-9_]/g, '')
+      return {
+        key,
+        speciesAndType: `${s}, ${typeLabel}`,
+        quantityKey: `quantity_${key}`,
+        packagesKey: `packages_${key}`
+      }
+    })
+
+    let totalAnimals = 0
+    let totalPackages = 0
+    speciesRows.forEach(s => {
+      const qty = parseInt(req.session.data[s.quantityKey], 10)
+      const pkg = parseInt(req.session.data[s.packagesKey], 10)
+      totalAnimals += (isNaN(qty) ? 0 : qty)
+      totalPackages += (isNaN(pkg) ? 0 : pkg)
+    })
+
+    res.render('v1-baseline/create/commodity-quantities', {
+      commodityDetails,
+      speciesRows,
+      totalAnimals,
+      totalPackages
+    })
+  })
+
+  router.post(`${BASE}/create/commodity-quantities`, (req, res) => {
+    const commodity = req.session.data.commodity
+    const commoditySpecies = req.session.data.commoditySpecies || []
+    const commoditiesData = require('../../data/commodities.js')
+    const commodityDetails = commodity ? commoditiesData[commodity] : null
+    const errors = {}
+    const errorList = []
+
+    if (!commodityDetails || commoditySpecies.length === 0) {
+      return res.redirect(`${BASE}/create/commodity-species`)
+    }
+
+    const typeLabel = req.session.data.commodityType === 'game' ? 'Game' : 'Domestic'
+    const speciesRows = commoditySpecies.map(s => {
+      const key = s.replace(/\s+/g, '_').toLowerCase().replace(/[^a-z0-9_]/g, '')
+      return {
+        key,
+        speciesAndType: `${s}, ${typeLabel}`,
+        quantityKey: `quantity_${key}`,
+        packagesKey: `packages_${key}`
+      }
+    })
+
+    speciesRows.forEach((s, i) => {
+      const qtyVal = req.session.data[s.quantityKey]
+      if (!qtyVal || String(qtyVal).trim() === '' || parseInt(qtyVal, 10) < 0) {
+        errors[s.quantityKey] = 'Enter the number of animals'
+        errorList.push({ href: `#quantity-${s.key}`, text: `Enter the number of animals for ${s.speciesAndType}` })
+      }
+      const pkgVal = req.session.data[s.packagesKey]
+      if (pkgVal === undefined || pkgVal === null || String(pkgVal).trim() === '' || parseInt(pkgVal, 10) < 0) {
+        errors[s.packagesKey] = 'Enter the number of packages'
+        errorList.push({ href: `#packages-${s.key}`, text: `Enter the number of packages for ${s.speciesAndType}` })
+      }
+    })
+
+    if (Object.keys(errors).length > 0) {
+      req.session.data.errors = errors
+      req.session.data.errorList = errorList
+      return res.redirect(`${BASE}/create/commodity-quantities`)
+    }
+
+    delete req.session.data.errors
+    delete req.session.data.errorList
+    res.redirect(`${BASE}/create/animal-identification`)
+  })
+
+  router.get(`${BASE}/create/commodity-quantities-prefill`, (req, res) => {
+    const commoditySpecies = req.session.data.commoditySpecies || []
+    commoditySpecies.forEach(s => {
+      const key = s.replace(/\s+/g, '_').toLowerCase().replace(/[^a-z0-9_]/g, '')
+      req.session.data[`quantity_${key}`] = 2
+      req.session.data[`packages_${key}`] = 0
+    })
+    delete req.session.data.errors
+    delete req.session.data.errorList
+    res.redirect(`${BASE}/create/animal-identification`)
+  })
+
+  router.get(`${BASE}/create/animal-identification`, (req, res) => {
+    delete req.session.data.errors
+    delete req.session.data.errorList
+    const commodity = req.session.data.commodity
+    const commoditySpecies = req.session.data.commoditySpecies || []
+    const commodityType = req.session.data.commodityType || 'domestic'
+    const commoditiesData = require('../../data/commodities.js')
+    const commodityDetails = commodity ? commoditiesData[commodity] : null
+
+    if (!commodityDetails || commoditySpecies.length === 0) {
+      return res.redirect(`${BASE}/create/commodity-species`)
+    }
+
+    const quantityKey = (s) => `quantity_${s.replace(/\s+/g, '_').toLowerCase().replace(/[^a-z0-9_]/g, '')}`
+    const hasQuantities = commoditySpecies.some(s => {
+      const q = parseInt(req.session.data[quantityKey(s)], 10)
+      return !isNaN(q) && q > 0
+    })
+    if (!hasQuantities) {
+      return res.redirect(`${BASE}/create/commodity-quantities`)
+    }
+
+    const typeLabel = commodityType === 'game' ? 'Game' : 'Domestic'
+    const speciesRows = commoditySpecies.map(s => {
+      const key = s.replace(/\s+/g, '_').toLowerCase().replace(/[^a-z0-9_]/g, '')
+      const quantityKey = `quantity_${key}`
+      const quantity = parseInt(req.session.data[quantityKey], 10) || 0
+      const animals = []
+      for (let i = 1; i <= quantity; i++) {
+        animals.push({
+          index: i,
+          earTagKey: `earTag_${key}_${i}`,
+          passportKey: `passport_${key}_${i}`
+        })
+      }
+      return {
+        key,
+        speciesAndType: `${s}, ${typeLabel}`,
+        quantity,
+        animals
+      }
+    })
+
+    res.render('v1-baseline/create/animal-identification', {
+      commodityDetails,
+      speciesRows
+    })
+  })
+
+  router.get(`${BASE}/create/animal-identification-prefill`, (req, res) => {
+    const commodity = req.session.data.commodity
+    const commoditySpecies = req.session.data.commoditySpecies || []
+    const commodityType = req.session.data.commodityType || 'domestic'
+    const commoditiesData = require('../../data/commodities.js')
+    const commodityDetails = commodity ? commoditiesData[commodity] : null
+
+    if (!commodityDetails || commoditySpecies.length === 0) {
+      return res.redirect(`${BASE}/create/commodity-species`)
+    }
+
+    const quantityKey = (s) => `quantity_${s.replace(/\s+/g, '_').toLowerCase().replace(/[^a-z0-9_]/g, '')}`
+    const hasQuantities = commoditySpecies.some(s => {
+      const q = parseInt(req.session.data[quantityKey(s)], 10)
+      return !isNaN(q) && q > 0
+    })
+    if (!hasQuantities) {
+      return res.redirect(`${BASE}/create/commodity-quantities`)
+    }
+
+    commoditySpecies.forEach(s => {
+      const key = s.replace(/\s+/g, '_').toLowerCase().replace(/[^a-z0-9_]/g, '')
+      const quantityKey = `quantity_${key}`
+      const quantity = parseInt(req.session.data[quantityKey], 10) || 0
+      for (let i = 1; i <= quantity; i++) {
+        req.session.data[`earTag_${key}_${i}`] = `PRE-${key}-${i}`
+        req.session.data[`passport_${key}_${i}`] = `PASSPORT-${key}-${i}`
+      }
+    })
+
+    delete req.session.data.errors
+    delete req.session.data.errorList
+    res.redirect(`${BASE}/dashboard`)
+  })
+
+  router.post(`${BASE}/create/animal-identification`, (req, res) => {
+    const commodity = req.session.data.commodity
+    const commoditySpecies = req.session.data.commoditySpecies || []
+    const commoditiesData = require('../../data/commodities.js')
+    const commodityDetails = commodity ? commoditiesData[commodity] : null
+
+    if (!commodityDetails || commoditySpecies.length === 0) {
+      return res.redirect(`${BASE}/create/commodity-species`)
+    }
+
+    const commodityType = req.session.data.commodityType || 'domestic'
+    const typeLabel = commodityType === 'game' ? 'Game' : 'Domestic'
+    const speciesRows = commoditySpecies.map(s => {
+      const key = s.replace(/\s+/g, '_').toLowerCase().replace(/[^a-z0-9_]/g, '')
+      const quantityKey = `quantity_${key}`
+      const quantity = parseInt(req.session.data[quantityKey], 10) || 0
+      const animals = []
+      for (let i = 1; i <= quantity; i++) {
+        animals.push({
+          index: i,
+          earTagKey: `earTag_${key}_${i}`,
+          passportKey: `passport_${key}_${i}`
+        })
+      }
+      return {
+        key,
+        speciesAndType: `${s}, ${typeLabel}`,
+        quantity,
+        animals
+      }
+    })
+
+    const errors = {}
+    const errorList = []
+    speciesRows.forEach(s => {
+      s.animals.forEach(a => {
+        const earTagVal = req.session.data[a.earTagKey]
+        const passportVal = req.session.data[a.passportKey]
+        const earTagMissing = !earTagVal || String(earTagVal).trim() === ''
+        const passportMissing = !passportVal || String(passportVal).trim() === ''
+
+        if (earTagMissing) errors[a.earTagKey] = 'Enter the ear tag number'
+        if (passportMissing) errors[a.passportKey] = 'Enter the passport number'
+
+        if (earTagMissing || passportMissing) {
+          const animalLabel = `${s.speciesAndType} animal ${a.index}`
+          const missingParts = []
+          if (earTagMissing) missingParts.push('ear tag')
+          if (passportMissing) missingParts.push('passport')
+          const message = missingParts.length === 2
+            ? `Enter the ear tag and passport for ${animalLabel}`
+            : `Enter the ${missingParts[0]} for ${animalLabel}`
+          errorList.push({ href: `#ear-tag-${a.earTagKey}`, text: message })
+        }
+      })
+    })
+
+    if (Object.keys(errors).length > 0) {
+      req.session.data.errors = errors
+      req.session.data.errorList = errorList
+      return res.redirect(`${BASE}/create/animal-identification`)
+    }
+
+    delete req.session.data.errors
+    delete req.session.data.errorList
+    res.redirect(`${BASE}/dashboard`)
+  })
+
+  router.get(`${BASE}/clear-filters`, (req, res) => {
+    FILTER_KEYS.forEach(key => delete req.session.data[key])
+    res.redirect(`${BASE}/dashboard`)
   })
 }

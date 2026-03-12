@@ -8,6 +8,15 @@
 const govukPrototypeKit = require('govuk-prototype-kit')
 const router = govukPrototypeKit.requests.setupRouter()
 
+// Sign in – how do you want to sign in?
+router.get('/sign-in', (req, res) => {
+  res.render('sign-in')
+})
+
+router.post('/sign-in', (req, res) => {
+  res.redirect('/v1-baseline/dashboard')
+})
+
 // Clear session data and redirect back (useful for resetting prototype state)
 router.get('/clear-data', (req, res) => {
   req.session.data = {}

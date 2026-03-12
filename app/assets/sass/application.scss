@@ -1,6 +1,37 @@
 //
 // For guidance on how to add CSS and SCSS see:
 // https://prototype-kit.service.gov.uk/docs/adding-css-javascript-and-images
-// 
+//
 
-// Add extra styles here
+// Ensure form labels and fieldset legends are always bold
+.govuk-label,
+.govuk-fieldset__legend {
+  font-weight: 700;
+}
+
+// Radio and checkbox item labels (Yes/No etc) should be normal weight
+.govuk-radios__label,
+.govuk-checkboxes__label {
+  font-weight: 400;
+}
+
+// Hint text 16px – all hints in the journey
+.govuk-hint,
+.govuk-radios__hint,
+.govuk-checkboxes__hint,
+.govuk-select__hint,
+.autocomplete__hint {
+  font-size: 16px;
+}
+
+// Commodity quantities table – reduce spacing between rows
+.commodity-quantities-table {
+  .govuk-form-group {
+    margin-bottom: 0;
+  }
+  .govuk-table__cell {
+    padding-top: 8px;
+    padding-bottom: 8px;
+    vertical-align: middle;
+  }
+}
