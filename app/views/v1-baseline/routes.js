@@ -699,6 +699,9 @@ module.exports = (router) => {
       delete data.consigneeAddressLine2
       delete data.consigneeTown
       delete data.consigneePostcode
+      delete data.importerName
+      delete data.importerAddress
+      delete data.importerCountry
     } else if (consigneeId) {
       const consignees = require('../../data/consignees.js')
       const selectedConsignee = consignees.find(c => String(c.id) === String(consigneeId))
@@ -717,6 +720,32 @@ module.exports = (router) => {
     const consignorCountry = (selected && selected.country) || data.consignorCountry || ''
     const hasConsignor = !!(selected || data.consignorId)
 
+    // Handle "Same as consignee" for importer
+    if (req.query.importerSameAsConsignee === '1') {
+      const hasConsigneeCheck = !!(data.consigneeId && data.consigneeName && data.consigneeAddress && data.consigneeCountry) ||
+        !!(data.consigneeName && data.consigneeAddressLine1 && data.consigneeTown && data.consigneePostcode)
+      if (hasConsigneeCheck) {
+        data.importerId = data.consigneeId
+        data.importerName = data.consigneeName
+        data.importerAddress = data.consigneeAddress
+        data.importerCountry = data.consigneeCountry
+        data.importerAddressLine1 = data.consigneeAddressLine1
+        data.importerAddressLine2 = data.consigneeAddressLine2
+        data.importerTown = data.consigneeTown
+        data.importerPostcode = data.consigneePostcode
+      }
+    }
+    if (req.query.removeImporter === '1') {
+      delete data.importerId
+      delete data.importerName
+      delete data.importerAddress
+      delete data.importerCountry
+      delete data.importerAddressLine1
+      delete data.importerAddressLine2
+      delete data.importerTown
+      delete data.importerPostcode
+    }
+
     // Consignee – build display (from search selection or manual form)
     const hasConsigneeFromSearch = !!(data.consigneeId && data.consigneeName && data.consigneeAddress && data.consigneeCountry)
     const hasConsigneeFromForm = !!(data.consigneeName && data.consigneeAddressLine1 && data.consigneeTown && data.consigneePostcode)
@@ -730,6 +759,22 @@ module.exports = (router) => {
       if (data.consigneeAddressLine2) consigneeAddressLines.push(data.consigneeAddressLine2)
       if (data.consigneeTown) consigneeAddressLines.push(data.consigneeTown)
       if (data.consigneePostcode) consigneeAddressLines.push(data.consigneePostcode + ' United Kingdom')
+    }
+
+    // Importer – build display (from same-as-consignee, search, or manual form)
+    const hasImporterFromConsignee = !!(data.importerName && (data.importerAddress || data.importerAddressLine1))
+    const hasImporter = hasImporterFromConsignee
+    const importerAddressLines = []
+    if (hasImporter) {
+      if (data.importerAddress) {
+        importerAddressLines.push(data.importerName, data.importerAddress, data.importerCountry || 'United Kingdom')
+      } else {
+        if (data.importerName) importerAddressLines.push(data.importerName)
+        if (data.importerAddressLine1) importerAddressLines.push(data.importerAddressLine1)
+        if (data.importerAddressLine2) importerAddressLines.push(data.importerAddressLine2)
+        if (data.importerTown) importerAddressLines.push(data.importerTown)
+        if (data.importerPostcode) importerAddressLines.push(data.importerPostcode + ' United Kingdom')
+      }
     }
 
     res.render('v1-baseline/create/addresses', {
