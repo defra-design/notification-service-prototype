@@ -51,7 +51,7 @@
   }
 }
 
-// Add another document – inviting dashed add-block, part of the flow
+// Add another document – inviting dashed add-block, matches section grey
 .add-another-document {
   margin-top: govuk-spacing(4);
   & + .document-row {
@@ -60,7 +60,7 @@
   padding: govuk-spacing(3);
   border: 2px dashed $govuk-border-colour;
   border-radius: 4px;
-  background: #fff;
+  background: #fafafa;
   text-align: center;
 }
 
