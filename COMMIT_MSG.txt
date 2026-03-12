@@ -1,20 +1,13 @@
-Add v1-baseline create journey, phase banner, error clearing, and quick fill
+Add consignor search, consignee address form, and address flow updates
 
-- Phase banner: Display "Prototype" banner on every page via main layout
-  beforeContent; child pages use super() to preserve banner when adding back links
-
-- Error clearing: Clear validation errors on GET so Back navigation shows a
-  clean form instead of stale error messages (import-type through animal-id)
-
-- Quick fill links: Add "Quick fill and continue (internal use)" link below
-  Save and continue on each create page to prefill mandatory fields and
-  navigate; supports rapid prototyping without form completion
-
-- Number of packages: Make mandatory on commodity-quantities page with
-  validation, error display, and updated hint (removed "when required")
-
-- v1-baseline create flow: Import type, origin, commodity, species, import
-  reason, commodity quantities, animal identification with full validation
-
-- Data and layouts: EU countries, commodities, internal market purposes,
-  v1-baseline layout with service navigation, sign-in flow
+- Add explicit index route (/) so GOV.UK logo links to prototype home
+- Add consignor search page (address-consignor-search) with Name, Address,
+  Country filters, pagination, and Select link to addresses?consignor=ID
+- Add sample EU consignors data (app/data/consignors.js) for search
+- Add consignee address form (address-consignee) for UK addresses: name,
+  address lines, town/city, postcode with validation
+- Update addresses page: display selected consignor and consignee in inset
+  text blocks with Change links; fraud warning moved to inset-text
+- Update origin page: white background for autocomplete, "Type country name"
+  placeholder
+- Add index links for consignor search and consignee address

@@ -95,3 +95,13 @@
     vertical-align: middle;
   }
 }
+
+// Commodity details table (Check your answers) – right-align Number of animals, Number of packages
+.commodity-details-table {
+  .govuk-table__header:nth-child(2),
+  .govuk-table__header:nth-child(3),
+  .govuk-table__cell:nth-child(2),
+  .govuk-table__cell:nth-child(3) {
+    text-align: right;
+  }
+}

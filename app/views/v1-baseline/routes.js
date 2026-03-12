@@ -8,23 +8,72 @@ const notifications = require('../../data/notifications')
 
 const FILTER_KEYS = ['filterKeyword', 'filterCommodity', 'filterOrigin', 'filterConsignee', 'filterDestination', 'filterStatus', 'filterStartDate', 'filterEndDate']
 
-function filterNotifications (filterData) {
-  return notifications.filter(n => {
+const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
+
+function parseArrivalDate (str) {
+  if (!str || typeof str !== 'string') return null
+  const match = str.match(/^(\d{1,2})\s+(\w+)\s+(\d{4})$/)
+  if (!match) return null
+  const monthIndex = MONTHS.findIndex(m => m.toLowerCase() === match[2].toLowerCase())
+  if (monthIndex < 0) return null
+  return new Date(parseInt(match[3], 10), monthIndex, parseInt(match[1], 10)).getTime()
+}
+
+// Build species-to-code map for normalising commodity display
+function getSpeciesToCodeMap () {
+  const commoditiesData = require('../../data/commodities.js')
+  const map = {}
+  for (const [key, details] of Object.entries(commoditiesData)) {
+    if (details.code && details.species) {
+      details.species.forEach(s => { map[s] = details.code })
+    }
+  }
+  return map
+}
+
+function normaliseCommodityDisplay (commodity, speciesToCode) {
+  if (!commodity || typeof commodity !== 'string') return commodity || ''
+  if (/\(\d+\)$/.test(commodity.trim())) return commodity
+  const code = speciesToCode[commodity.trim()]
+  return code ? `${commodity} (${code})` : commodity
+}
+
+function sortNotifications (list, sortOption) {
+  const sorted = [...list]
+  const byArrival = (a, b) => {
+    const ta = parseArrivalDate(a.arrival) || 0
+    const tb = parseArrivalDate(b.arrival) || 0
+    return ta - tb
+  }
+  if (sortOption === 'arrival-desc') {
+    sorted.sort((a, b) => byArrival(b, a))
+  } else if (sortOption === 'arrival-asc') {
+    sorted.sort(byArrival)
+  } else if (sortOption === 'reference') {
+    sorted.sort((a, b) => String(a.reference || '').localeCompare(b.reference || ''))
+  }
+  return sorted
+}
+
+function filterNotifications (filterData, sourceList) {
+  const list = sourceList || notifications
+  const str = (v) => (v == null ? '' : String(v))
+  return list.filter(n => {
     const keyword = (filterData.keyword || '').trim().toLowerCase()
     if (keyword) {
-      const search = `${n.reference} ${n.commodity} ${n.origin} ${n.consignee} ${n.consignor}`.toLowerCase()
+      const search = `${str(n.reference)} ${str(n.commodity)} ${str(n.origin)} ${str(n.consignee)} ${str(n.consignor)}`.toLowerCase()
       if (!search.includes(keyword)) return false
     }
 
     const commodity = (filterData.commodity || '').trim().toLowerCase()
-    if (commodity && !n.commodity.toLowerCase().includes(commodity)) return false
+    if (commodity && !str(n.commodity).toLowerCase().includes(commodity)) return false
 
     const origin = (filterData.origin || '').trim().toLowerCase()
-    if (origin && !n.origin.toLowerCase().includes(origin)) return false
+    if (origin && !str(n.origin).toLowerCase().includes(origin)) return false
 
     const consignee = (filterData.consignee || '').trim().toLowerCase()
     if (consignee) {
-      const match = n.consignee.toLowerCase().includes(consignee) || n.consignor.toLowerCase().includes(consignee)
+      const match = str(n.consignee).toLowerCase().includes(consignee) || str(n.consignor).toLowerCase().includes(consignee)
       if (!match) return false
     }
 
@@ -42,6 +91,10 @@ module.exports = (router) => {
 
   router.get(`${BASE}/dashboard`, (req, res) => {
     const data = req.session.data || {}
+    FILTER_KEYS.forEach(key => {
+      if (req.query[key] !== undefined) data[key] = req.query[key]
+    })
+    if (req.query.sort !== undefined) data.sort = req.query.sort
     const filterData = {
       keyword: data.filterKeyword,
       commodity: data.filterCommodity,
@@ -52,9 +105,18 @@ module.exports = (router) => {
       startDate: data.filterStartDate,
       endDate: data.filterEndDate
     }
-    const filtered = filterNotifications(filterData)
-    req.session.data.resultsCount = filtered.length
-    res.locals.notifications = filtered
+    const submitted = data.submittedNotifications || []
+    const allNotifications = [...notifications, ...submitted]
+    const filtered = filterNotifications(filterData, allNotifications)
+    const sortOption = data.sort || 'arrival-desc'
+    const sorted = sortNotifications(filtered, sortOption)
+    const speciesToCode = getSpeciesToCodeMap()
+    const normalised = sorted.map(n => ({
+      ...n,
+      commodity: normaliseCommodityDisplay(n.commodity, speciesToCode)
+    }))
+    req.session.data.resultsCount = sorted.length
+    res.locals.notifications = normalised
     res.render('v1-baseline/dashboard')
   })
 
@@ -123,6 +185,7 @@ module.exports = (router) => {
   router.get(`${BASE}/create/origin-prefill`, (req, res) => {
     req.session.data.countryOfOrigin = 'France'
     req.session.data.regionOfOriginRequired = 'no'
+    req.session.data.consignmentReference = 'REF-2025-001'
     delete req.session.data.errors
     delete req.session.data.errorList
     res.redirect(`${BASE}/create/commodity`)
@@ -713,6 +776,19 @@ module.exports = (router) => {
       }
     }
 
+    // Store selected importer when coming from address-consignee-search?for=importer
+    const importerId = req.query.importer
+    if (importerId) {
+      const consignees = require('../../data/consignees.js')
+      const selectedImporter = consignees.find(c => String(c.id) === String(importerId))
+      if (selectedImporter) {
+        data.importerId = selectedImporter.id
+        data.importerName = selectedImporter.name
+        data.importerAddress = selectedImporter.address
+        data.importerCountry = selectedImporter.country
+      }
+    }
+
     // Pass consignor explicitly (session may not persist nested objects reliably)
     const selected = data.consignor || (data.consignorName && { name: data.consignorName, address: data.consignorAddress, country: data.consignorCountry })
     const consignorName = (selected && selected.name) || data.consignorName || ''
@@ -764,6 +840,14 @@ module.exports = (router) => {
     // Importer – build display (from same-as-consignee, search, or manual form)
     const hasImporterFromConsignee = !!(data.importerName && (data.importerAddress || data.importerAddressLine1))
     const hasImporter = hasImporterFromConsignee
+
+    // Same as consignee: show when importer is empty OR importer differs from consignee
+    const importerMatchesConsignee = hasConsignee && hasImporter && (
+      (data.importerId && data.consigneeId && String(data.importerId) === String(data.consigneeId)) ||
+      (data.importerName === data.consigneeName && data.importerAddress === data.consigneeAddress) ||
+      (data.importerName === data.consigneeName && data.importerAddressLine1 === data.consigneeAddressLine1 && data.importerTown === data.consigneeTown)
+    )
+    const showSameAsConsignee = hasConsignee && !importerMatchesConsignee
     const importerAddressLines = []
     if (hasImporter) {
       if (data.importerAddress) {
@@ -777,20 +861,718 @@ module.exports = (router) => {
       }
     }
 
+    // Place of destination – from search selection or same as consignee
+    const placeOfDestinationId = req.query.placeOfDestination
+    if (req.query.removePlaceOfDestination === '1') {
+      delete data.placeOfDestinationId
+      delete data.placeOfDestinationName
+      delete data.placeOfDestinationAddress
+      delete data.placeOfDestinationCountry
+      delete data.placeOfDestinationType
+    } else if (req.query.placeOfDestinationSameAsConsignee === '1') {
+      const hasConsigneeFromSearch = !!(data.consigneeId && data.consigneeName && data.consigneeAddress && data.consigneeCountry)
+      const hasConsigneeFromForm = !!(data.consigneeName && data.consigneeAddressLine1 && data.consigneeTown && data.consigneePostcode)
+      if (hasConsigneeFromSearch) {
+        delete data.placeOfDestinationId
+        data.placeOfDestinationName = data.consigneeName
+        data.placeOfDestinationAddress = data.consigneeAddress
+        data.placeOfDestinationCountry = data.consigneeCountry
+        delete data.placeOfDestinationType
+      } else if (hasConsigneeFromForm) {
+        delete data.placeOfDestinationId
+        data.placeOfDestinationName = data.consigneeName
+        data.placeOfDestinationAddressLine1 = data.consigneeAddressLine1
+        data.placeOfDestinationAddressLine2 = data.consigneeAddressLine2
+        data.placeOfDestinationTown = data.consigneeTown
+        data.placeOfDestinationPostcode = data.consigneePostcode
+        data.placeOfDestinationCountry = 'United Kingdom'
+        delete data.placeOfDestinationAddress
+        delete data.placeOfDestinationType
+      }
+    } else if (placeOfDestinationId) {
+      const placesOfDestination = require('../../data/places-of-destination.js')
+      const selected = placesOfDestination.find(p => String(p.id) === String(placeOfDestinationId))
+      if (selected) {
+        data.placeOfDestinationId = selected.id
+        data.placeOfDestinationName = selected.name
+        data.placeOfDestinationAddress = selected.address
+        data.placeOfDestinationCountry = selected.country
+        data.placeOfDestinationType = selected.type
+      }
+    }
+    const hasPlaceOfDestination = !!(data.placeOfDestinationName && (data.placeOfDestinationAddress || data.placeOfDestinationAddressLine1))
+    const placeOfDestinationAddressLines = []
+    if (hasPlaceOfDestination) {
+      if (data.placeOfDestinationAddress) {
+        placeOfDestinationAddressLines.push(data.placeOfDestinationName, data.placeOfDestinationAddress, (data.placeOfDestinationCountry || '') + (data.placeOfDestinationType ? ' (' + data.placeOfDestinationType + ')' : ''))
+      } else {
+        if (data.placeOfDestinationName) placeOfDestinationAddressLines.push(data.placeOfDestinationName)
+        if (data.placeOfDestinationAddressLine1) placeOfDestinationAddressLines.push(data.placeOfDestinationAddressLine1)
+        if (data.placeOfDestinationAddressLine2) placeOfDestinationAddressLines.push(data.placeOfDestinationAddressLine2)
+        if (data.placeOfDestinationTown) placeOfDestinationAddressLines.push(data.placeOfDestinationTown)
+        if (data.placeOfDestinationPostcode) placeOfDestinationAddressLines.push(data.placeOfDestinationPostcode + ' United Kingdom')
+      }
+    }
+
+    // Same as consignee for place of destination: show when consignee exists and place is empty or different
+    const placeOfDestinationMatchesConsignee = hasConsignee && hasPlaceOfDestination && (
+      (data.placeOfDestinationName === data.consigneeName && data.placeOfDestinationAddress === data.consigneeAddress) ||
+      (data.placeOfDestinationName === data.consigneeName && data.placeOfDestinationAddressLine1 === data.consigneeAddressLine1 && data.placeOfDestinationTown === data.consigneeTown)
+    )
+    const showSameAsConsigneeForDestination = hasConsignee && !placeOfDestinationMatchesConsignee
+
     res.render('v1-baseline/create/addresses', {
       consignorName,
       consignorAddress,
       consignorCountry,
       hasConsignor,
       hasConsignee,
-      consigneeAddressLines
+      consigneeAddressLines,
+      hasImporter,
+      importerAddressLines,
+      showSameAsConsignee,
+      hasPlaceOfDestination,
+      placeOfDestinationAddressLines,
+      showSameAsConsigneeForDestination
     })
   })
 
   router.post(`${BASE}/create/addresses`, (req, res) => {
     delete req.session.data.errors
     delete req.session.data.errorList
-    res.redirect(`${BASE}/dashboard`)
+    res.redirect(`${BASE}/create/address-cph`)
+  })
+
+  router.get(`${BASE}/create/address-cph`, (req, res) => {
+    const data = req.session.data || {}
+    delete data.errors
+    delete data.errorList
+    res.render('v1-baseline/create/address-cph')
+  })
+
+  router.post(`${BASE}/create/address-cph`, (req, res) => {
+    const data = req.session.data || {}
+    const cphNumber = (data.cphNumber || '').trim()
+    const errors = {}
+    const errorList = []
+    if (!cphNumber) {
+      errors.cphNumber = 'Enter the CPH number'
+      errorList.push({ href: '#cphNumber', text: 'Enter the CPH number' })
+    }
+    if (errorList.length > 0) {
+      data.errors = errors
+      data.errorList = errorList
+      return res.redirect(`${BASE}/create/address-cph`)
+    }
+    delete data.errors
+    delete data.errorList
+    res.redirect(`${BASE}/create/contact-address-for-consignment`)
+  })
+
+  router.get(`${BASE}/create/address-cph-prefill`, (req, res) => {
+    const data = req.session.data || {}
+    data.cphNumber = '12/345/6789'
+    delete data.errors
+    delete data.errorList
+    res.redirect(`${BASE}/create/contact-address-for-consignment`)
+  })
+
+  router.get(`${BASE}/create/contact-address-for-consignment`, (req, res) => {
+    const data = req.session.data || {}
+    delete data.errors
+    delete data.errorList
+    const contactAddresses = require('../../data/contact-addresses.js')
+    const contactAddressItems = contactAddresses.map((addr) => {
+      const lines = [addr.name, ...(addr.addressLines || [addr.address] || [])]
+      if (addr.country) lines.push(addr.country)
+      const html = lines.join('<br>')
+      return {
+        value: String(addr.id),
+        html
+      }
+    })
+    res.render('v1-baseline/create/contact-address-for-consignment', {
+      contactAddressItems
+    })
+  })
+
+  router.post(`${BASE}/create/contact-address-for-consignment`, (req, res) => {
+    const data = req.session.data || {}
+    const contactAddressId = (data.contactAddressId || '').trim()
+    const errors = {}
+    const errorList = []
+    if (!contactAddressId) {
+      errors.contactAddressId = 'Select an address'
+      errorList.push({ href: '#contact-address-1', text: 'Select an address' })
+    }
+    if (errorList.length > 0) {
+      data.errors = errors
+      data.errorList = errorList
+      return res.redirect(`${BASE}/create/contact-address-for-consignment`)
+    }
+    delete data.errors
+    delete data.errorList
+    res.redirect(`${BASE}/create/transport-arrival`)
+  })
+
+  router.get(`${BASE}/create/contact-address-for-consignment-prefill`, (req, res) => {
+    const data = req.session.data || {}
+    data.contactAddressId = '1'
+    delete data.errors
+    delete data.errorList
+    res.redirect(`${BASE}/create/transport-arrival`)
+  })
+
+  router.get(`${BASE}/create/transport-arrival`, (req, res) => {
+    const data = req.session.data || {}
+    delete data.errors
+    delete data.errorList
+    const d = new Date()
+    d.setDate(d.getDate() + 3)
+    const minArrivalDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+    res.render('v1-baseline/create/transport-arrival', {
+      minArrivalDate,
+      defaultArrivalDate: minArrivalDate
+    })
+  })
+
+  router.post(`${BASE}/create/transport-arrival`, (req, res) => {
+    const data = req.session.data || {}
+    const arrivalDate = (data.arrivalDate || '').trim()
+    const errors = {}
+    const errorList = []
+    if (!arrivalDate) {
+      errors.arrivalDate = 'Enter the arrival date'
+      errorList.push({ href: '#arrivalDate', text: 'Enter the arrival date' })
+    }
+    if (errorList.length > 0) {
+      data.errors = errors
+      data.errorList = errorList
+      return res.redirect(`${BASE}/create/transport-arrival`)
+    }
+    delete data.errors
+    delete data.errorList
+    res.redirect(`${BASE}/create/transport-transporter`)
+  })
+
+  router.get(`${BASE}/create/transport-arrival-prefill`, (req, res) => {
+    const data = req.session.data || {}
+    const d = new Date()
+    d.setDate(d.getDate() + 3)
+    data.arrivalDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+    delete data.errors
+    delete data.errorList
+    res.redirect(`${BASE}/create/transport-transporter`)
+  })
+
+  router.get(`${BASE}/create/transport-transporter`, (req, res) => {
+    const data = req.session.data || {}
+    delete data.errors
+    delete data.errorList
+
+    // Store selected transporter when returning from address-consignee-search?returnTo=transport-transporter
+    const transporterId = req.query.transporter
+    if (req.query.removeTransporter === '1') {
+      delete data.transporterId
+      delete data.transporterName
+      delete data.transporterAddress
+      delete data.transporterCountry
+      delete data.transporterType
+      delete data.transporterApprovalNumber
+      delete data.transporterAddressLine1
+      delete data.transporterAddressLine2
+      delete data.transporterTown
+      delete data.transporterPostcode
+    } else if (transporterId) {
+      const consignees = require('../../data/consignees.js')
+      const selected = consignees.find(c => String(c.id) === String(transporterId))
+      if (selected) {
+        data.transporterId = selected.id
+        data.transporterName = selected.name
+        data.transporterAddress = selected.address
+        data.transporterCountry = selected.country
+        data.transporterType = selected.transporterType || ''
+        data.transporterApprovalNumber = selected.approvalNumber || ''
+      }
+      return res.redirect(`${BASE}/create/transport-transporter`)
+    }
+
+    const hasTransporter = !!(data.transporterName && (data.transporterId || data.transporterAddressLine1))
+    const typeDisplay = data.transporterType === 'Commercial transporter' ? 'Commercial' : data.transporterType === 'Private transporter' ? 'Private' : ''
+    const approvalDisplay = data.transporterType === 'Private transporter' ? 'Not required' : (data.transporterApprovalNumber || '')
+    const transporterRows = [
+      { key: { text: 'Name' }, value: { html: `<strong>${data.transporterName || ''}</strong>` } },
+      { key: { text: 'Address' }, value: { html: (data.transporterAddress || '') + (data.transporterAddress && data.transporterCountry ? '<br>' : '') + (data.transporterCountry || '') } },
+      { key: { text: 'Type' }, value: { text: typeDisplay || '—' } }
+    ]
+    if (typeDisplay !== 'Private') {
+      transporterRows.push({ key: { text: 'Approval number' }, value: { text: approvalDisplay || '—' } })
+    }
+    res.render('v1-baseline/create/transport-transporter', {
+      hasTransporter,
+      transporterName: data.transporterName || '',
+      transporterAddress: data.transporterAddress || '',
+      transporterCountry: data.transporterCountry || '',
+      transporterType: typeDisplay,
+      transporterApprovalNumber: approvalDisplay,
+      transporterRows
+    })
+  })
+
+  router.post(`${BASE}/create/transport-transporter`, (req, res) => {
+    delete req.session.data.errors
+    delete req.session.data.errorList
+    res.redirect(`${BASE}/create/check-your-answers`)
+  })
+
+  router.get(`${BASE}/create/transport-transporter-prefill`, (req, res) => {
+    const data = req.session.data || {}
+    delete data.errors
+    delete data.errorList
+    if (!data.transporterName || !data.transporterType) {
+      const consignees = require('../../data/consignees.js')
+      const sample = consignees.find(c => c.transporterType) || consignees[0]
+      if (sample) {
+        data.transporterId = sample.id
+        data.transporterName = sample.name
+        data.transporterAddress = sample.address
+        data.transporterCountry = sample.country
+        data.transporterType = sample.transporterType || ''
+        data.transporterApprovalNumber = sample.approvalNumber || ''
+      }
+    }
+    // Ensure commodity/species data exists for Check your answers table (avoids empty species table)
+    if (!data.commoditySpecies || data.commoditySpecies.length === 0 || !data.quantity_bos_taurus) {
+      data.commodity = data.commodity || 'Cow'
+      data.commoditySpecies = ['Bos taurus']
+      data.commodityType = 'domestic'
+      data.quantity_bos_taurus = 24
+      data.packages_bos_taurus = 3
+    }
+    // Ensure documents exist for Check your answers table (avoids empty Accompanying documents table)
+    const hasDocuments = data.documents && data.documents.some(d => d && d.type)
+    if (!hasDocuments) {
+      data.documents = [
+        { type: 'veterinary-health-certificate', reference: 'VHC-2024-001', date: '2025-06-14', attachments: [{}] },
+        { type: 'commercial-invoice', reference: 'INV-7892', date: '2025-06-14', attachments: [] }
+      ]
+    }
+    res.redirect(`${BASE}/create/check-your-answers`)
+  })
+
+  function formatDate (isoDate) {
+    if (!isoDate || typeof isoDate !== 'string') return isoDate || 'Not provided'
+    const [y, m, d] = isoDate.split('-').map(Number)
+    const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
+    return `${d} ${months[m - 1]} ${y}`
+  }
+
+  function buildCheckYourAnswersData (data) {
+    const row = (key, value) => ({ key: { text: key }, value: { text: value } })
+    const rowHtml = (key, html) => ({ key: { text: key }, value: { html } })
+    const escapeHtml = (s) => typeof s !== 'string' ? '' : String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+    const formatAddressHtml = (name, address, country) => {
+      const parts = []
+      if (name) parts.push(`<strong>${escapeHtml(name)}</strong>`)
+      const addrLines = Array.isArray(address) ? address.filter(Boolean) : (address ? String(address).split(',').map(s => s.trim()).filter(Boolean) : [])
+      addrLines.forEach(line => parts.push(escapeHtml(line)))
+      if (country) parts.push(escapeHtml(country))
+      return parts.length ? parts.join('<br>') : 'Not provided'
+    }
+    const documentTypes = require('../../data/document-types.js')
+    const getDocumentTypeLabel = (val) => (documentTypes.find(d => d.value === val) || {}).text || val || 'Not provided'
+
+    // Type of goods (import-type page)
+    const importTypeLabel = { 'live-animals': 'Live animals', 'animal-products': 'Animal products' }[data.importType] || data.importType || 'Not provided'
+    const typeOfGoodsRows = [row('Type of goods', importTypeLabel)]
+
+    // Origin of the import (origin page) – matches form fields: country, region of origin, internal reference (optional)
+    const originRows = [
+      row('Country of origin', data.countryOfOrigin || 'Not provided'),
+      row('Region of origin code', data.regionOfOriginRequired === 'yes' ? (data.regionOfOriginCode || 'Not provided') : 'Not required')
+    ]
+    const refNum = (data.consignmentReference || '').trim()
+    if (refNum) originRows.push(row('Your internal reference number', refNum))
+
+    // Import reason (import-reason page) – matches form: main reason + purpose when internal market
+    const mainReasonLabels = { 'internal-market': 'Internal market', 're-entry': 'Re-entry', 'temporary-admission-horses': 'Temporary admission (horses)' }
+    const mainReasonLabel = mainReasonLabels[data.importReason] || data.importReason || 'Not provided'
+    const importReasonRows = [row('Main reason for importing the animals', mainReasonLabel)]
+    if (data.importReason === 'internal-market' && data.internalMarketPurpose) {
+      const purposes = require('../../data/internal-market-purposes.js')
+      const purpose = purposes.find(p => p.value === data.internalMarketPurpose)
+      importReasonRows.push(row('Purpose in the internal market', purpose ? purpose.text : data.internalMarketPurpose))
+    }
+
+    // Description of the goods – commodity info + table: Species | Number of animals | Number of packages
+    const commoditiesData = require('../../data/commodities.js')
+    const commodityDetails = data.commodity ? commoditiesData[data.commodity] : null
+    const descriptionSummaryRows = []
+    if (commodityDetails) {
+      descriptionSummaryRows.push(row('Commodity code', commodityDetails.code || 'Not provided'))
+      descriptionSummaryRows.push(row('Common name', commodityDetails.commonName || data.commodity || 'Not provided'))
+      descriptionSummaryRows.push(row('Description', commodityDetails.description || 'Not provided'))
+    }
+    // Normalise to array: checkboxes can return a string when only one is selected (body-parser quirk)
+    const rawSpecies = data.commoditySpecies
+    const commoditySpecies = Array.isArray(rawSpecies) ? rawSpecies : (rawSpecies ? [rawSpecies] : [])
+    const typeLabel = data.commodityType === 'game' ? 'Game' : 'Domestic'
+    const descriptionTableRows = []
+    let totalAnimals = 0
+    let totalPackages = 0
+    const toKey = (s) => String(s || '').replace(/\s+/g, '_').toLowerCase().replace(/[^a-z0-9_]/g, '')
+    commoditySpecies.forEach(s => {
+      const key = toKey(s)
+      const qty = parseInt(data[`quantity_${key}`], 10) || 0
+      const pkg = parseInt(data[`packages_${key}`], 10) || 0
+      totalAnimals += qty
+      totalPackages += pkg
+      descriptionTableRows.push([
+        { text: `${s}, ${typeLabel}` },
+        { text: String(qty), format: 'numeric' },
+        { text: String(pkg), format: 'numeric' }
+      ])
+    })
+    const hasNoDescriptionData = !data.commodity || commoditySpecies.length === 0 || (totalAnimals === 0 && totalPackages === 0)
+    if (hasNoDescriptionData) {
+      // Dummy data for prototype when no session data (e.g. direct link or all zeros)
+      descriptionTableRows.length = 0
+      descriptionTableRows.push(
+        [{ text: 'Bos taurus, Domestic' }, { text: '24', format: 'numeric' }, { text: '3', format: 'numeric' }],
+        [{ text: 'Ovis aries, Domestic' }, { text: '12', format: 'numeric' }, { text: '2', format: 'numeric' }],
+        [{ text: 'Total', classes: 'govuk-table__header' }, { text: '36', format: 'numeric' }, { text: '5', format: 'numeric' }]
+      )
+    } else {
+      descriptionTableRows.push([
+        { text: 'Total', classes: 'govuk-table__header' },
+        { text: String(totalAnimals), format: 'numeric' },
+        { text: String(totalPackages), format: 'numeric' }
+      ])
+    }
+
+    // County Parish Holding number (CPH) (address-cph page)
+    const cphRows = [row('County Parish Holding number (CPH)', data.cphNumber || 'Not provided')]
+
+    // Animal identification – first species/animal as summary, or placeholder
+    const animalIdRows = []
+    if (commoditySpecies.length > 0) {
+      const key = commoditySpecies[0].replace(/\s+/g, '_').toLowerCase().replace(/[^a-z0-9_]/g, '')
+      const earTag1 = data[`earTag_${key}_1`] || 'Not provided'
+      const passport1 = data[`passport_${key}_1`] || 'Not provided'
+      animalIdRows.push(row('Identification device', 'Ear tag\nPassport'))
+      animalIdRows.push(row('Animal', `${commoditySpecies[0]}, ${typeLabel}`))
+      animalIdRows.push(row('Identification 1', `${earTag1}\n${passport1}`))
+      if (data[`earTag_${key}_2`] || data[`passport_${key}_2`]) {
+        animalIdRows.push(row('Identification 2', `${data[`earTag_${key}_2`] || '-'}\n${data[`passport_${key}_2`] || '-'}`))
+      }
+    }
+    if (animalIdRows.length === 0) {
+      animalIdRows.push(row('Details', 'Not yet provided'))
+    }
+
+    // Additional animal details
+    const certLabels = { 'approved-bodies': 'Approved bodies', 'breeding-production': 'Breeding and/or production', 'slaughter': 'Slaughter' }
+    const unweanedLabel = data.unweanedAnimals === 'yes' ? 'Yes' : data.unweanedAnimals === 'no' ? 'No' : 'Not provided'
+    const additionalAnimalRows = [
+      row('Certificate for', certLabels[data.animalsCertifiedFor] || data.animalsCertifiedFor || 'Not provided'),
+      row('Unweaned animals', unweanedLabel)
+    ]
+
+    // Documents table – cells must be objects { text: '...' } for GOV.UK table macro
+    const docs = data.documents || []
+    const cell = (t) => ({ text: String(t ?? '-') })
+    let documentsTableRows = docs.filter(d => d.type).map(d => [
+      cell(getDocumentTypeLabel(d.type)),
+      cell(d.reference),
+      cell(d.date ? formatDate(d.date) : '-'),
+      cell((d.attachments && d.attachments.length) ? `${d.attachments.length} attachment${d.attachments.length !== 1 ? 's' : ''}` : '-')
+    ])
+    if (documentsTableRows.length === 0) {
+      documentsTableRows = [
+        [cell('Veterinary health certificate'), cell('VHC-2024-001'), cell('14 June 2025'), cell('1 attachment')],
+        [cell('Commercial invoice'), cell('INV-7892'), cell('14 June 2025'), cell('-')],
+        [cell('Import permit'), cell('GB-IMP-2024-456'), cell('1 September 2025'), cell('2 attachments')]
+      ]
+    }
+
+    // Addresses – company name bold, address on new lines
+    const consignorAddr = formatAddressHtml(data.consignorName, data.consignorAddress, data.consignorCountry)
+    const consigneeAddr = data.consigneeAddress
+      ? formatAddressHtml(data.consigneeName, data.consigneeAddress, data.consigneeCountry)
+      : formatAddressHtml(data.consigneeName, [data.consigneeAddressLine1, data.consigneeAddressLine2, data.consigneeTown, data.consigneePostcode].filter(Boolean), null) || (data.consigneeName ? formatAddressHtml(data.consigneeName, null, null) : 'Not provided')
+    const importerAddr = data.importerAddress
+      ? formatAddressHtml(data.importerName, data.importerAddress, data.importerCountry)
+      : formatAddressHtml(data.importerName, [data.importerAddressLine1, data.importerAddressLine2, data.importerTown, data.importerPostcode].filter(Boolean), null) || (data.importerName ? formatAddressHtml(data.importerName, null, null) : 'Not provided')
+    const placeAddr = data.placeOfDestinationAddress
+      ? formatAddressHtml(data.placeOfDestinationName, data.placeOfDestinationAddress, data.placeOfDestinationCountry)
+      : formatAddressHtml(data.placeOfDestinationName, [data.placeOfDestinationAddressLine1, data.placeOfDestinationAddressLine2, data.placeOfDestinationTown, data.placeOfDestinationPostcode].filter(Boolean), null) || (data.placeOfDestinationName ? formatAddressHtml(data.placeOfDestinationName, null, null) : 'Not provided')
+
+    const addressRows = [
+      rowHtml('Consignor or exporter', consignorAddr),
+      rowHtml('Consignee', consigneeAddr),
+      rowHtml('Importer', importerAddr),
+      rowHtml('Place of destination', placeAddr)
+    ]
+    if (data.consigneeBusinessRegistration) {
+      addressRows.push(row('Consignee business registration', data.consigneeBusinessRegistration))
+    }
+
+    // Contact address
+    const contactAddresses = require('../../data/contact-addresses.js')
+    const selectedContact = data.contactAddressId && contactAddresses.find(c => String(c.id) === String(data.contactAddressId))
+    const contactAddrHtml = selectedContact
+      ? formatAddressHtml(selectedContact.name, selectedContact.addressLines || [], selectedContact.country)
+      : (data.consignorName ? formatAddressHtml(data.consignorName, data.consignorAddress, data.consignorCountry) : 'Not provided')
+    const contactAddressRows = [rowHtml('Contact address', contactAddrHtml)]
+
+    // Transport – split into Arrival at destination and Transporter (each with own Change link)
+    let transporterTypeDisplay = data.transporterType
+    if (!transporterTypeDisplay) {
+      const consignees = require('../../data/consignees.js')
+      const normalize = (s) => (s || '').trim().toLowerCase().replace(/\./g, '').replace(/\s+/g, ' ')
+      const nameA = normalize(data.transporterName)
+      const addrA = normalize(data.transporterAddress)
+      const transporterRecord = data.transporterId
+        ? consignees.find(c => String(c.id) === String(data.transporterId))
+        : consignees.find(c => {
+            const matchName = c.name && nameA && normalize(c.name) === nameA
+            const matchAddr = c.address && addrA && normalize(c.address) === addrA
+            return matchName || matchAddr
+          })
+      transporterTypeDisplay = transporterRecord && transporterRecord.transporterType ? transporterRecord.transporterType : null
+    }
+    transporterTypeDisplay = transporterTypeDisplay
+      ? (transporterTypeDisplay === 'Commercial transporter'
+        ? 'Commercial transporter'
+        : transporterTypeDisplay === 'Private transporter'
+          ? 'Private transporter'
+          : transporterTypeDisplay)
+      : 'Not provided'
+    const arrivalRows = [
+      row('Arrival date', formatDate(data.arrivalDate))
+    ]
+    const transporterAddrHtml = formatAddressHtml(
+      data.transporterName,
+      data.transporterAddress || [data.transporterAddressLine1, data.transporterAddressLine2, data.transporterTown, data.transporterPostcode].filter(Boolean),
+      data.transporterCountry
+    )
+    const transporterApprovalDisplay = transporterTypeDisplay === 'Private transporter'
+      ? 'Not required'
+      : (data.transporterApprovalNumber || 'Not provided')
+    const transporterRows = [
+      rowHtml('Details', transporterAddrHtml),
+      row('Type', transporterTypeDisplay),
+      row('Approval number', transporterApprovalDisplay)
+    ]
+
+    return {
+      typeOfGoodsRows,
+      originRows,
+      importReasonRows,
+      descriptionSummaryRows,
+      descriptionTableRows,
+      animalIdRows,
+      additionalAnimalRows,
+      documentsTableRows,
+      addressRows,
+      cphRows,
+      contactAddressRows,
+      arrivalRows,
+      transporterRows
+    }
+  }
+
+  router.get(`${BASE}/create/check-your-answers-prefill`, (req, res) => {
+    const d = req.session.data || {}
+    d.importType = 'live-animals'
+    d.countryOfOrigin = 'France'
+    d.regionOfOriginRequired = 'no'
+    d.designatedArrivalPoint = 'Dover'
+    d.importReason = 'internal-market'
+    d.internalMarketPurpose = 'breeding'
+    d.requiredRestInterval = 'N/A'
+    d.commodity = 'Cow'
+    d.commoditySpecies = ['Bos taurus']
+    d.commodityType = 'domestic'
+    d.quantity_bos_taurus = 24
+    d.packages_bos_taurus = 3
+    d.earTag_bos_taurus_1 = 'UK123456789000'
+    d.passport_bos_taurus_1 = 'GB-2024-001'
+    d.animalsCertifiedFor = 'breeding-production'
+    d.unweanedAnimals = 'no'
+    d.documents = [
+      { type: 'veterinary-health-certificate', reference: 'VHC-2024-001', date: '2025-06-14', attachments: [{}] },
+      { type: 'commercial-invoice', reference: 'INV-7892', date: '2025-06-14', attachments: [] },
+      { type: 'import-permit', reference: 'GB-IMP-2024-456', date: '2025-09-01', attachments: [{}, {}] }
+    ]
+    d.consignorName = 'Ferme Dupont SAS'
+    d.consignorAddress = ['12 Rue de la Ferme', '75001 Paris']
+    d.consignorCountry = 'France'
+    d.consigneeName = 'Smith Livestock Ltd'
+    d.consigneeAddress = ['45 Farm Road', 'Canterbury', 'CT1 2AB']
+    d.consigneeCountry = 'United Kingdom'
+    d.importerName = 'Smith Livestock Ltd'
+    d.importerAddress = ['45 Farm Road', 'Canterbury', 'CT1 2AB']
+    d.importerCountry = 'United Kingdom'
+    d.placeOfDestinationName = 'Greenfield Farm'
+    d.placeOfDestinationAddress = ['Marsh Lane', 'Ashford', 'TN25 4PQ']
+    d.placeOfDestinationCountry = 'United Kingdom'
+    d.cphNumber = '12/345/6789'
+    d.contactAddressLine1 = '45 Farm Road'
+    d.contactAddressTown = 'Canterbury'
+    d.contactAddressPostcode = 'CT1 2AB'
+    d.arrivalDate = '2025-06-15'
+    d.transporterName = 'EuroHaul Transport Ltd'
+    d.transporterAddress = ['10 Depot Way', 'Folkestone', 'CT19 5AB']
+    d.transporterCountry = 'United Kingdom'
+    d.transporterType = 'Haulier'
+    d.transporterApprovalNumber = 'GB-AP-2024-123'
+    delete d.errors
+    delete d.errorList
+    res.redirect(`${BASE}/create/check-your-answers`)
+  })
+  router.get(`${BASE}/create/check-your-answers`, (req, res) => {
+    const data = req.session.data || {}
+    delete data.errors
+    delete data.errorList
+    const viewData = buildCheckYourAnswersData(data)
+    res.render('v1-baseline/create/check-your-answers', viewData)
+  })
+
+  router.post(`${BASE}/create/check-your-answers`, (req, res) => {
+    delete req.session.data.errors
+    delete req.session.data.errorList
+    res.redirect(`${BASE}/create/declaration`)
+  })
+
+  router.get(`${BASE}/create/declaration`, (req, res) => {
+    delete req.session.data.errors
+    delete req.session.data.errorList
+    const now = new Date()
+    const declarationDate = `${now.getDate()} ${['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'][now.getMonth()]} ${now.getFullYear()}`
+    res.render('v1-baseline/create/declaration', { declarationDate })
+  })
+
+  router.post(`${BASE}/create/declaration`, (req, res) => {
+    const accepted = req.session.data.declarationAccepted
+    const isAccepted = accepted === 'yes' || (Array.isArray(accepted) && accepted.includes('yes'))
+    if (!isAccepted) {
+      req.session.data.errors = { declarationAccepted: 'You must confirm the declaration to submit' }
+      req.session.data.errorList = [{ href: '#declaration-accepted-1', text: 'You must confirm the declaration to submit' }]
+      return res.redirect(`${BASE}/create/declaration`)
+    }
+    delete req.session.data.errors
+    delete req.session.data.errorList
+    const data = req.session.data || {}
+    req.session.data.declarationDate = new Date().toISOString().split('T')[0]
+    const year = new Date().getFullYear()
+    const suffix = String(Math.floor(1000000 + Math.random() * 9000000))
+    const referenceNumber = `IMP.GB.${year}.${suffix}`
+    req.session.data.lastReferenceNumber = referenceNumber
+
+    const commoditiesData = require('../../data/commodities.js')
+    const commodityDetails = data.commodity ? commoditiesData[data.commodity] : null
+    const commodityCode = commodityDetails ? commodityDetails.code : (data.commodityCode || '')
+    const commodityName = (data.commoditySpecies && data.commoditySpecies[0]) || 'Live animals'
+    const commodityDisplay = commodityCode ? `${commodityName} (${commodityCode})` : commodityName
+
+    const submitted = {
+      reference: referenceNumber,
+      commodity: commodityDisplay,
+      origin: data.countryOfOrigin || 'Not provided',
+      consignee: data.consigneeName || (data.consignee && data.consignee.name) || 'Not provided',
+      consignor: data.consignorName || (data.consignor && data.consignor.name) || 'Not provided',
+      arrival: formatDate(data.transportArrivalDate) || 'Not provided',
+      status: 'submitted'
+    }
+    if (!Array.isArray(data.submittedNotifications)) data.submittedNotifications = []
+    data.submittedNotifications.push(submitted)
+
+    res.redirect(`${BASE}/create/confirmation`)
+  })
+
+  router.get(`${BASE}/create/confirmation`, (req, res) => {
+    const referenceNumber = req.session.data.lastReferenceNumber
+    res.render('v1-baseline/create/confirmation', { referenceNumber })
+  })
+
+  router.get(`${BASE}/create/confirmation-prefill`, (req, res) => {
+    const year = new Date().getFullYear()
+    const suffix = String(Math.floor(1000000 + Math.random() * 9000000))
+    req.session.data.lastReferenceNumber = `IMP.GB.${year}.${suffix}`
+    res.redirect(`${BASE}/create/confirmation`)
+  })
+
+  router.get(`${BASE}/create/declaration-prefill`, (req, res) => {
+    req.session.data.declarationAccepted = 'yes'
+    delete req.session.data.errors
+    delete req.session.data.errorList
+    res.redirect(`${BASE}/create/declaration`)
+  })
+
+  router.get(`${BASE}/create/transport-add-transporter`, (req, res) => {
+    const data = req.session.data || {}
+    delete data.errors
+    delete data.errorList
+    const euCountries = require('../../data/eu-countries.js')
+    const countryItems = [{ value: '', text: 'Select country' }, { value: 'United Kingdom', text: 'United Kingdom' }].concat(
+      euCountries.map(c => ({ value: c, text: c }))
+    )
+    res.render('v1-baseline/create/transport-add-transporter', { countryItems })
+  })
+
+  router.post(`${BASE}/create/transport-add-transporter`, (req, res) => {
+    const data = req.session.data || {}
+    const transporterName = (data.transporterName || '').trim()
+    const transporterAddressLine1 = (data.transporterAddressLine1 || '').trim()
+    const transporterAddressLine2 = (data.transporterAddressLine2 || '').trim()
+    const transporterTown = (data.transporterTown || '').trim()
+    const transporterPostcode = (data.transporterPostcode || '').trim()
+    const transporterCountry = (data.transporterCountry || '').trim()
+
+    const errors = {}
+    const errorList = []
+    if (!transporterName) {
+      errors.transporterName = 'Enter the name or organisation'
+      errorList.push({ href: '#transporterName', text: 'Enter the name or organisation' })
+    }
+    if (!transporterAddressLine1) {
+      errors.transporterAddressLine1 = 'Enter address line 1'
+      errorList.push({ href: '#transporterAddressLine1', text: 'Enter address line 1' })
+    }
+    if (!transporterTown) {
+      errors.transporterTown = 'Enter the town or city'
+      errorList.push({ href: '#transporterTown', text: 'Enter the town or city' })
+    }
+    if (!transporterCountry) {
+      errors.transporterCountry = 'Select a country'
+      errorList.push({ href: '#transporterCountry', text: 'Select a country' })
+    } else if (transporterCountry === 'United Kingdom' && !transporterPostcode) {
+      errors.transporterPostcode = 'Enter the postcode'
+      errorList.push({ href: '#transporterPostcode', text: 'Enter the postcode' })
+    }
+
+    if (errorList.length > 0) {
+      data.errors = errors
+      data.errorList = errorList
+      const euCountries = require('../../data/eu-countries.js')
+      const countryItems = [{ value: '', text: 'Select country' }, { value: 'United Kingdom', text: 'United Kingdom' }].concat(
+        euCountries.map(c => ({ value: c, text: c }))
+      )
+      return res.redirect(`${BASE}/create/transport-add-transporter`)
+    }
+
+    delete data.transporterId
+    const addressParts = [transporterAddressLine1, transporterAddressLine2, transporterTown, transporterPostcode].filter(Boolean)
+    data.transporterAddress = addressParts.join(', ') + ', ' + transporterCountry
+    data.transporterCountry = transporterCountry
+    delete data.errors
+    delete data.errorList
+    res.redirect(`${BASE}/create/transport-transporter`)
+  })
+
+  router.get(`${BASE}/create/transport`, (req, res) => {
+    res.redirect(`${BASE}/create/transport-arrival`)
   })
 
   router.get(`${BASE}/create/address-consignee`, (req, res) => {
@@ -840,25 +1622,44 @@ module.exports = (router) => {
   router.get(`${BASE}/create/address-consignee-search`, (req, res) => {
     const data = req.session.data || {}
     const consignees = require('../../data/consignees.js')
-    const searchName = (req.query.searchName || data.searchConsigneeName || '').trim().toLowerCase()
-    const searchAddress = (req.query.searchAddress || data.searchConsigneeAddress || '').trim().toLowerCase()
-    const searchCountry = (req.query.searchCountry || data.searchConsigneeCountry || '').trim()
+    const returnTo = req.query.returnTo || ''
+    const isTransporter = returnTo === 'transport-transporter'
     const page = parseInt(req.query.page, 10) || 1
     const perPage = 10
 
-    data.searchConsigneeName = req.query.searchName ?? data.searchConsigneeName
-    data.searchConsigneeAddress = req.query.searchAddress ?? data.searchConsigneeAddress
-    data.searchConsigneeCountry = req.query.searchCountry ?? data.searchConsigneeCountry
-
     let filtered = consignees
-    if (searchName) {
-      filtered = filtered.filter(c => c.name.toLowerCase().includes(searchName))
-    }
-    if (searchAddress) {
-      filtered = filtered.filter(c => c.address.toLowerCase().includes(searchAddress))
-    }
-    if (searchCountry) {
-      filtered = filtered.filter(c => c.country === searchCountry)
+    if (isTransporter) {
+      const searchName = (req.query.searchName || data.searchTransporterName || '').trim().toLowerCase()
+      const searchApprovalNumber = (req.query.searchApprovalNumber || data.searchTransporterApprovalNumber || '').trim().toLowerCase()
+      const searchPostCode = (req.query.searchPostCode || data.searchTransporterPostCode || '').trim().toLowerCase().replace(/\s+/g, ' ')
+      data.searchTransporterName = req.query.searchName ?? data.searchTransporterName
+      data.searchTransporterApprovalNumber = req.query.searchApprovalNumber ?? data.searchTransporterApprovalNumber
+      data.searchTransporterPostCode = req.query.searchPostCode ?? data.searchTransporterPostCode
+      if (searchName) {
+        filtered = filtered.filter(c => c.name.toLowerCase().includes(searchName))
+      }
+      if (searchApprovalNumber) {
+        filtered = filtered.filter(c => (c.approvalNumber || '').toLowerCase().includes(searchApprovalNumber))
+      }
+      if (searchPostCode) {
+        filtered = filtered.filter(c => (c.postCode || '').toLowerCase().replace(/\s+/g, ' ').includes(searchPostCode))
+      }
+    } else {
+      const searchName = (req.query.searchName || data.searchConsigneeName || '').trim().toLowerCase()
+      const searchAddress = (req.query.searchAddress || data.searchConsigneeAddress || '').trim().toLowerCase()
+      const searchCountry = (req.query.searchCountry || data.searchConsigneeCountry || '').trim()
+      data.searchConsigneeName = req.query.searchName ?? data.searchConsigneeName
+      data.searchConsigneeAddress = req.query.searchAddress ?? data.searchConsigneeAddress
+      data.searchConsigneeCountry = req.query.searchCountry ?? data.searchConsigneeCountry
+      if (searchName) {
+        filtered = filtered.filter(c => c.name.toLowerCase().includes(searchName))
+      }
+      if (searchAddress) {
+        filtered = filtered.filter(c => c.address.toLowerCase().includes(searchAddress))
+      }
+      if (searchCountry) {
+        filtered = filtered.filter(c => c.country === searchCountry)
+      }
     }
 
     const total = filtered.length
@@ -869,9 +1670,60 @@ module.exports = (router) => {
 
     const countries = [...new Set(consignees.map(c => c.country))].sort()
 
+    const forImporter = req.query.for === 'importer'
     res.render('v1-baseline/create/address-consignee-search', {
       results,
       countries,
+      page: pageNum,
+      totalPages,
+      total,
+      forImporter,
+      returnTo
+    })
+  })
+
+  router.get(`${BASE}/create/address-place-of-destination-search`, (req, res) => {
+    const data = req.session.data || {}
+    const placesOfDestination = require('../../data/places-of-destination.js')
+    const searchName = (req.query.searchName || data.searchPlaceOfDestinationName || '').trim().toLowerCase()
+    const searchAddress = (req.query.searchAddress || data.searchPlaceOfDestinationAddress || '').trim().toLowerCase()
+    const searchType = (req.query.searchType || data.searchPlaceOfDestinationType || '').trim()
+    const searchCountry = (req.query.searchCountry || data.searchPlaceOfDestinationCountry || '').trim()
+    const page = parseInt(req.query.page, 10) || 1
+    const perPage = 10
+
+    data.searchPlaceOfDestinationName = req.query.searchName ?? data.searchPlaceOfDestinationName
+    data.searchPlaceOfDestinationAddress = req.query.searchAddress ?? data.searchPlaceOfDestinationAddress
+    data.searchPlaceOfDestinationType = req.query.searchType ?? data.searchPlaceOfDestinationType
+    data.searchPlaceOfDestinationCountry = req.query.searchCountry ?? data.searchPlaceOfDestinationCountry
+
+    let filtered = placesOfDestination
+    if (searchName) {
+      filtered = filtered.filter(p => p.name.toLowerCase().includes(searchName))
+    }
+    if (searchAddress) {
+      filtered = filtered.filter(p => p.address.toLowerCase().includes(searchAddress))
+    }
+    if (searchType) {
+      filtered = filtered.filter(p => p.type === searchType)
+    }
+    if (searchCountry) {
+      filtered = filtered.filter(p => p.country === searchCountry)
+    }
+
+    const total = filtered.length
+    const totalPages = Math.max(1, Math.ceil(total / perPage))
+    const pageNum = Math.max(1, Math.min(page, totalPages))
+    const start = (pageNum - 1) * perPage
+    const results = filtered.slice(start, start + perPage)
+
+    const countries = [...new Set(placesOfDestination.map(p => p.country))].sort()
+    const types = [...new Set(placesOfDestination.map(p => p.type))].sort()
+
+    res.render('v1-baseline/create/address-place-of-destination-search', {
+      results,
+      countries,
+      types,
       page: pageNum,
       totalPages,
       total
@@ -932,6 +1784,36 @@ module.exports = (router) => {
     delete data.errors
     delete data.errorList
     res.redirect(`${BASE}/create/addresses`)
+  })
+
+  router.get(`${BASE}/create/address-prefill`, (req, res) => {
+    const data = req.session.data || {}
+    const consignors = require('../../data/consignors.js')
+    const consignees = require('../../data/consignees.js')
+    const placesOfDestination = require('../../data/places-of-destination.js')
+    const consignor = consignors[0]
+    const consignee = consignees[0]
+    const place = placesOfDestination[0]
+    data.consignorId = consignor.id
+    data.consignorName = consignor.name
+    data.consignorAddress = consignor.address
+    data.consignorCountry = consignor.country
+    data.consigneeId = consignee.id
+    data.consigneeName = consignee.name
+    data.consigneeAddress = consignee.address
+    data.consigneeCountry = consignee.country
+    data.importerId = consignee.id
+    data.importerName = consignee.name
+    data.importerAddress = consignee.address
+    data.importerCountry = consignee.country
+    data.placeOfDestinationId = place.id
+    data.placeOfDestinationName = place.name
+    data.placeOfDestinationAddress = place.address
+    data.placeOfDestinationCountry = place.country
+    data.placeOfDestinationType = place.type
+    delete data.errors
+    delete data.errorList
+    res.redirect(`${BASE}/create/address-cph`)
   })
 
   router.post(`${BASE}/create/animal-identification`, (req, res) => {
@@ -1004,6 +1886,7 @@ module.exports = (router) => {
 
   router.get(`${BASE}/clear-filters`, (req, res) => {
     FILTER_KEYS.forEach(key => delete req.session.data[key])
+    delete req.session.data.sort
     res.redirect(`${BASE}/dashboard`)
   })
 }

@@ -4,7 +4,7 @@
 //
 
 module.exports = [
-  { value: 'itach', text: 'ITACH' },
+  { value: 'itahc', text: 'ITAHC' },
   { value: 'veterinary-health-certificate', text: 'Veterinary health certificate' },
   { value: 'air-waybill', text: 'Air waybill' },
   { value: 'import-permit', text: 'Import permit' },

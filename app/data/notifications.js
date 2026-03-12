@@ -6,7 +6,7 @@
 module.exports = [
   {
     reference: 'IMP.GB.2026.1000608',
-    commodity: '0603197090',
+    commodity: 'Bos taurus (0102)',
     origin: 'France',
     consignee: 'Macdonald Osborne Inc',
     consignor: 'Wagner and Matthews',
@@ -15,7 +15,7 @@ module.exports = [
   },
   {
     reference: 'IMP.GB.2026.1000145',
-    commodity: '02063000',
+    commodity: 'Equus caballus (0101)',
     origin: 'Germany',
     consignee: 'Tee Inc',
     consignor: 'MLConsignor',
@@ -24,7 +24,7 @@ module.exports = [
   },
   {
     reference: 'IMP.GB.2026.1000124',
-    commodity: '0603197090',
+    commodity: 'Bos taurus (0102)',
     origin: 'Poland',
     consignee: 'Hewitt and Ballard',
     consignor: 'Vanna Barr',
