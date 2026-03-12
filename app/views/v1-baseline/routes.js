@@ -660,6 +660,18 @@ module.exports = (router) => {
 
     delete data.errors
     delete data.errorList
+    res.redirect(`${BASE}/create/addresses`)
+  })
+
+  router.get(`${BASE}/create/addresses`, (req, res) => {
+    delete req.session.data.errors
+    delete req.session.data.errorList
+    res.render('v1-baseline/create/addresses')
+  })
+
+  router.post(`${BASE}/create/addresses`, (req, res) => {
+    delete req.session.data.errors
+    delete req.session.data.errorList
     res.redirect(`${BASE}/dashboard`)
   })
 
@@ -668,11 +680,12 @@ module.exports = (router) => {
     data.documents = [{
       type: 'veterinary-health-certificate',
       reference: 'CHED-PP-2024-001',
-      date: '2024-03-15'
+      date: '2024-03-15',
+      attachments: ['Sample health certificate.pdf']
     }]
     delete data.errors
     delete data.errorList
-    res.redirect(`${BASE}/dashboard`)
+    res.redirect(`${BASE}/create/addresses`)
   })
 
   router.post(`${BASE}/create/animal-identification`, (req, res) => {
