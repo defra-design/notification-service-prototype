@@ -217,7 +217,11 @@ module.exports = (router) => {
 
   router.get(`${BASE}/create/commodity-species-prefill`, (req, res) => {
     const commodityDetails = req.session.data.commodity ? require('../../data/commodities.js')[req.session.data.commodity] : null
-    req.session.data.commoditySpecies = commodityDetails ? [commodityDetails.species[0]] : ['Bos taurus']
+    // Use Bos taurus (domestic cattle) for Cow; otherwise first species in list
+    const species = commodityDetails && req.session.data.commodity === 'Cow'
+      ? 'Bos taurus'
+      : (commodityDetails ? commodityDetails.species[0] : 'Bos taurus')
+    req.session.data.commoditySpecies = [species]
     req.session.data.commodityType = 'domestic'
     delete req.session.data.errors
     delete req.session.data.errorList
@@ -424,11 +428,11 @@ module.exports = (router) => {
     commoditySpecies.forEach(s => {
       const key = s.replace(/\s+/g, '_').toLowerCase().replace(/[^a-z0-9_]/g, '')
       req.session.data[`quantity_${key}`] = 2
-      req.session.data[`packages_${key}`] = 0
+      req.session.data[`packages_${key}`] = 1
     })
     delete req.session.data.errors
     delete req.session.data.errorList
-    res.redirect(`${BASE}/create/animal-identification`)
+    res.redirect(`${BASE}/create/animal-identification-prefill`)
   })
 
   router.get(`${BASE}/create/animal-identification`, (req, res) => {
@@ -500,18 +504,174 @@ module.exports = (router) => {
       return res.redirect(`${BASE}/create/commodity-quantities`)
     }
 
+    // BCMS (Cattle Tracing System) format: 12-digit ear tag (6 herd + 6 individual), passport UK herd check sequential
+    const HERD_MARK = '123456'
+    const CHECK_DIGIT = '7'
+    let animalCounter = 0
+    const isCattle = commodity === 'Cow'
     commoditySpecies.forEach(s => {
       const key = s.replace(/\s+/g, '_').toLowerCase().replace(/[^a-z0-9_]/g, '')
       const quantityKey = `quantity_${key}`
       const quantity = parseInt(req.session.data[quantityKey], 10) || 0
       for (let i = 1; i <= quantity; i++) {
-        req.session.data[`earTag_${key}_${i}`] = `PRE-${key}-${i}`
-        req.session.data[`passport_${key}_${i}`] = `PASSPORT-${key}-${i}`
+        animalCounter++
+        if (isCattle) {
+          req.session.data[`earTag_${key}_${i}`] = `${HERD_MARK}${String(animalCounter).padStart(6, '0')}`
+          req.session.data[`passport_${key}_${i}`] = `UK ${HERD_MARK} ${CHECK_DIGIT} ${String(animalCounter).padStart(5, '0')}`
+        } else {
+          req.session.data[`earTag_${key}_${i}`] = `PRE-${key}-${i}`
+          req.session.data[`passport_${key}_${i}`] = `PASSPORT-${key}-${i}`
+        }
       }
     })
 
     delete req.session.data.errors
     delete req.session.data.errorList
+    res.redirect(`${BASE}/create/additional-animal-details`)
+  })
+
+  router.get(`${BASE}/create/additional-animal-details`, (req, res) => {
+    delete req.session.data.errors
+    delete req.session.data.errorList
+    const commodity = req.session.data.commodity
+    const commoditySpecies = req.session.data.commoditySpecies || []
+    const commoditiesData = require('../../data/commodities.js')
+    const commodityDetails = commodity ? commoditiesData[commodity] : null
+
+    if (!commodityDetails || commoditySpecies.length === 0) {
+      return res.redirect(`${BASE}/create/commodity-species`)
+    }
+
+    const quantityKey = (s) => `quantity_${s.replace(/\s+/g, '_').toLowerCase().replace(/[^a-z0-9_]/g, '')}`
+    const hasQuantities = commoditySpecies.some(s => {
+      const q = parseInt(req.session.data[quantityKey(s)], 10)
+      return !isNaN(q) && q > 0
+    })
+    if (!hasQuantities) {
+      return res.redirect(`${BASE}/create/commodity-quantities`)
+    }
+
+    res.render('v1-baseline/create/additional-animal-details')
+  })
+
+  router.post(`${BASE}/create/additional-animal-details`, (req, res) => {
+    const animalsCertifiedFor = req.session.data.animalsCertifiedFor
+    const unweanedAnimals = req.session.data.unweanedAnimals
+    const errors = {}
+    const errorList = []
+
+    if (!animalsCertifiedFor || animalsCertifiedFor.trim() === '') {
+      errors.animalsCertifiedFor = 'Select what the animals are certified for'
+      errorList.push({ href: '#animals-certified-for-1', text: 'Select what the animals are certified for' })
+    }
+    if (!unweanedAnimals || unweanedAnimals.trim() === '') {
+      errors.unweanedAnimals = 'Select if the consignment contains unweaned animals'
+      errorList.push({ href: '#unweaned-animals-1', text: 'Select if the consignment contains unweaned animals' })
+    }
+
+    if (Object.keys(errors).length > 0) {
+      req.session.data.errors = errors
+      req.session.data.errorList = errorList
+      return res.redirect(`${BASE}/create/additional-animal-details`)
+    }
+
+    delete req.session.data.errors
+    delete req.session.data.errorList
+    res.redirect(`${BASE}/create/accompanying-documents`)
+  })
+
+  router.get(`${BASE}/create/additional-animal-details-prefill`, (req, res) => {
+    req.session.data.animalsCertifiedFor = 'breeding-production'
+    req.session.data.unweanedAnimals = 'no'
+    delete req.session.data.errors
+    delete req.session.data.errorList
+    res.redirect(`${BASE}/create/accompanying-documents`)
+  })
+
+  router.get(`${BASE}/create/accompanying-documents`, (req, res) => {
+    delete req.session.data.errors
+    delete req.session.data.errorList
+    const documentTypes = require('../../data/document-types.js')
+    const documentTypeItems = [{ value: '', text: 'Select document type' }].concat(documentTypes)
+    const sessionDocuments = req.session.data.documents
+    let documents = (sessionDocuments && sessionDocuments.length) ? sessionDocuments : [{ type: '', reference: '', date: '' }]
+    // Normalise date: convert legacy dateDay/dateMonth/dateYear to YYYY-MM-DD for input type="date"
+    documents = documents.map(doc => {
+      const d = doc || {}
+      if (d.date) return { ...d, date: d.date }
+      if (d.dateDay && d.dateMonth && d.dateYear) {
+        const y = String(d.dateYear).padStart(4, '0')
+        const m = String(d.dateMonth).padStart(2, '0')
+        const day = String(d.dateDay).padStart(2, '0')
+        return { ...d, date: `${y}-${m}-${day}` }
+      }
+      return { ...d, date: d.date || '' }
+    })
+    res.render('v1-baseline/create/accompanying-documents', {
+      documentTypeItems,
+      documents
+    })
+  })
+
+  router.post(`${BASE}/create/accompanying-documents`, (req, res) => {
+    const data = req.session.data
+    const documents = []
+    const errors = {}
+    const errorList = []
+    let i = 0
+    while (data[`documentType_${i}`] !== undefined) {
+      const type = data[`documentType_${i}`]
+      const reference = (data[`documentReference_${i}`] || '').trim()
+      const date = (data[`documentDate_${i}`] || '').trim()
+      const filenamesStr = data[`documentAttachmentFilenames_${i}`] || ''
+      const attachments = filenamesStr ? filenamesStr.split(',').map(s => s.trim()).filter(Boolean) : []
+
+      if (!type || type.trim() === '') {
+        errors[`documentType_${i}`] = 'Select a document type'
+        errorList.push({ href: `#document-type-${i}`, text: `Document ${i + 1}: Select a document type` })
+      }
+      if (reference === '') {
+        errors[`documentReference_${i}`] = 'Enter the document reference'
+        errorList.push({ href: `#document-reference-${i}`, text: `Document ${i + 1}: Enter the document reference` })
+      }
+      if (date === '') {
+        errors[`documentDate_${i}`] = 'Enter the date of issue'
+        errorList.push({ href: `#document-date-${i}`, text: `Document ${i + 1}: Enter the date of issue` })
+      }
+
+      documents.push({
+        type: type || '',
+        reference: reference,
+        date: date,
+        attachments
+      })
+      i++
+    }
+    if (documents.length === 0) {
+      documents.push({ type: '', reference: '', date: '', attachments: [] })
+    }
+    data.documents = documents
+
+    if (Object.keys(errors).length > 0) {
+      req.session.data.errors = errors
+      req.session.data.errorList = errorList
+      return res.redirect(`${BASE}/create/accompanying-documents`)
+    }
+
+    delete data.errors
+    delete data.errorList
+    res.redirect(`${BASE}/dashboard`)
+  })
+
+  router.get(`${BASE}/create/accompanying-documents-prefill`, (req, res) => {
+    const data = req.session.data
+    data.documents = [{
+      type: 'veterinary-health-certificate',
+      reference: 'CHED-PP-2024-001',
+      date: '2024-03-15'
+    }]
+    delete data.errors
+    delete data.errorList
     res.redirect(`${BASE}/dashboard`)
   })
 
@@ -580,7 +740,7 @@ module.exports = (router) => {
 
     delete req.session.data.errors
     delete req.session.data.errorList
-    res.redirect(`${BASE}/dashboard`)
+    res.redirect(`${BASE}/create/additional-animal-details`)
   })
 
   router.get(`${BASE}/clear-filters`, (req, res) => {

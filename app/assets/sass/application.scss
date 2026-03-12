@@ -24,6 +24,66 @@
   font-size: 16px;
 }
 
+// Accompanying documents – wrapper for whole document section
+.documents-section {
+  padding: govuk-spacing(4);
+  border: 1px solid $govuk-border-colour;
+  border-radius: 4px;
+  background: #fafafa;
+}
+
+// Accompanying documents – heading left, remove link right
+.document-row-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: govuk-spacing(5);
+}
+
+// Accompanying documents – each document in a card-style block
+.document-row {
+  padding: govuk-spacing(5) govuk-spacing(4);
+  background: #fff;
+  border: 1px solid $govuk-border-colour;
+  border-radius: 4px;
+  & + .document-row {
+    margin-top: govuk-spacing(4);
+  }
+}
+
+// Add another document – inviting dashed add-block, part of the flow
+.add-another-document {
+  margin-top: govuk-spacing(4);
+  & + .document-row {
+    margin-top: govuk-spacing(4);
+  }
+  padding: govuk-spacing(3);
+  border: 2px dashed $govuk-border-colour;
+  border-radius: 4px;
+  background: #fff;
+  text-align: center;
+}
+
+// Accompanying documents – hide native file input (use Add attachment link instead)
+.attachment-input-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+// Accompanying documents – attachment list styling (grey-4: #f3f2f1)
+.attachment-list {
+  background: #f3f2f1;
+  padding: govuk-spacing(3);
+  border-radius: 4px;
+}
+
 // Commodity quantities table – reduce spacing between rows
 .commodity-quantities-table {
   .govuk-form-group {

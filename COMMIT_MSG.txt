@@ -1,0 +1,20 @@
+Add v1-baseline create journey, phase banner, error clearing, and quick fill
+
+- Phase banner: Display "Prototype" banner on every page via main layout
+  beforeContent; child pages use super() to preserve banner when adding back links
+
+- Error clearing: Clear validation errors on GET so Back navigation shows a
+  clean form instead of stale error messages (import-type through animal-id)
+
+- Quick fill links: Add "Quick fill and continue (internal use)" link below
+  Save and continue on each create page to prefill mandatory fields and
+  navigate; supports rapid prototyping without form completion
+
+- Number of packages: Make mandatory on commodity-quantities page with
+  validation, error display, and updated hint (removed "when required")
+
+- v1-baseline create flow: Import type, origin, commodity, species, import
+  reason, commodity quantities, animal identification with full validation
+
+- Data and layouts: EU countries, commodities, internal market purposes,
+  v1-baseline layout with service navigation, sign-in flow
