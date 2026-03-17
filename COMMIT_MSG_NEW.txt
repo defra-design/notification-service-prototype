@@ -1,0 +1,19 @@
+Add create journey completion, commodity display, CPH, and address flow updates
+
+- Check your answers: Add full create journey summary with County Parish Holding
+  number (CPH) written in full; remove caption from Review your notification page
+- Commodity display: Show both species name and code (e.g. Bos taurus (0102)) on
+  dashboard; normalise legacy submissions to append code when missing; update mock
+  notifications and submitted notification object to use name (code) format
+- CPH page: Add address-cph.html for County Parish Holding number with validation
+- Transport flow: Add transport-arrival, transport-transporter, transport-add-
+  transporter; transporter search via address-consignee-search with returnTo param
+- Addresses: Add place of destination search, contact address for consignment;
+  importer selection from consignee search; Same as consignee for importer and
+  place of destination
+- Consignees: Add EU transporters with approval numbers, type, status; dual-use
+  consignee/transporter search with Name, Approval Number, Post Code for transport
+- Dashboard: Sort form preserves filters; commodity-details-table right-align numbers
+- Fix ITACH to ITAHC in document-types and accompanying-documents
+- Index: Add links for CPH, contact address, transport, check answers, declaration,
+  confirmation, place of destination search

@@ -55,18 +55,88 @@ function sortNotifications (list, sortOption) {
   return sorted
 }
 
+// CPH (County Parish Holding) required per official rules:
+// - 0102*: Bovine – YES
+// - 0103*: Swine – YES
+// - 0104*: Sheep and goats – YES
+// - 01061300*: Camelidae – YES
+// - 01061900: Cervidae (exact) – YES
+// - 0105*: Birds – YES only if more than 50 birds
+function isLivestockConsignment (data) {
+  const commoditiesEu = require('../../data/commodities-eu.js')
+  const toKey = (s) => String(s || '').replace(/\s+/g, '_').toLowerCase().replace(/[^a-z0-9_]/g, '')
+
+  const items = Array.isArray(data.commodities) && data.commodities.length > 0
+    ? data.commodities.map(c => ({
+        commodity: c.commodity,
+        commoditySpecies: c.commoditySpecies || [],
+        quantities: c.quantities || {}
+      }))
+    : (data.commodity
+      ? [{
+          commodity: data.commodity,
+          commoditySpecies: Array.isArray(data.commoditySpecies) ? data.commoditySpecies : (data.commoditySpecies ? [data.commoditySpecies] : []),
+          quantities: data
+        }]
+      : [])
+
+  let totalBirds = 0
+
+  for (const item of items) {
+    const details = commoditiesEu[item.commodity]
+    const code = details && details.code ? String(details.code).replace(/\s/g, '') : ''
+
+    if (code.startsWith('0102') || code.startsWith('0103') || code.startsWith('0104')) {
+      return true
+    }
+    if (code.startsWith('01061300')) return true
+    if (code === '01061900') return true
+
+    if (code.startsWith('0105')) {
+      const quantities = item.quantities
+      item.commoditySpecies.forEach(s => {
+        const key = toKey(s)
+        const qty = parseInt(quantities[`quantity_${key}`], 10) || 0
+        totalBirds += qty
+      })
+    }
+  }
+
+  return totalBirds > 50
+}
+
+// Companion animals requiring permanent address (instead of CPH)
+const PET_COMMODITIES = new Set([
+  'Dog', 'Cat', 'Ferrets', 'Domestic European Rabbits', 'Domestic Rabbits- Other',
+  'Birds of Prey- Falcons', 'Birds of Prey- Other', 'Birds of Prey- Owls',
+  'Psittaciformes (including parrots, parakeets, macaws and cockatoos)',
+  'Reptiles', 'Rodents'
+])
+
+function isPetConsignment (data) {
+  const names = Array.isArray(data.commodities) && data.commodities.length > 0
+    ? data.commodities.map(c => c.commodity).filter(Boolean)
+    : (data.commodity ? [data.commodity] : [])
+  return names.some(name => PET_COMMODITIES.has(name))
+}
+
 function filterNotifications (filterData, sourceList) {
   const list = sourceList || notifications
   const str = (v) => (v == null ? '' : String(v))
+  const getCommoditySearch = (n) => {
+    const arr = Array.isArray(n.commodities) && n.commodities.length > 0 ? n.commodities : [n.commodity]
+    return arr.map(c => str(c)).join(' ')
+  }
   return list.filter(n => {
     const keyword = (filterData.keyword || '').trim().toLowerCase()
     if (keyword) {
-      const search = `${str(n.reference)} ${str(n.commodity)} ${str(n.origin)} ${str(n.consignee)} ${str(n.consignor)}`.toLowerCase()
+      const commoditySearch = getCommoditySearch(n)
+      const search = `${str(n.reference)} ${commoditySearch} ${str(n.origin)} ${str(n.consignee)} ${str(n.consignor)}`.toLowerCase()
       if (!search.includes(keyword)) return false
     }
 
     const commodity = (filterData.commodity || '').trim().toLowerCase()
-    if (commodity && !str(n.commodity).toLowerCase().includes(commodity)) return false
+    if (commodity && !getCommoditySearch(n).toLowerCase().includes(commodity)) return false
 
     const origin = (filterData.origin || '').trim().toLowerCase()
     if (origin && !str(n.origin).toLowerCase().includes(origin)) return false
@@ -136,10 +206,12 @@ module.exports = (router) => {
     const sortOption = data.sort || 'arrival-desc'
     const sorted = sortNotifications(filtered, sortOption)
     const speciesToCode = getSpeciesToCodeMap()
-    const normalised = sorted.map(n => ({
-      ...n,
-      commodity: normaliseCommodityDisplay(n.commodity, speciesToCode)
-    }))
+    const normalised = sorted.map(n => {
+      const commodities = Array.isArray(n.commodities) && n.commodities.length > 0
+        ? n.commodities.map(c => normaliseCommodityDisplay(c, speciesToCode))
+        : [normaliseCommodityDisplay(n.commodity, speciesToCode)]
+      return { ...n, commodities }
+    })
 
     const perPage = 20
     const page = Math.max(1, parseInt(req.query.page, 10) || 1)
@@ -204,29 +276,344 @@ module.exports = (router) => {
     res.render('v2-post-baseline/dashboard')
   })
 
-  router.get(`${BASE}/create/import-type`, (req, res) => {
-    delete req.session.data.errors
-    delete req.session.data.errorList
-    res.render('v2-post-baseline/create/import-type')
+  // Standalone commodity picker journey
+  const PICKER = `${BASE}/commodity-picker`
+
+  router.get(`${PICKER}/start`, (req, res) => {
+    res.render('v2-post-baseline/commodity-picker/start')
   })
 
-  router.post(`${BASE}/create/import-type`, (req, res) => {
-    const importType = req.session.data.importType
-    if (!importType || importType.trim() === '') {
-      req.session.data.errors = { importType: 'Select what you are importing' }
-      req.session.data.errorList = [{ href: '#import-type-1', text: 'Select what you are importing' }]
-      return res.redirect(`${BASE}/create/import-type`)
+  function buildCommoditiesForHub (req) {
+    const commodities = req.session.data.commodities || []
+    const commoditiesData = require('../../data/commodities-eu.js')
+    let totalAnimals = 0
+    let totalPackages = 0
+    const items = commodities.map((item, i) => {
+      const d = commoditiesData[item.commodity] || {}
+      let itemAnimals = 0
+      let itemPackages = 0
+      const quantities = item.quantities || {}
+      Object.keys(quantities).forEach(k => {
+        const val = parseInt(quantities[k], 10)
+        if (!isNaN(val)) {
+          if (k.startsWith('quantity_')) itemAnimals += val
+          if (k.startsWith('packages_')) itemPackages += val
+        }
+      })
+      totalAnimals += itemAnimals
+      totalPackages += itemPackages
+      return {
+        index: i,
+        commodity: item.commodity,
+        label: d.commonName || item.commodity,
+        code: d.code || '',
+        species: item.commoditySpecies || [],
+        totalAnimals: itemAnimals,
+        totalPackages: itemPackages
+      }
+    })
+    return { items, totalAnimals, totalPackages }
+  }
+
+  router.get(`${PICKER}/hub`, (req, res) => {
+    const { items, totalAnimals, totalPackages } = buildCommoditiesForHub(req)
+    if (items.length === 0) {
+      return res.redirect(`${PICKER}/commodity-add`)
+    }
+    const fromCreate = req.session.data.commodityPickerFromCreate
+    const backHref = fromCreate ? `${BASE}/dashboard` : `${PICKER}/start`
+    const continueHref = `${BASE}/create/animal-identification`
+    res.render('v2-post-baseline/commodity-picker/commodity-hub', {
+      commodities: items,
+      totalAnimals,
+      totalPackages,
+      backHref,
+      continueHref
+    })
+  })
+
+  router.get(`${PICKER}/commodity-add`, (req, res) => {
+    delete req.session.data.commodity
+    delete req.session.data.commoditySpecies
+    delete req.session.data.commodityType
+    req.session.data.commodityEditIndex = undefined
+    req.session.data.commodityPickerFromHub = true
+    const quantityKeys = Object.keys(req.session.data).filter(k => k.startsWith('quantity_') || k.startsWith('packages_'))
+    quantityKeys.forEach(k => delete req.session.data[k])
+    delete req.session.data.errors
+    delete req.session.data.errorList
+    res.redirect(`${PICKER}/commodity`)
+  })
+
+  router.get(`${PICKER}/commodity-edit/:index`, (req, res) => {
+    const idx = parseInt(req.params.index, 10)
+    const commodities = req.session.data.commodities || []
+    const item = commodities[idx]
+    if (!item) return res.redirect(`${PICKER}/hub`)
+    req.session.data.commodity = item.commodity
+    req.session.data.commoditySpecies = [...(item.commoditySpecies || [])]
+    req.session.data.commodityType = item.commodityType || 'domestic'
+    req.session.data.commodityEditIndex = idx
+    req.session.data.commodityPickerFromHub = true
+    const quantityKeys = Object.keys(req.session.data).filter(k => k.startsWith('quantity_') || k.startsWith('packages_'))
+    quantityKeys.forEach(k => delete req.session.data[k])
+    if (item.quantities) {
+      Object.assign(req.session.data, item.quantities)
     }
     delete req.session.data.errors
     delete req.session.data.errorList
-    res.redirect(`${BASE}/create/origin`)
+    res.redirect(`${PICKER}/commodity`)
   })
 
-  router.get(`${BASE}/create/import-type-prefill`, (req, res) => {
-    req.session.data.importType = 'live-animals'
+  router.get(`${PICKER}/commodity-remove/:index`, (req, res) => {
+    const idx = parseInt(req.params.index, 10)
+    const commodities = req.session.data.commodities || []
+    if (idx >= 0 && idx < commodities.length) {
+      req.session.data.commodities = commodities.filter((_, i) => i !== idx)
+    }
+    res.redirect(`${PICKER}/hub`)
+  })
+
+  router.get(`${PICKER}/commodity`, (req, res) => {
     delete req.session.data.errors
     delete req.session.data.errorList
-    res.redirect(`${BASE}/create/origin`)
+    const commoditiesData = require('../../data/commodities-eu.js')
+    const commodityOptions = Object.entries(commoditiesData).map(([key, d]) => ({
+      value: key,
+      text: `${d.commonName || key} (${d.code})`
+    }))
+    const commoditiesJson = JSON.stringify(commoditiesData)
+    const initialDataJson = JSON.stringify({
+      commodity: req.session.data.commodity || '',
+      commoditySpecies: req.session.data.commoditySpecies || [],
+      commodityType: req.session.data.commodityType || 'domestic'
+    })
+    const backHref = req.session.data.commodityPickerFromHub ? `${PICKER}/hub` : `${PICKER}/start`
+    res.render('v2-post-baseline/commodity-picker/commodity', { commodityOptions, commoditiesJson, initialDataJson, backHref })
+  })
+  router.post(`${PICKER}/commodity`, (req, res) => {
+    const commodity = req.session.data.commodity
+    const species = req.session.data.commoditySpecies
+    const errors = {}
+    const errorList = []
+    if (!commodity || commodity.trim() === '') {
+      errors.commodity = 'Select a commodity'
+      errorList.push({ href: '#commodity', text: 'Select a commodity' })
+    }
+    if (!species || !Array.isArray(species) || species.length === 0) {
+      errors.commoditySpecies = 'Select at least one species'
+      errorList.push({ href: '#species-section', text: 'Select at least one species' })
+    }
+    if (Object.keys(errors).length > 0) {
+      req.session.data.errors = errors
+      req.session.data.errorList = errorList
+      return res.redirect(`${PICKER}/commodity`)
+    }
+    req.session.data.commodityType = req.session.data.commodityType || 'domestic'
+    delete req.session.data.errors
+    delete req.session.data.errorList
+    res.redirect(`${PICKER}/commodity-quantities`)
+  })
+  router.get(`${PICKER}/commodity-prefill`, (req, res) => {
+    req.session.data.commodity = 'Cattle'
+    req.session.data.commoditySpecies = ['Bos taurus']
+    req.session.data.commodityType = 'domestic'
+    delete req.session.data.errors
+    delete req.session.data.errorList
+    res.redirect(`${PICKER}/commodity`)
+  })
+  router.get(`${PICKER}/commodity-species`, (req, res) => {
+    delete req.session.data.errors
+    delete req.session.data.errorList
+    const commodity = req.session.data.commodity
+    const commoditiesData = require('../../data/commodities-eu.js')
+    const commodityDetails = commodity ? commoditiesData[commodity] : null
+    if (!commodityDetails) return res.redirect(`${PICKER}/commodity`)
+    const commodityTypeItems = commodityDetails.commodityTypes.map(t => ({ value: t.toLowerCase(), text: t }))
+    const selectedSpecies = req.session.data.commoditySpecies || []
+    const speciesItems = commodityDetails.species.map(s => ({
+      value: s, text: s, checked: selectedSpecies.indexOf(s) !== -1
+    }))
+    res.render('v2-post-baseline/commodity-picker/commodity-species', {
+      commodityDetails, commodityTypeItems, speciesItems
+    })
+  })
+  router.post(`${PICKER}/commodity-species`, (req, res) => {
+    const species = req.session.data.commoditySpecies
+    const errors = {}
+    const errorList = []
+    if (!species || !Array.isArray(species) || species.length === 0) {
+      errors.commoditySpecies = 'Select at least one species'
+      errorList.push({ href: '#commoditySpecies-1', text: 'Select at least one species' })
+    }
+    if (Object.keys(errors).length > 0) {
+      req.session.data.errors = errors
+      req.session.data.errorList = errorList
+      return res.redirect(`${PICKER}/commodity-species`)
+    }
+    delete req.session.data.errors
+    delete req.session.data.errorList
+    res.redirect(`${PICKER}/commodity-quantities`)
+  })
+  router.get(`${PICKER}/commodity-species-prefill`, (req, res) => {
+    const commodityDetails = req.session.data.commodity ? require('../../data/commodities-eu.js')[req.session.data.commodity] : null
+    const species = commodityDetails && (req.session.data.commodity === 'Cow' || req.session.data.commodity === 'Cattle') ? 'Bos taurus' : (commodityDetails ? commodityDetails.species[0] : 'Bos taurus')
+    req.session.data.commoditySpecies = [species]
+    req.session.data.commodityType = 'domestic'
+    delete req.session.data.errors
+    delete req.session.data.errorList
+    res.redirect(`${PICKER}/commodity-quantities`)
+  })
+  router.get(`${PICKER}/commodity-quantities`, (req, res) => {
+    delete req.session.data.errors
+    delete req.session.data.errorList
+    const commodity = req.session.data.commodity
+    const commoditySpecies = req.session.data.commoditySpecies || []
+    const commodityType = req.session.data.commodityType || 'domestic'
+    const commoditiesData = require('../../data/commodities-eu.js')
+    const commodityDetails = commodity ? commoditiesData[commodity] : null
+    if (!commodityDetails || commoditySpecies.length === 0) return res.redirect(`${PICKER}/commodity`)
+    const typeLabel = commodityType === 'game' ? 'Game' : 'Domestic'
+    const speciesRows = commoditySpecies.map(s => {
+      const key = s.replace(/\s+/g, '_').toLowerCase().replace(/[^a-z0-9_]/g, '')
+      return {
+        key,
+        speciesAndType: `${s}, ${typeLabel}`,
+        quantityKey: `quantity_${key}`,
+        packagesKey: `packages_${key}`
+      }
+    })
+    let totalAnimals = 0
+    let totalPackages = 0
+    speciesRows.forEach(s => {
+      const qty = parseInt(req.session.data[s.quantityKey], 10)
+      const pkg = parseInt(req.session.data[s.packagesKey], 10)
+      totalAnimals += (isNaN(qty) ? 0 : qty)
+      totalPackages += (isNaN(pkg) ? 0 : pkg)
+    })
+    res.render('v2-post-baseline/commodity-picker/commodity-quantities', {
+      commodityDetails, speciesRows, totalAnimals, totalPackages
+    })
+  })
+  router.post(`${PICKER}/commodity-quantities`, (req, res) => {
+    const commodity = req.session.data.commodity
+    const commoditySpecies = req.session.data.commoditySpecies || []
+    const commoditiesData = require('../../data/commodities-eu.js')
+    const commodityDetails = commodity ? commoditiesData[commodity] : null
+    const errors = {}
+    const errorList = []
+    if (!commodityDetails || commoditySpecies.length === 0) return res.redirect(`${PICKER}/commodity`)
+    const typeLabel = req.session.data.commodityType === 'game' ? 'Game' : 'Domestic'
+    const speciesRows = commoditySpecies.map(s => {
+      const key = s.replace(/\s+/g, '_').toLowerCase().replace(/[^a-z0-9_]/g, '')
+      return { key, speciesAndType: `${s}, ${typeLabel}`, quantityKey: `quantity_${key}`, packagesKey: `packages_${key}` }
+    })
+    speciesRows.forEach((s) => {
+      const qtyVal = req.session.data[s.quantityKey]
+      if (!qtyVal || String(qtyVal).trim() === '' || parseInt(qtyVal, 10) < 0) {
+        errors[s.quantityKey] = 'Enter the number of animals'
+        errorList.push({ href: `#quantity-${s.key}`, text: `Enter the number of animals for ${s.speciesAndType}` })
+      }
+      const pkgVal = req.session.data[s.packagesKey]
+      if (pkgVal === undefined || pkgVal === null || String(pkgVal).trim() === '' || parseInt(pkgVal, 10) < 0) {
+        errors[s.packagesKey] = 'Enter the number of packages'
+        errorList.push({ href: `#packages-${s.key}`, text: `Enter the number of packages for ${s.speciesAndType}` })
+      }
+    })
+    if (Object.keys(errors).length > 0) {
+      req.session.data.errors = errors
+      req.session.data.errorList = errorList
+      return res.redirect(`${PICKER}/commodity-quantities`)
+    }
+    delete req.session.data.errors
+    delete req.session.data.errorList
+
+    if (req.session.data.commodityPickerFromHub) {
+      const quantities = {}
+      speciesRows.forEach((s) => {
+        const q = req.session.data[s.quantityKey]
+        const p = req.session.data[s.packagesKey]
+        if (q !== undefined) quantities[s.quantityKey] = q
+        if (p !== undefined) quantities[s.packagesKey] = p
+      })
+      const entry = {
+        commodity,
+        commoditySpecies: commoditySpecies,
+        commodityType: req.session.data.commodityType || 'domestic',
+        quantities
+      }
+      const commodities = req.session.data.commodities || []
+      const editIdx = req.session.data.commodityEditIndex
+      if (typeof editIdx === 'number' && editIdx >= 0 && editIdx < commodities.length) {
+        commodities[editIdx] = entry
+      } else {
+        commodities.push(entry)
+      }
+      req.session.data.commodities = commodities
+      const quantityKeys = Object.keys(req.session.data).filter(k => k.startsWith('quantity_') || k.startsWith('packages_'))
+      quantityKeys.forEach(k => delete req.session.data[k])
+      delete req.session.data.commodity
+      delete req.session.data.commoditySpecies
+      delete req.session.data.commodityType
+      delete req.session.data.commodityEditIndex
+      return res.redirect(`${PICKER}/hub`)
+    }
+
+    res.redirect(`${BASE}/create/animal-identification`)
+  })
+  router.get(`${PICKER}/commodity-quantities-prefill`, (req, res) => {
+    const commoditySpecies = req.session.data.commoditySpecies || []
+    const commodityType = req.session.data.commodityType || 'domestic'
+    if (commoditySpecies.length > 0) {
+      const key = commoditySpecies[0].replace(/\s+/g, '_').toLowerCase().replace(/[^a-z0-9_]/g, '')
+      req.session.data[`quantity_${key}`] = '10'
+      req.session.data[`packages_${key}`] = '1'
+    }
+    delete req.session.data.errors
+    delete req.session.data.errorList
+    res.redirect('/')
+  })
+  router.get(`${PICKER}/complete`, (req, res) => {
+    res.redirect('/')
+  })
+
+  router.get(`${BASE}/create/start`, (req, res) => {
+    req.session.data = req.session.data || {}
+    const data = req.session.data
+    // Clear create-flow data so "create new notification" starts fresh
+    const createKeys = [
+      'commodity', 'commoditySpecies', 'commodityType', 'commodities',
+      'commodityPickerFromCreate', 'commodityPickerFromHub', 'commodityEditIndex',
+      'importType', 'importReason', 'internalMarketPurpose',
+      'countryOfOrigin', 'regionOfOriginRequired', 'regionOfOriginCode', 'consignmentReference',
+      'documents', 'animalsCertifiedFor', 'unweanedAnimals',
+      'consignorId', 'consignorName', 'consignorAddress', 'consignorCountry', 'consignor',
+      'consigneeId', 'consigneeName', 'consigneeAddress', 'consigneeCountry', 'consignee',
+      'consigneeAddressLine1', 'consigneeAddressLine2', 'consigneeTown', 'consigneePostcode',
+      'consigneeBusinessRegistration',
+      'importerId', 'importerName', 'importerAddress', 'importerCountry', 'importer',
+      'importerAddressLine1', 'importerAddressLine2', 'importerTown', 'importerPostcode',
+      'placeOfDestinationId', 'placeOfDestinationName', 'placeOfDestinationAddress',
+      'placeOfDestinationAddressLine1', 'placeOfDestinationAddressLine2', 'placeOfDestinationTown',
+      'placeOfDestinationPostcode', 'placeOfDestinationCountry', 'placeOfDestinationType',
+      'cphNumber', 'contactAddressId', 'contactAddressLine1', 'contactAddressTown', 'contactAddressPostcode',
+      'arrivalDate', 'designatedArrivalPoint', 'requiredRestInterval',
+      'transporterId', 'transporterName', 'transporterAddress', 'transporterCountry',
+      'transporterType', 'transporterApprovalNumber',
+      'transporterAddressLine1', 'transporterAddressLine2', 'transporterTown', 'transporterPostcode',
+      'errors', 'errorList'
+    ]
+    createKeys.forEach(k => delete data[k])
+    Object.keys(data).forEach(k => {
+      if (k.startsWith('quantity_') || k.startsWith('packages_') || k.startsWith('earTag_') || k.startsWith('passport_') ||
+          k.startsWith('documentType_') || k.startsWith('documentReference_') || k.startsWith('documentDate_') ||
+          k.startsWith('documentAttachmentFilenames_')) {
+        delete data[k]
+      }
+    })
+    req.session.data.commodityPickerFromCreate = true
+    req.session.data.commodities = []
+    res.redirect(`${PICKER}/hub`)
   })
 
   router.get(`${BASE}/create/origin`, (req, res) => {
@@ -263,24 +650,32 @@ module.exports = (router) => {
 
     delete req.session.data.errors
     delete req.session.data.errorList
-    res.redirect(`${BASE}/create/commodity`)
+    req.session.data.commodityPickerFromCreate = true
+    req.session.data.commodities = req.session.data.commodities || []
+    res.redirect(`${BASE}/create/import-reason`)
   })
 
   router.get(`${BASE}/create/origin-prefill`, (req, res) => {
     req.session.data.countryOfOrigin = 'France'
     req.session.data.regionOfOriginRequired = 'no'
     req.session.data.consignmentReference = 'REF-2025-001'
+    req.session.data.commodityPickerFromCreate = true
+    req.session.data.commodities = req.session.data.commodities || []
     delete req.session.data.errors
     delete req.session.data.errorList
-    res.redirect(`${BASE}/create/commodity`)
+    res.redirect(`${BASE}/create/import-reason`)
   })
 
   router.get(`${BASE}/create/commodity`, (req, res) => {
     delete req.session.data.errors
     delete req.session.data.errorList
-    const commodities = require('../../data/commodity-list.js')
+    const commoditiesData = require('../../data/commodities.js')
+    const commodityOptions = Object.entries(commoditiesData).map(([key, d]) => ({
+      value: key,
+      text: `${d.commonName || key} (${d.code})`
+    }))
     res.render('v2-post-baseline/create/commodity', {
-      commodities
+      commodityOptions
     })
   })
 
@@ -317,7 +712,8 @@ module.exports = (router) => {
     delete req.session.data.errorList
     const commodity = req.session.data.commodity
     const commoditiesData = require('../../data/commodities.js')
-    const commodityDetails = commodity ? commoditiesData[commodity] : null
+    const commoditiesEuData = require('../../data/commodities-eu.js')
+    const commodityDetails = commodity ? (commoditiesData[commodity] || commoditiesEuData[commodity]) : null
 
     if (!commodityDetails) {
       return res.redirect(`${BASE}/create/commodity`)
@@ -378,12 +774,32 @@ module.exports = (router) => {
   router.get(`${BASE}/create/import-reason`, (req, res) => {
     delete req.session.data.errors
     delete req.session.data.errorList
-    const commoditySpecies = req.session.data.commoditySpecies || []
+    let commoditySpecies = req.session.data.commoditySpecies || []
+    // When coming from commodity hub, aggregate species from all commodities
+    const commoditiesFromHub = req.session.data.commodities || []
+    if (commoditySpecies.length === 0 && commoditiesFromHub.length > 0) {
+      const allSpecies = []
+      commoditiesFromHub.forEach(c => {
+        (c.commoditySpecies || []).forEach(s => {
+          if (!allSpecies.includes(s)) allSpecies.push(s)
+        })
+      })
+      commoditySpecies = allSpecies
+      req.session.data.commoditySpecies = commoditySpecies
+    }
     const horseSpecies = require('../../data/commodity-list.js').horseSpecies
     const showTemporaryAdmissionHorses = commoditySpecies.some(s => horseSpecies.includes(s))
     const internalMarketPurposes = require('../../data/internal-market-purposes.js')
+    const commoditiesEu = require('../../data/commodities-eu.js')
 
-    const purposeItems = internalMarketPurposes.map(p => ({
+    const commodityNames = commoditiesFromHub.length > 0
+      ? commoditiesFromHub.map(c => c.commodity).filter(Boolean)
+      : (req.session.data.commodity ? [req.session.data.commodity] : [])
+    const internalMarketPurposeOptions = internalMarketPurposes.getPurposeOptionsForCommodities
+      ? internalMarketPurposes.getPurposeOptionsForCommodities(commodityNames, commoditiesEu)
+      : internalMarketPurposes
+
+    const purposeItems = internalMarketPurposeOptions.map(p => ({
       value: p.value,
       text: p.text,
       hint: p.hint ? { text: p.hint } : undefined,
@@ -471,25 +887,43 @@ module.exports = (router) => {
 
     delete req.session.data.errors
     delete req.session.data.errorList
-    res.redirect(`${BASE}/create/commodity-quantities`)
+    res.redirect(`${BASE}/create/accompanying-documents`)
   })
 
   router.get(`${BASE}/create/import-reason-prefill`, (req, res) => {
     req.session.data.importReason = 'internal-market'
     req.session.data.internalMarketPurpose = 'breeding'
+    req.session.data.commodityPickerFromCreate = true
+    req.session.data.commodities = req.session.data.commodities || []
     delete req.session.data.errors
     delete req.session.data.errorList
-    res.redirect(`${BASE}/create/commodity-quantities`)
+    res.redirect(`${BASE}/create/accompanying-documents`)
   })
 
   router.get(`${BASE}/create/commodity-quantities`, (req, res) => {
     delete req.session.data.errors
     delete req.session.data.errorList
-    const commodity = req.session.data.commodity
-    const commoditySpecies = req.session.data.commoditySpecies || []
-    const commodityType = req.session.data.commodityType || 'domestic'
-    const commoditiesData = require('../../data/commodities.js')
-    const commodityDetails = commodity ? commoditiesData[commodity] : null
+    let commodity = req.session.data.commodity
+    let commoditySpecies = req.session.data.commoditySpecies || []
+    let commodityType = req.session.data.commodityType || 'domestic'
+    let commoditiesData = require('../../data/commodities.js')
+
+    // When coming from commodity picker hub, sync first commodity from array
+    const commoditiesFromHub = req.session.data.commodities || []
+    if ((!commodity || commoditySpecies.length === 0) && commoditiesFromHub.length > 0) {
+      const first = commoditiesFromHub[0]
+      commodity = first.commodity
+      commoditySpecies = first.commoditySpecies || []
+      commodityType = first.commodityType || 'domestic'
+      req.session.data.commodity = commodity
+      req.session.data.commoditySpecies = commoditySpecies
+      req.session.data.commodityType = commodityType
+      if (first.quantities) {
+        Object.assign(req.session.data, first.quantities)
+      }
+      commoditiesData = require('../../data/commodities-eu.js')
+    }
+    const commodityDetails = commodity ? (commoditiesData[commodity] || require('../../data/commodities-eu.js')[commodity]) : null
 
     if (!commodityDetails || commoditySpecies.length === 0) {
       return res.redirect(`${BASE}/create/commodity-species`)
@@ -579,17 +1013,115 @@ module.exports = (router) => {
     })
     delete req.session.data.errors
     delete req.session.data.errorList
-    res.redirect(`${BASE}/create/animal-identification-prefill`)
+    res.redirect(`${BASE}/create/animal-identification`)
   })
+
+  function buildIdentificationBlocks (data) {
+    const toKey = (s) => String(s || '').replace(/\s+/g, '_').toLowerCase().replace(/[^a-z0-9_]/g, '')
+    const commoditiesData = require('../../data/commodities.js')
+    const commoditiesEuData = require('../../data/commodities-eu.js')
+    const blocks = []
+    const commoditiesFromHub = data.commodities || []
+
+    if (commoditiesFromHub.length > 0) {
+      // From hub: use all commodities
+      commoditiesFromHub.forEach((item) => {
+        const d = commoditiesEuData[item.commodity] || commoditiesData[item.commodity] || {}
+        const species = item.commoditySpecies || []
+        const typeLabel = (item.commodityType || 'domestic') === 'game' ? 'Game' : 'Domestic'
+        const quantities = item.quantities || {}
+        const speciesRows = species.map(s => {
+          const key = toKey(s)
+          const qty = parseInt(quantities[`quantity_${key}`], 10) || 0
+          const animals = []
+          for (let i = 1; i <= qty; i++) {
+            animals.push({
+              index: i,
+              earTagKey: `earTag_${key}_${i}`,
+              passportKey: `passport_${key}_${i}`
+            })
+          }
+          return {
+            key,
+            speciesAndType: `${s}, ${typeLabel}`,
+            quantity: qty,
+            animals
+          }
+        }).filter(s => s.quantity > 0)
+        if (speciesRows.length > 0) {
+          blocks.push({
+            commodityLabel: d.commonName || item.commodity || 'Not provided',
+            commodityCode: d.code || '',
+            description: d.description || 'Not provided',
+            speciesRows
+          })
+        }
+      })
+    } else {
+      // Fallback: flat format (single commodity)
+      const commodity = data.commodity
+      const rawSpecies = data.commoditySpecies
+      const commoditySpecies = Array.isArray(rawSpecies) ? rawSpecies : (rawSpecies ? [rawSpecies] : [])
+      const commodityType = data.commodityType || 'domestic'
+      const typeLabel = commodityType === 'game' ? 'Game' : 'Domestic'
+      const d = commodity ? (commoditiesData[commodity] || commoditiesEuData[commodity]) : null
+      if (d && commoditySpecies.length > 0) {
+        const speciesRows = commoditySpecies.map(s => {
+          const key = toKey(s)
+          const qty = parseInt(data[`quantity_${key}`], 10) || 0
+          const animals = []
+          for (let i = 1; i <= qty; i++) {
+            animals.push({
+              index: i,
+              earTagKey: `earTag_${key}_${i}`,
+              passportKey: `passport_${key}_${i}`
+            })
+          }
+          return {
+            key,
+            speciesAndType: `${s}, ${typeLabel}`,
+            quantity: qty,
+            animals
+          }
+        }).filter(s => s.quantity > 0)
+        if (speciesRows.length > 0) {
+          blocks.push({
+            commodityLabel: d.commonName || commodity || 'Not provided',
+            commodityCode: d.code || '',
+            description: d.description || 'Not provided',
+            speciesRows
+          })
+        }
+      }
+    }
+    return blocks
+  }
 
   router.get(`${BASE}/create/animal-identification`, (req, res) => {
     delete req.session.data.errors
     delete req.session.data.errorList
-    const commodity = req.session.data.commodity
-    const commoditySpecies = req.session.data.commoditySpecies || []
-    const commodityType = req.session.data.commodityType || 'domestic'
+
+    const commoditiesFromHub = req.session.data.commodities || []
+    let commodity = req.session.data.commodity
+    let commoditySpecies = req.session.data.commoditySpecies || []
+    let fromHub = false
+
+    if ((!commodity || commoditySpecies.length === 0) && commoditiesFromHub.length > 0) {
+      const first = commoditiesFromHub[0]
+      commodity = first.commodity
+      commoditySpecies = first.commoditySpecies || []
+      req.session.data.commodity = commodity
+      req.session.data.commoditySpecies = commoditySpecies
+      req.session.data.commodityType = first.commodityType || 'domestic'
+      if (first.quantities) {
+        Object.assign(req.session.data, first.quantities)
+      }
+      fromHub = true
+    }
+
     const commoditiesData = require('../../data/commodities.js')
-    const commodityDetails = commodity ? commoditiesData[commodity] : null
+    const commoditiesEuData = require('../../data/commodities-eu.js')
+    const commodityDetails = commodity ? (commoditiesData[commodity] || commoditiesEuData[commodity]) : null
 
     if (!commodityDetails || commoditySpecies.length === 0) {
       return res.redirect(`${BASE}/create/commodity-species`)
@@ -600,76 +1132,48 @@ module.exports = (router) => {
       const q = parseInt(req.session.data[quantityKey(s)], 10)
       return !isNaN(q) && q > 0
     })
-    if (!hasQuantities) {
+    if (!hasQuantities && !fromHub) {
       return res.redirect(`${BASE}/create/commodity-quantities`)
     }
 
-    const typeLabel = commodityType === 'game' ? 'Game' : 'Domestic'
-    const speciesRows = commoditySpecies.map(s => {
-      const key = s.replace(/\s+/g, '_').toLowerCase().replace(/[^a-z0-9_]/g, '')
-      const quantityKey = `quantity_${key}`
-      const quantity = parseInt(req.session.data[quantityKey], 10) || 0
-      const animals = []
-      for (let i = 1; i <= quantity; i++) {
-        animals.push({
-          index: i,
-          earTagKey: `earTag_${key}_${i}`,
-          passportKey: `passport_${key}_${i}`
-        })
-      }
-      return {
-        key,
-        speciesAndType: `${s}, ${typeLabel}`,
-        quantity,
-        animals
-      }
-    })
+    const identificationBlocks = buildIdentificationBlocks(req.session.data)
+    if (identificationBlocks.length === 0) {
+      return res.redirect(`${BASE}/create/commodity-species`)
+    }
 
+    const backHref = fromHub ? `${BASE}/commodity-picker/hub` : `${BASE}/create/commodity-quantities`
     res.render('v2-post-baseline/create/animal-identification', {
-      commodityDetails,
-      speciesRows
+      identificationBlocks,
+      backHref
     })
   })
 
   router.get(`${BASE}/create/animal-identification-prefill`, (req, res) => {
-    const commodity = req.session.data.commodity
-    const commoditySpecies = req.session.data.commoditySpecies || []
-    const commodityType = req.session.data.commodityType || 'domestic'
-    const commoditiesData = require('../../data/commodities.js')
-    const commodityDetails = commodity ? commoditiesData[commodity] : null
-
-    if (!commodityDetails || commoditySpecies.length === 0) {
+    const identificationBlocks = buildIdentificationBlocks(req.session.data)
+    if (identificationBlocks.length === 0) {
       return res.redirect(`${BASE}/create/commodity-species`)
     }
 
-    const quantityKey = (s) => `quantity_${s.replace(/\s+/g, '_').toLowerCase().replace(/[^a-z0-9_]/g, '')}`
-    const hasQuantities = commoditySpecies.some(s => {
-      const q = parseInt(req.session.data[quantityKey(s)], 10)
-      return !isNaN(q) && q > 0
-    })
-    if (!hasQuantities) {
-      return res.redirect(`${BASE}/create/commodity-quantities`)
-    }
-
-    // BCMS (Cattle Tracing System) format: 12-digit ear tag (6 herd + 6 individual), passport UK herd check sequential
+    // BCMS (Cattle Tracing System) format for cattle; generic for others
     const HERD_MARK = '123456'
     const CHECK_DIGIT = '7'
     let animalCounter = 0
-    const isCattle = commodity === 'Cow'
-    commoditySpecies.forEach(s => {
-      const key = s.replace(/\s+/g, '_').toLowerCase().replace(/[^a-z0-9_]/g, '')
-      const quantityKey = `quantity_${key}`
-      const quantity = parseInt(req.session.data[quantityKey], 10) || 0
-      for (let i = 1; i <= quantity; i++) {
-        animalCounter++
-        if (isCattle) {
-          req.session.data[`earTag_${key}_${i}`] = `${HERD_MARK}${String(animalCounter).padStart(6, '0')}`
-          req.session.data[`passport_${key}_${i}`] = `UK ${HERD_MARK} ${CHECK_DIGIT} ${String(animalCounter).padStart(5, '0')}`
-        } else {
-          req.session.data[`earTag_${key}_${i}`] = `PRE-${key}-${i}`
-          req.session.data[`passport_${key}_${i}`] = `PASSPORT-${key}-${i}`
+
+    identificationBlocks.forEach(block => {
+      block.speciesRows.forEach(s => {
+        const key = s.key
+        const isCattle = block.commodityLabel === 'Cattle' || block.commodityLabel === 'Cow'
+        for (let i = 1; i <= s.quantity; i++) {
+          animalCounter++
+          if (isCattle) {
+            req.session.data[`earTag_${key}_${i}`] = `${HERD_MARK}${String(animalCounter).padStart(6, '0')}`
+            req.session.data[`passport_${key}_${i}`] = `UK ${HERD_MARK} ${CHECK_DIGIT} ${String(animalCounter).padStart(5, '0')}`
+          } else {
+            req.session.data[`earTag_${key}_${i}`] = `PRE-${key}-${i}`
+            req.session.data[`passport_${key}_${i}`] = `PASSPORT-${key}-${i}`
+          }
         }
-      }
+      })
     })
 
     delete req.session.data.errors
@@ -680,10 +1184,21 @@ module.exports = (router) => {
   router.get(`${BASE}/create/additional-animal-details`, (req, res) => {
     delete req.session.data.errors
     delete req.session.data.errorList
-    const commodity = req.session.data.commodity
-    const commoditySpecies = req.session.data.commoditySpecies || []
+    const data = req.session.data || {}
+    let commodity = data.commodity
+    let commoditySpecies = data.commoditySpecies || []
+    const commoditiesFromHub = data.commodities || []
+    if ((!commodity || commoditySpecies.length === 0) && commoditiesFromHub.length > 0) {
+      const first = commoditiesFromHub[0]
+      commodity = first.commodity
+      commoditySpecies = first.commoditySpecies || []
+      data.commodity = commodity
+      data.commoditySpecies = commoditySpecies
+      if (first.quantities) Object.assign(data, first.quantities)
+    }
     const commoditiesData = require('../../data/commodities.js')
-    const commodityDetails = commodity ? commoditiesData[commodity] : null
+    const commoditiesEuData = require('../../data/commodities-eu.js')
+    const commodityDetails = commodity ? (commoditiesData[commodity] || commoditiesEuData[commodity]) : null
 
     if (!commodityDetails || commoditySpecies.length === 0) {
       return res.redirect(`${BASE}/create/commodity-species`)
@@ -691,7 +1206,7 @@ module.exports = (router) => {
 
     const quantityKey = (s) => `quantity_${s.replace(/\s+/g, '_').toLowerCase().replace(/[^a-z0-9_]/g, '')}`
     const hasQuantities = commoditySpecies.some(s => {
-      const q = parseInt(req.session.data[quantityKey(s)], 10)
+      const q = parseInt(data[quantityKey(s)], 10)
       return !isNaN(q) && q > 0
     })
     if (!hasQuantities) {
@@ -724,7 +1239,7 @@ module.exports = (router) => {
 
     delete req.session.data.errors
     delete req.session.data.errorList
-    res.redirect(`${BASE}/create/accompanying-documents`)
+    res.redirect(`${BASE}/create/origin`)
   })
 
   router.get(`${BASE}/create/additional-animal-details-prefill`, (req, res) => {
@@ -732,7 +1247,7 @@ module.exports = (router) => {
     req.session.data.unweanedAnimals = 'no'
     delete req.session.data.errors
     delete req.session.data.errorList
-    res.redirect(`${BASE}/create/accompanying-documents`)
+    res.redirect(`${BASE}/create/origin`)
   })
 
   router.get(`${BASE}/create/accompanying-documents`, (req, res) => {
@@ -1022,13 +1537,19 @@ module.exports = (router) => {
   })
 
   router.post(`${BASE}/create/addresses`, (req, res) => {
-    delete req.session.data.errors
-    delete req.session.data.errorList
-    res.redirect(`${BASE}/create/address-cph`)
+    const data = req.session.data || {}
+    delete data.errors
+    delete data.errorList
+    let next = `${BASE}/create/contact-address-for-consignment`
+    if (isPetConsignment(data)) next = `${BASE}/create/permanent-addresses-for-animals`
+    else if (isLivestockConsignment(data)) next = `${BASE}/create/address-cph`
+    res.redirect(next)
   })
 
   router.get(`${BASE}/create/address-cph`, (req, res) => {
     const data = req.session.data || {}
+    if (isPetConsignment(data)) return res.redirect(`${BASE}/create/permanent-addresses-for-animals`)
+    if (!isLivestockConsignment(data)) return res.redirect(`${BASE}/create/contact-address-for-consignment`)
     delete data.errors
     delete data.errorList
     res.render('v2-post-baseline/create/address-cph')
@@ -1055,7 +1576,78 @@ module.exports = (router) => {
 
   router.get(`${BASE}/create/address-cph-prefill`, (req, res) => {
     const data = req.session.data || {}
+    if (isPetConsignment(data)) return res.redirect(`${BASE}/create/permanent-addresses-for-animals-prefill`)
+    if (!isLivestockConsignment(data)) {
+      delete data.errors
+      delete data.errorList
+      return res.redirect(`${BASE}/create/contact-address-for-consignment`)
+    }
     data.cphNumber = '12/345/6789'
+    delete data.errors
+    delete data.errorList
+    res.redirect(`${BASE}/create/contact-address-for-consignment`)
+  })
+
+  function getPermanentAddressViewData (data) {
+    const commoditiesEu = require('../../data/commodities-eu.js')
+    const names = Array.isArray(data.commodities) && data.commodities.length > 0
+      ? data.commodities.map(c => c.commodity).filter(Boolean)
+      : (data.commodity ? [data.commodity] : [])
+    const firstPet = names.find(n => PET_COMMODITIES.has(n))
+    const details = firstPet ? commoditiesEu[firstPet] : null
+    const animalLabel = details ? (details.commonName || firstPet) : null
+    const podParts = []
+    if (data.placeOfDestinationName) podParts.push(data.placeOfDestinationName)
+    if (data.placeOfDestinationAddress) {
+      const addr = Array.isArray(data.placeOfDestinationAddress) ? data.placeOfDestinationAddress.join(', ') : data.placeOfDestinationAddress
+      podParts.push(addr)
+    } else if (data.placeOfDestinationAddressLine1) {
+      const lines = [data.placeOfDestinationAddressLine1, data.placeOfDestinationAddressLine2, data.placeOfDestinationTown, data.placeOfDestinationPostcode].filter(Boolean)
+      podParts.push(lines.join(', '))
+    }
+    if (data.placeOfDestinationCountry) podParts.push(data.placeOfDestinationCountry)
+    const podAddressDisplay = podParts.length ? podParts.join(', ') : 'Place of destination address'
+    return { animalLabel, podAddressDisplay }
+  }
+
+  router.get(`${BASE}/create/permanent-addresses-for-animals`, (req, res) => {
+    const data = req.session.data || {}
+    if (!isPetConsignment(data)) return res.redirect(`${BASE}/create/contact-address-for-consignment`)
+    delete data.errors
+    delete data.errorList
+    const viewData = getPermanentAddressViewData(data)
+    res.render('v2-post-baseline/create/permanent-addresses-for-animals', { ...viewData, backHref: `${BASE}/create/addresses` })
+  })
+
+  router.post(`${BASE}/create/permanent-addresses-for-animals`, (req, res) => {
+    const data = req.session.data || {}
+    const sameAsPOD = data.permanentAddressSameAsPOD === 'yes'
+    const errors = {}
+    const errorList = []
+    if (!sameAsPOD) {
+      const name = (data.permanentAddressName || '').trim()
+      const line1 = (data.permanentAddressLine1 || '').trim()
+      const town = (data.permanentAddressTown || '').trim()
+      const postcode = (data.permanentAddressPostcode || '').trim()
+      if (!name) { errors.permanentAddressName = 'Enter the address name'; errorList.push({ href: '#permanentAddressName', text: 'Enter the address name' }) }
+      if (!line1) { errors.permanentAddressLine1 = 'Enter address line 1'; errorList.push({ href: '#permanentAddressLine1', text: 'Enter address line 1' }) }
+      if (!town) { errors.permanentAddressTown = 'Enter the city or town'; errorList.push({ href: '#permanentAddressTown', text: 'Enter the city or town' }) }
+      if (!postcode) { errors.permanentAddressPostcode = 'Enter the postcode'; errorList.push({ href: '#permanentAddressPostcode', text: 'Enter the postcode' }) }
+    }
+    if (errorList.length > 0) {
+      data.errors = errors
+      data.errorList = errorList
+      return res.redirect(`${BASE}/create/permanent-addresses-for-animals`)
+    }
+    delete data.errors
+    delete data.errorList
+    res.redirect(`${BASE}/create/contact-address-for-consignment`)
+  })
+
+  router.get(`${BASE}/create/permanent-addresses-for-animals-prefill`, (req, res) => {
+    const data = req.session.data || {}
+    if (!isPetConsignment(data)) return res.redirect(`${BASE}/create/contact-address-for-consignment`)
+    data.permanentAddressSameAsPOD = 'yes'
     delete data.errors
     delete data.errorList
     res.redirect(`${BASE}/create/contact-address-for-consignment`)
@@ -1075,8 +1667,12 @@ module.exports = (router) => {
         html
       }
     })
+    let backHref = `${BASE}/create/addresses`
+    if (isPetConsignment(data)) backHref = `${BASE}/create/permanent-addresses-for-animals`
+    else if (isLivestockConsignment(data)) backHref = `${BASE}/create/address-cph`
     res.render('v2-post-baseline/create/contact-address-for-consignment', {
-      contactAddressItems
+      contactAddressItems,
+      backHref
     })
   })
 
@@ -1266,10 +1862,6 @@ module.exports = (router) => {
     const documentTypes = require('../../data/document-types.js')
     const getDocumentTypeLabel = (val) => (documentTypes.find(d => d.value === val) || {}).text || val || 'Not provided'
 
-    // Type of goods (import-type page)
-    const importTypeLabel = { 'live-animals': 'Live animals', 'animal-products': 'Animal products' }[data.importType] || data.importType || 'Not provided'
-    const typeOfGoodsRows = [row('Type of goods', importTypeLabel)]
-
     // Origin of the import (origin page) – matches form fields: country, region of origin, internal reference (optional)
     const originRows = [
       row('Country of origin', data.countryOfOrigin || 'Not provided'),
@@ -1288,71 +1880,128 @@ module.exports = (router) => {
       importReasonRows.push(row('Purpose in the internal market', purpose ? purpose.text : data.internalMarketPurpose))
     }
 
-    // Description of the goods – commodity info + table: Species | Number of animals | Number of packages
+    // Description of the goods – use commodities array when from hub, else flat format
     const commoditiesData = require('../../data/commodities.js')
-    const commodityDetails = data.commodity ? commoditiesData[data.commodity] : null
-    const descriptionSummaryRows = []
-    if (commodityDetails) {
-      descriptionSummaryRows.push(row('Commodity code', commodityDetails.code || 'Not provided'))
-      descriptionSummaryRows.push(row('Common name', commodityDetails.commonName || data.commodity || 'Not provided'))
-      descriptionSummaryRows.push(row('Description', commodityDetails.description || 'Not provided'))
-    }
-    // Normalise to array: checkboxes can return a string when only one is selected (body-parser quirk)
-    const rawSpecies = data.commoditySpecies
-    const commoditySpecies = Array.isArray(rawSpecies) ? rawSpecies : (rawSpecies ? [rawSpecies] : [])
-    const typeLabel = data.commodityType === 'game' ? 'Game' : 'Domestic'
-    const descriptionTableRows = []
-    let totalAnimals = 0
-    let totalPackages = 0
+    const commoditiesEuData = require('../../data/commodities-eu.js')
     const toKey = (s) => String(s || '').replace(/\s+/g, '_').toLowerCase().replace(/[^a-z0-9_]/g, '')
-    commoditySpecies.forEach(s => {
-      const key = toKey(s)
-      const qty = parseInt(data[`quantity_${key}`], 10) || 0
-      const pkg = parseInt(data[`packages_${key}`], 10) || 0
-      totalAnimals += qty
-      totalPackages += pkg
-      descriptionTableRows.push([
-        { text: `${s}, ${typeLabel}` },
-        { text: String(qty), format: 'numeric' },
-        { text: String(pkg), format: 'numeric' }
-      ])
-    })
-    const hasNoDescriptionData = !data.commodity || commoditySpecies.length === 0 || (totalAnimals === 0 && totalPackages === 0)
-    if (hasNoDescriptionData) {
-      // Dummy data for prototype when no session data (e.g. direct link or all zeros)
-      descriptionTableRows.length = 0
-      descriptionTableRows.push(
-        [{ text: 'Bos taurus, Domestic' }, { text: '24', format: 'numeric' }, { text: '3', format: 'numeric' }],
-        [{ text: 'Ovis aries, Domestic' }, { text: '12', format: 'numeric' }, { text: '2', format: 'numeric' }],
-        [{ text: 'Total', classes: 'govuk-table__header' }, { text: '36', format: 'numeric' }, { text: '5', format: 'numeric' }]
-      )
+
+    let commodityBlocks = []
+    const commoditiesFromHub = data.commodities || []
+
+    if (commoditiesFromHub.length > 0) {
+      commoditiesFromHub.forEach(item => {
+        const d = commoditiesEuData[item.commodity] || commoditiesData[item.commodity] || {}
+        const species = item.commoditySpecies || []
+        const typeLabel = (item.commodityType || 'domestic') === 'game' ? 'Game' : 'Domestic'
+        const quantities = item.quantities || {}
+        const tableRows = []
+        let itemAnimals = 0
+        let itemPackages = 0
+        species.forEach(s => {
+          const key = toKey(s)
+          const qty = parseInt(quantities[`quantity_${key}`], 10) || 0
+          const pkg = parseInt(quantities[`packages_${key}`], 10) || 0
+          itemAnimals += qty
+          itemPackages += pkg
+          tableRows.push([
+            { text: `${s}, ${typeLabel}` },
+            { text: String(qty), format: 'numeric' },
+            { text: String(pkg), format: 'numeric' }
+          ])
+        })
+        if (tableRows.length > 0) {
+          tableRows.push([
+            { text: 'Total', classes: 'govuk-table__header' },
+            { text: String(itemAnimals), format: 'numeric' },
+            { text: String(itemPackages), format: 'numeric' }
+          ])
+        }
+        commodityBlocks.push({
+          commodityCode: d.code || '',
+          commonName: d.commonName || item.commodity || 'Not provided',
+          description: d.description || 'Not provided',
+          tableRows
+        })
+      })
     } else {
-      descriptionTableRows.push([
-        { text: 'Total', classes: 'govuk-table__header' },
-        { text: String(totalAnimals), format: 'numeric' },
-        { text: String(totalPackages), format: 'numeric' }
-      ])
+      const commodityDetails = data.commodity ? (commoditiesData[data.commodity] || commoditiesEuData[data.commodity]) : null
+      const rawSpecies = data.commoditySpecies
+      const commoditySpecies = Array.isArray(rawSpecies) ? rawSpecies : (rawSpecies ? [rawSpecies] : [])
+      const typeLabel = data.commodityType === 'game' ? 'Game' : 'Domestic'
+      const descriptionTableRows = []
+      let totalAnimals = 0
+      let totalPackages = 0
+      commoditySpecies.forEach(s => {
+        const key = toKey(s)
+        const qty = parseInt(data[`quantity_${key}`], 10) || 0
+        const pkg = parseInt(data[`packages_${key}`], 10) || 0
+        totalAnimals += qty
+        totalPackages += pkg
+        descriptionTableRows.push([
+          { text: `${s}, ${typeLabel}` },
+          { text: String(qty), format: 'numeric' },
+          { text: String(pkg), format: 'numeric' }
+        ])
+      })
+      const hasNoDescriptionData = !data.commodity || commoditySpecies.length === 0 || (totalAnimals === 0 && totalPackages === 0)
+      if (hasNoDescriptionData) {
+        descriptionTableRows.length = 0
+        descriptionTableRows.push(
+          [{ text: 'Bos taurus, Domestic' }, { text: '24', format: 'numeric' }, { text: '3', format: 'numeric' }],
+          [{ text: 'Ovis aries, Domestic' }, { text: '12', format: 'numeric' }, { text: '2', format: 'numeric' }],
+          [{ text: 'Total', classes: 'govuk-table__header' }, { text: '36', format: 'numeric' }, { text: '5', format: 'numeric' }]
+        )
+        commodityBlocks.push({
+          commodityCode: '0102',
+          commonName: 'Cow',
+          description: 'Live bovine animals',
+          tableRows: descriptionTableRows
+        })
+      } else {
+        descriptionTableRows.push([
+          { text: 'Total', classes: 'govuk-table__header' },
+          { text: String(totalAnimals), format: 'numeric' },
+          { text: String(totalPackages), format: 'numeric' }
+        ])
+        commodityBlocks.push({
+          commodityCode: commodityDetails ? (commodityDetails.code || '') : '',
+          commonName: commodityDetails ? (commodityDetails.commonName || data.commodity) : data.commodity || 'Not provided',
+          description: commodityDetails ? (commodityDetails.description || '') : 'Not provided',
+          tableRows: descriptionTableRows
+        })
+      }
     }
+
+    const commoditySpecies = Array.isArray(data.commoditySpecies) ? data.commoditySpecies : (data.commoditySpecies ? [data.commoditySpecies] : [])
+    const typeLabel = data.commodityType === 'game' ? 'Game' : 'Domestic'
 
     // County Parish Holding number (CPH) (address-cph page)
     const cphRows = [row('County Parish Holding number (CPH)', data.cphNumber || 'Not provided')]
 
-    // Animal identification – first species/animal as summary, or placeholder
-    const animalIdRows = []
-    if (commoditySpecies.length > 0) {
-      const key = commoditySpecies[0].replace(/\s+/g, '_').toLowerCase().replace(/[^a-z0-9_]/g, '')
-      const earTag1 = data[`earTag_${key}_1`] || 'Not provided'
-      const passport1 = data[`passport_${key}_1`] || 'Not provided'
-      animalIdRows.push(row('Identification device', 'Ear tag\nPassport'))
-      animalIdRows.push(row('Animal', `${commoditySpecies[0]}, ${typeLabel}`))
-      animalIdRows.push(row('Identification 1', `${earTag1}\n${passport1}`))
-      if (data[`earTag_${key}_2`] || data[`passport_${key}_2`]) {
-        animalIdRows.push(row('Identification 2', `${data[`earTag_${key}_2`] || '-'}\n${data[`passport_${key}_2`] || '-'}`))
-      }
-    }
-    if (animalIdRows.length === 0) {
-      animalIdRows.push(row('Details', 'Not yet provided'))
-    }
+    // Animal identification – table per commodity/species (matches input form layout)
+    const animalIdBlocks = []
+    const idBlocks = buildIdentificationBlocks(data)
+    idBlocks.forEach(block => {
+      block.speciesRows.forEach(s => {
+        const tableRows = []
+        for (let i = 1; i <= s.quantity; i++) {
+          const earTag = data[`earTag_${s.key}_${i}`] || 'Not provided'
+          const passport = data[`passport_${s.key}_${i}`] || 'Not provided'
+          tableRows.push([
+            { text: `${s.speciesAndType} ${i} of ${s.quantity}` },
+            { text: earTag },
+            { text: passport }
+          ])
+        }
+        if (tableRows.length > 0) {
+          animalIdBlocks.push({
+            commodityLabel: block.commodityLabel,
+            speciesAndType: s.speciesAndType,
+            tableRows
+          })
+        }
+      })
+    })
 
     // Additional animal details
     const certLabels = { 'approved-bodies': 'Approved bodies', 'breeding-production': 'Breeding and/or production', 'slaughter': 'Slaughter' }
@@ -1449,17 +2098,34 @@ module.exports = (router) => {
       row('Approval number', transporterApprovalDisplay)
     ]
 
+    const showCphSection = isLivestockConsignment(data)
+    const showPermanentAddressSection = isPetConsignment(data)
+    const permanentAddressRows = []
+    if (showPermanentAddressSection) {
+      const sameAsPOD = data.permanentAddressSameAsPOD === 'yes'
+      if (sameAsPOD) {
+        const podView = getPermanentAddressViewData(data)
+        permanentAddressRows.push(rowHtml('Permanent address', podView.podAddressDisplay))
+      } else {
+        const parts = [data.permanentAddressName, data.permanentAddressLine1, data.permanentAddressLine2, data.permanentAddressLine3, data.permanentAddressTown, data.permanentAddressPostcode].filter(Boolean)
+        if (data.permanentAddressTelephone) parts.push(`Tel: ${data.permanentAddressTelephone}`)
+        if (data.permanentAddressEmail) parts.push(`Email: ${data.permanentAddressEmail}`)
+        permanentAddressRows.push(rowHtml('Permanent address', parts.join('<br>') || 'Not provided'))
+      }
+    }
+
     return {
-      typeOfGoodsRows,
       originRows,
       importReasonRows,
-      descriptionSummaryRows,
-      descriptionTableRows,
-      animalIdRows,
+      commodityBlocks,
+      animalIdBlocks,
       additionalAnimalRows,
       documentsTableRows,
       addressRows,
       cphRows,
+      showCphSection,
+      showPermanentAddressSection,
+      permanentAddressRows,
       contactAddressRows,
       arrivalRows,
       transporterRows
@@ -1480,6 +2146,11 @@ module.exports = (router) => {
     d.commodityType = 'domestic'
     d.quantity_bos_taurus = 24
     d.packages_bos_taurus = 3
+    // Populate commodities array so multiple commodities show on Check your answers
+    d.commodities = [
+      { commodity: 'Cattle', commoditySpecies: ['Bos taurus'], commodityType: 'domestic', quantities: { quantity_bos_taurus: 24, packages_bos_taurus: 3 } },
+      { commodity: 'Sheep', commoditySpecies: ['Ovis aries'], commodityType: 'domestic', quantities: { quantity_ovis_aries: 12, packages_ovis_aries: 2 } }
+    ]
     d.earTag_bos_taurus_1 = 'UK123456789000'
     d.passport_bos_taurus_1 = 'GB-2024-001'
     d.animalsCertifiedFor = 'breeding-production'
@@ -1555,14 +2226,28 @@ module.exports = (router) => {
     req.session.data.lastReferenceNumber = referenceNumber
 
     const commoditiesData = require('../../data/commodities.js')
-    const commodityDetails = data.commodity ? commoditiesData[data.commodity] : null
-    const commodityCode = commodityDetails ? commodityDetails.code : (data.commodityCode || '')
-    const commodityName = (data.commoditySpecies && data.commoditySpecies[0]) || 'Live animals'
-    const commodityDisplay = commodityCode ? `${commodityName} (${commodityCode})` : commodityName
+    const commoditiesEuData = require('../../data/commodities-eu.js')
+    const commodityDisplays = []
+    const hubCommodities = data.commodities || []
+    if (hubCommodities.length > 0) {
+      hubCommodities.forEach((item) => {
+        const d = commoditiesEuData[item.commodity] || commoditiesData[item.commodity] || {}
+        const species = item.commoditySpecies && item.commoditySpecies[0]
+        const code = d.code || ''
+        const name = species || d.commonName || item.commodity || 'Live animals'
+        commodityDisplays.push(code ? `${name} (${code})` : name)
+      })
+    } else {
+      const commodityDetails = data.commodity ? commoditiesData[data.commodity] : null
+      const commodityCode = commodityDetails ? commodityDetails.code : (data.commodityCode || '')
+      const commodityName = (data.commoditySpecies && data.commoditySpecies[0]) || 'Live animals'
+      commodityDisplays.push(commodityCode ? `${commodityName} (${commodityCode})` : commodityName)
+    }
 
     const submitted = {
       reference: referenceNumber,
-      commodity: commodityDisplay,
+      commodity: commodityDisplays[0] || 'Not provided',
+      commodities: commodityDisplays,
       origin: data.countryOfOrigin || 'Not provided',
       consignee: data.consigneeName || (data.consignee && data.consignee.name) || 'Not provided',
       consignor: data.consignorName || (data.consignor && data.consignor.name) || 'Not provided',
@@ -1897,63 +2582,42 @@ module.exports = (router) => {
     data.placeOfDestinationType = place.type
     delete data.errors
     delete data.errorList
-    res.redirect(`${BASE}/create/address-cph`)
+    let next = `${BASE}/create/contact-address-for-consignment`
+    if (isPetConsignment(data)) next = `${BASE}/create/permanent-addresses-for-animals`
+    else if (isLivestockConsignment(data)) next = `${BASE}/create/address-cph`
+    res.redirect(next)
   })
 
   router.post(`${BASE}/create/animal-identification`, (req, res) => {
-    const commodity = req.session.data.commodity
-    const commoditySpecies = req.session.data.commoditySpecies || []
-    const commoditiesData = require('../../data/commodities.js')
-    const commodityDetails = commodity ? commoditiesData[commodity] : null
-
-    if (!commodityDetails || commoditySpecies.length === 0) {
+    const identificationBlocks = buildIdentificationBlocks(req.session.data)
+    if (identificationBlocks.length === 0) {
       return res.redirect(`${BASE}/create/commodity-species`)
     }
 
-    const commodityType = req.session.data.commodityType || 'domestic'
-    const typeLabel = commodityType === 'game' ? 'Game' : 'Domestic'
-    const speciesRows = commoditySpecies.map(s => {
-      const key = s.replace(/\s+/g, '_').toLowerCase().replace(/[^a-z0-9_]/g, '')
-      const quantityKey = `quantity_${key}`
-      const quantity = parseInt(req.session.data[quantityKey], 10) || 0
-      const animals = []
-      for (let i = 1; i <= quantity; i++) {
-        animals.push({
-          index: i,
-          earTagKey: `earTag_${key}_${i}`,
-          passportKey: `passport_${key}_${i}`
-        })
-      }
-      return {
-        key,
-        speciesAndType: `${s}, ${typeLabel}`,
-        quantity,
-        animals
-      }
-    })
-
     const errors = {}
     const errorList = []
-    speciesRows.forEach(s => {
-      s.animals.forEach(a => {
-        const earTagVal = req.session.data[a.earTagKey]
-        const passportVal = req.session.data[a.passportKey]
-        const earTagMissing = !earTagVal || String(earTagVal).trim() === ''
-        const passportMissing = !passportVal || String(passportVal).trim() === ''
+    identificationBlocks.forEach(block => {
+      block.speciesRows.forEach(s => {
+        s.animals.forEach(a => {
+          const earTagVal = req.session.data[a.earTagKey]
+          const passportVal = req.session.data[a.passportKey]
+          const earTagMissing = !earTagVal || String(earTagVal).trim() === ''
+          const passportMissing = !passportVal || String(passportVal).trim() === ''
 
-        if (earTagMissing) errors[a.earTagKey] = 'Enter the ear tag number'
-        if (passportMissing) errors[a.passportKey] = 'Enter the passport number'
+          if (earTagMissing) errors[a.earTagKey] = 'Enter the ear tag number'
+          if (passportMissing) errors[a.passportKey] = 'Enter the passport number'
 
-        if (earTagMissing || passportMissing) {
-          const animalLabel = `${s.speciesAndType} animal ${a.index}`
-          const missingParts = []
-          if (earTagMissing) missingParts.push('ear tag')
-          if (passportMissing) missingParts.push('passport')
-          const message = missingParts.length === 2
-            ? `Enter the ear tag and passport for ${animalLabel}`
-            : `Enter the ${missingParts[0]} for ${animalLabel}`
-          errorList.push({ href: `#ear-tag-${a.earTagKey}`, text: message })
-        }
+          if (earTagMissing || passportMissing) {
+            const animalLabel = `${s.speciesAndType} animal ${a.index}`
+            const missingParts = []
+            if (earTagMissing) missingParts.push('ear tag')
+            if (passportMissing) missingParts.push('passport')
+            const message = missingParts.length === 2
+              ? `Enter the ear tag and passport for ${animalLabel}`
+              : `Enter the ${missingParts[0]} for ${animalLabel}`
+            errorList.push({ href: `#ear-tag-${a.earTagKey}`, text: message })
+          }
+        })
       })
     })
 
@@ -1966,6 +2630,86 @@ module.exports = (router) => {
     delete req.session.data.errors
     delete req.session.data.errorList
     res.redirect(`${BASE}/create/additional-animal-details`)
+  })
+
+  router.get(`${BASE}/create/save-draft`, (req, res) => {
+    const data = req.session.data || {}
+    const returnTo = (req.query.returnTo || 'check-your-answers').replace(/[^a-z0-9-]/g, '')
+    const year = new Date().getFullYear()
+    const suffix = String(Math.floor(1000000 + Math.random() * 9000000))
+    const referenceNumber = `IMP.GB.${year}.${suffix}`
+
+    const commoditiesData = require('../../data/commodities.js')
+    const commoditiesEuData = require('../../data/commodities-eu.js')
+    const commodityDisplays = []
+    const hubCommodities = data.commodities || []
+    if (hubCommodities.length > 0) {
+      hubCommodities.forEach((item) => {
+        const d = commoditiesEuData[item.commodity] || commoditiesData[item.commodity] || {}
+        const species = item.commoditySpecies && item.commoditySpecies[0]
+        const code = d.code || ''
+        const name = species || d.commonName || item.commodity || 'Live animals'
+        commodityDisplays.push(code ? `${name} (${code})` : name)
+      })
+    } else if (data.commodity) {
+      const d = commoditiesEuData[data.commodity] || commoditiesData[data.commodity] || {}
+      const name = (data.commoditySpecies && data.commoditySpecies[0]) || d.commonName || data.commodity
+      const code = d.code || ''
+      commodityDisplays.push(code ? `${name} (${code})` : name)
+    }
+    if (commodityDisplays.length === 0) commodityDisplays.push('Not yet provided')
+
+    const toDisplayDate = (iso) => {
+      if (!iso || typeof iso !== 'string') return 'Not yet provided'
+      const [y, m, d] = iso.split('-').map(Number)
+      const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
+      return m ? `${d} ${months[m - 1]} ${y}` : iso
+    }
+
+    const draft = {
+      reference: referenceNumber,
+      commodity: commodityDisplays[0],
+      commodities: commodityDisplays,
+      origin: data.countryOfOrigin || 'Not yet provided',
+      consignee: data.consigneeName || (data.consignee && data.consignee.name) || 'Not yet provided',
+      consignor: data.consignorName || (data.consignor && data.consignor.name) || 'Not yet provided',
+      arrival: toDisplayDate(data.arrivalDate) || 'Not yet provided',
+      status: 'draft',
+      resumeUrl: `${BASE}/create/${returnTo}`,
+      sessionSnapshot: JSON.parse(JSON.stringify(data))
+    }
+
+    if (!Array.isArray(data.submittedNotifications)) data.submittedNotifications = []
+    data.submittedNotifications.push(draft)
+    if (!data.draftSessions) data.draftSessions = {}
+    data.draftSessions[referenceNumber] = draft.sessionSnapshot
+
+    delete data.errors
+    delete data.errorList
+    req.session.data.draftSaved = referenceNumber
+    res.redirect(`${BASE}/dashboard?saved=draft`)
+  })
+
+  router.get(`${BASE}/create/resume-draft/:reference`, (req, res) => {
+    const ref = req.params.reference
+    const data = req.session.data || {}
+    const draftSessions = data.draftSessions || {}
+    const snapshot = draftSessions[ref]
+    const submitted = data.submittedNotifications || []
+    const draft = submitted.find(n => n.reference === ref && n.status === 'draft')
+
+    if (!draft || !snapshot) {
+      return res.redirect(`${BASE}/dashboard`)
+    }
+
+    Object.keys(snapshot).forEach(k => {
+      if (k !== 'submittedNotifications' && k !== 'draftSessions' && k !== 'draftSaved') {
+        data[k] = snapshot[k]
+      }
+    })
+    delete data.errors
+    delete data.errorList
+    res.redirect(draft.resumeUrl || `${BASE}/create/check-your-answers`)
   })
 
   router.get(`${BASE}/clear-filters`, (req, res) => {
