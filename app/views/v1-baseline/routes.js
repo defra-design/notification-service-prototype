@@ -979,7 +979,7 @@ module.exports = (router) => {
     const isPetIdentification = commodityDetails.code === '01061900'
     const isGameBirdIdentification = commodityDetails.code === '01063980'
     const isHorseIdentification = commodityDetails.code === '0101'
-    const isEarTagOnlyIdentification = commodityDetails.code === '010410'
+    const isEarTagOnlyIdentification = ['010410', '0103'].includes(commodityDetails.code)
     const speciesRows = commoditySpecies.map(s => {
       const key = s.replace(/\s+/g, '_').toLowerCase().replace(/[^a-z0-9_]/g, '')
       const quantityKey = `quantity_${key}`
@@ -1053,7 +1053,7 @@ module.exports = (router) => {
     const isPetIdentification = commodityDetails && commodityDetails.code === '01061900'
     const isGameBirdIdentification = commodityDetails && commodityDetails.code === '01063980'
     const isHorseIdentification = commodityDetails && commodityDetails.code === '0101'
-    const isEarTagOnlyIdentification = commodityDetails && commodityDetails.code === '010410'
+    const isEarTagOnlyIdentification = commodityDetails && ['010410', '0103'].includes(commodityDetails.code)
     commoditySpecies.forEach(s => {
       const key = s.replace(/\s+/g, '_').toLowerCase().replace(/[^a-z0-9_]/g, '')
       const quantityKey = `quantity_${key}`
@@ -1786,7 +1786,7 @@ module.exports = (router) => {
     if (commodityDetails) {
       descriptionSummaryRows.push(row('Commodity code', commodityDetails.code || 'Not provided'))
       descriptionSummaryRows.push(row('Common name', commodityDetails.commonName || data.commodity || 'Not provided'))
-      descriptionSummaryRows.push(row('Description', commodityDetails.description || 'Not provided'))
+      descriptionSummaryRows.push(row('Classification', commodityDetails.description || 'Not provided'))
     }
     // Normalise to array: checkboxes can return a string when only one is selected (body-parser quirk)
     const rawSpecies = data.commoditySpecies
@@ -2406,7 +2406,7 @@ module.exports = (router) => {
     const isPetIdentification = commodityDetails.code === '01061900'
     const isGameBirdIdentification = commodityDetails.code === '01063980'
     const isHorseIdentification = commodityDetails.code === '0101'
-    const isEarTagOnlyIdentification = commodityDetails.code === '010410'
+    const isEarTagOnlyIdentification = ['010410', '0103'].includes(commodityDetails.code)
     const speciesRows = commoditySpecies.map(s => {
       const key = s.replace(/\s+/g, '_').toLowerCase().replace(/[^a-z0-9_]/g, '')
       const quantityKey = `quantity_${key}`
