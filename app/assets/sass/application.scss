@@ -96,6 +96,15 @@
   }
 }
 
+// Animal identification – fixed width on Animal column so Ear tag/Passport inputs align across species
+.animal-identification-table {
+  .govuk-table__header:first-child,
+  .govuk-table__cell:first-child {
+    width: 320px;
+    min-width: 320px;
+  }
+}
+
 // Commodity details table (Check your answers) – right-align Number of animals, Number of packages
 .commodity-details-table {
   .govuk-table__header:nth-child(2),

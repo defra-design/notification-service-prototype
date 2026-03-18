@@ -1,6 +1,7 @@
 {
   "serviceName": "Import notification service",
   "useServiceNavigation": true,
+  "useHttps": false,
   "plugins": {
     "govuk-frontend": {
       "rebrand": true

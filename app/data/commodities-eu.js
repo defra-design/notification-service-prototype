@@ -21,7 +21,7 @@ module.exports = {
   'Domestic European Rabbits': { code: '01061410', commonName: 'Domestic European Rabbits', description: 'Oryctolagus cuniculus', commodityTypes: ['Domestic'], species: ['Oryctolagus cuniculus'] },
   'Domestic Rabbits- Other': { code: '01061410', commonName: 'Domestic Rabbits- Other', description: 'Other Lagomorpha', commodityTypes: ['Domestic'], species: ['Otra Lagomorpha'] },
   Donkey: { code: '0101', commonName: 'Donkey', description: 'Equus asinus', commodityTypes: ['Domestic'], species: ['Equus asinus'] },
-  Dog: { code: '01061900', commonName: 'Dog', description: 'Canis lupus familiaris', commodityTypes: ['Domestic'], species: ['Canis lupus familiaris'] },
+  Dog: { code: '01061900', commonName: 'Dog', description: 'Canis familiaris', commodityTypes: ['Domestic'], species: ['Canis familiaris'] },
   Cat: { code: '01061900', commonName: 'Cat', description: 'Felis catus', commodityTypes: ['Domestic'], species: ['Felis catus'] },
   'Embryos/Ova - Cattle': { code: '05119985', commonName: 'Embryos/Ova - Cattle', description: 'Bos taurus embryos/ova', commodityTypes: ['Domestic'], species: ['Bos taurus'] },
   'Embryos/Ova - Goat': { code: '05119985', commonName: 'Embryos/Ova - Goat', description: 'Capra Hircus embryos/ova', commodityTypes: ['Domestic'], species: ['Capra Hircus'] },
