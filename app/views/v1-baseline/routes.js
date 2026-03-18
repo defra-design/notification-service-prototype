@@ -322,6 +322,323 @@ module.exports = (router) => {
     res.redirect(`${BASE}/create/commodity`)
   })
 
+  // Experimental: v1 order (import-type → origin → commodity) with v2 multi-commodity hub
+  const EXP = `${BASE}/experimental`
+  const EXP_PICKER = `${EXP}/commodity-picker`
+
+  router.get(EXP, (req, res) => {
+    res.render('v1-baseline/experimental-index')
+  })
+
+  function buildExperimentalCommoditiesForHub (req) {
+    const commodities = req.session.data.commodities || []
+    const commoditiesData = require('../../data/commodities-eu.js')
+    let totalAnimals = 0
+    let totalPackages = 0
+    const items = commodities.map((item, i) => {
+      const d = commoditiesData[item.commodity] || {}
+      let itemAnimals = 0
+      let itemPackages = 0
+      const quantities = item.quantities || {}
+      Object.keys(quantities).forEach(k => {
+        const val = parseInt(quantities[k], 10)
+        if (!isNaN(val)) {
+          if (k.startsWith('quantity_')) itemAnimals += val
+          if (k.startsWith('packages_')) itemPackages += val
+        }
+      })
+      totalAnimals += itemAnimals
+      totalPackages += itemPackages
+      return {
+        index: i,
+        commodity: item.commodity,
+        label: d.commonName || item.commodity,
+        code: d.code || '',
+        species: item.commoditySpecies || [],
+        totalAnimals: itemAnimals,
+        totalPackages: itemPackages
+      }
+    })
+    return { items, totalAnimals, totalPackages }
+  }
+
+  router.get(`${EXP}/import-type`, (req, res) => {
+    delete req.session.data.errors
+    delete req.session.data.errorList
+    res.render('v1-baseline/experimental/import-type')
+  })
+  router.post(`${EXP}/import-type`, (req, res) => {
+    const importType = req.session.data.importType
+    if (!importType || importType.trim() === '') {
+      req.session.data.errors = { importType: 'Select what you are importing' }
+      req.session.data.errorList = [{ href: '#import-type-1', text: 'Select what you are importing' }]
+      return res.redirect(`${EXP}/import-type`)
+    }
+    delete req.session.data.errors
+    delete req.session.data.errorList
+    res.redirect(`${EXP}/origin`)
+  })
+  router.get(`${EXP}/import-type-prefill`, (req, res) => {
+    req.session.data.importType = 'live-animals'
+    delete req.session.data.errors
+    delete req.session.data.errorList
+    res.redirect(`${EXP}/origin`)
+  })
+
+  router.get(`${EXP}/origin`, (req, res) => {
+    delete req.session.data.errors
+    delete req.session.data.errorList
+    const euCountries = require('../../data/eu-countries.js')
+    const euCountryCodes = require('../../data/eu-country-codes.js')
+    res.render('v1-baseline/experimental/origin', { euCountries, euCountryCodes })
+  })
+  router.post(`${EXP}/origin`, (req, res) => {
+    const countryOfOrigin = req.session.data.countryOfOrigin
+    const regionOfOriginRequired = req.session.data.regionOfOriginRequired
+    const errors = {}
+    const errorList = []
+
+    if (!countryOfOrigin || countryOfOrigin.trim() === '') {
+      errors.countryOfOrigin = 'Select a country'
+      errorList.push({ href: '#countryOfOrigin', text: 'Select a country' })
+    }
+    if (!regionOfOriginRequired || regionOfOriginRequired.trim() === '') {
+      errors.regionOfOriginRequired = 'Select if the consignment requires a region of origin code'
+      errorList.push({ href: '#region-of-origin-1', text: 'Select if the consignment requires a region of origin code' })
+    }
+
+    if (Object.keys(errors).length > 0) {
+      req.session.data.errors = errors
+      req.session.data.errorList = errorList
+      return res.redirect(`${EXP}/origin`)
+    }
+
+    delete req.session.data.errors
+    delete req.session.data.errorList
+    req.session.data.commodities = req.session.data.commodities || []
+    res.redirect(`${EXP_PICKER}/hub`)
+  })
+  router.get(`${EXP}/origin-prefill`, (req, res) => {
+    req.session.data.countryOfOrigin = 'France'
+    req.session.data.regionOfOriginRequired = 'no'
+    req.session.data.consignmentReference = 'REF-2025-001'
+    delete req.session.data.errors
+    delete req.session.data.errorList
+    req.session.data.commodities = req.session.data.commodities || []
+    res.redirect(`${EXP_PICKER}/hub`)
+  })
+
+  router.get(`${EXP_PICKER}/hub`, (req, res) => {
+    const { items, totalAnimals, totalPackages } = buildExperimentalCommoditiesForHub(req)
+    const backHref = `${EXP}/origin`
+    const continueHref = `${BASE}/create/animal-identification`
+    res.render('v1-baseline/experimental/commodity-picker/commodity-hub', {
+      commodities: items,
+      totalAnimals,
+      totalPackages,
+      backHref,
+      continueHref
+    })
+  })
+  router.get(`${EXP_PICKER}/commodity-add`, (req, res) => {
+    delete req.session.data.commodity
+    delete req.session.data.commoditySpecies
+    delete req.session.data.commodityType
+    req.session.data.commodityEditIndex = undefined
+    req.session.data.commodityPickerFromHub = true
+    const quantityKeys = Object.keys(req.session.data).filter(k => k.startsWith('quantity_') || k.startsWith('packages_'))
+    quantityKeys.forEach(k => delete req.session.data[k])
+    delete req.session.data.errors
+    delete req.session.data.errorList
+    res.redirect(`${EXP_PICKER}/commodity`)
+  })
+  router.get(`${EXP_PICKER}/commodity-edit/:index`, (req, res) => {
+    const idx = parseInt(req.params.index, 10)
+    const commodities = req.session.data.commodities || []
+    const item = commodities[idx]
+    if (!item) return res.redirect(`${EXP_PICKER}/hub`)
+    req.session.data.commodity = item.commodity
+    req.session.data.commoditySpecies = [...(item.commoditySpecies || [])]
+    req.session.data.commodityType = item.commodityType || 'domestic'
+    req.session.data.commodityEditIndex = idx
+    req.session.data.commodityPickerFromHub = true
+    const quantityKeys = Object.keys(req.session.data).filter(k => k.startsWith('quantity_') || k.startsWith('packages_'))
+    quantityKeys.forEach(k => delete req.session.data[k])
+    if (item.quantities) Object.assign(req.session.data, item.quantities)
+    delete req.session.data.errors
+    delete req.session.data.errorList
+    res.redirect(`${EXP_PICKER}/commodity`)
+  })
+  router.get(`${EXP_PICKER}/commodity-remove/:index`, (req, res) => {
+    const idx = parseInt(req.params.index, 10)
+    const commodities = req.session.data.commodities || []
+    if (idx >= 0 && idx < commodities.length) {
+      req.session.data.commodities = commodities.filter((_, i) => i !== idx)
+    }
+    res.redirect(`${EXP_PICKER}/hub`)
+  })
+  router.get(`${EXP_PICKER}/commodity`, (req, res) => {
+    delete req.session.data.errors
+    delete req.session.data.errorList
+    const commoditiesData = require('../../data/commodities-eu.js')
+    const commodityOptions = Object.entries(commoditiesData).map(([key, d]) => ({
+      value: key,
+      text: `${d.commonName || key} (${d.code})`
+    }))
+    const commoditiesJson = JSON.stringify(commoditiesData)
+    const initialDataJson = JSON.stringify({
+      commodity: req.session.data.commodity || '',
+      commoditySpecies: req.session.data.commoditySpecies || [],
+      commodityType: req.session.data.commodityType || 'domestic'
+    })
+    const backHref = req.session.data.commodityPickerFromHub ? `${EXP_PICKER}/hub` : `${EXP}/origin`
+    res.render('v1-baseline/experimental/commodity-picker/commodity', {
+      commodityOptions,
+      commoditiesJson,
+      initialDataJson,
+      backHref
+    })
+  })
+  router.post(`${EXP_PICKER}/commodity`, (req, res) => {
+    const commodity = req.session.data.commodity
+    const species = req.session.data.commoditySpecies
+    const errors = {}
+    const errorList = []
+    if (!commodity || commodity.trim() === '') {
+      errors.commodity = 'Select a commodity'
+      errorList.push({ href: '#commodity', text: 'Select a commodity' })
+    }
+    if (!species || !Array.isArray(species) || species.length === 0) {
+      errors.commoditySpecies = 'Select at least one species'
+      errorList.push({ href: '#species-section', text: 'Select at least one species' })
+    }
+    if (Object.keys(errors).length > 0) {
+      req.session.data.errors = errors
+      req.session.data.errorList = errorList
+      return res.redirect(`${EXP_PICKER}/commodity`)
+    }
+    req.session.data.commodityType = req.session.data.commodityType || 'domestic'
+    delete req.session.data.errors
+    delete req.session.data.errorList
+    res.redirect(`${EXP_PICKER}/commodity-quantities`)
+  })
+  router.get(`${EXP_PICKER}/commodity-prefill`, (req, res) => {
+    req.session.data.commodity = 'Cattle'
+    req.session.data.commoditySpecies = ['Bos taurus']
+    req.session.data.commodityType = 'domestic'
+    delete req.session.data.errors
+    delete req.session.data.errorList
+    res.redirect(`${EXP_PICKER}/commodity`)
+  })
+  router.get(`${EXP_PICKER}/commodity-quantities`, (req, res) => {
+    delete req.session.data.errors
+    delete req.session.data.errorList
+    const commodity = req.session.data.commodity
+    const commoditySpecies = req.session.data.commoditySpecies || []
+    const commodityType = req.session.data.commodityType || 'domestic'
+    const commoditiesData = require('../../data/commodities-eu.js')
+    const commodityDetails = commodity ? commoditiesData[commodity] : null
+    if (!commodityDetails || commoditySpecies.length === 0) return res.redirect(`${EXP_PICKER}/commodity`)
+    const typeLabel = commodityType === 'game' ? 'Game' : 'Domestic'
+    const speciesRows = commoditySpecies.map(s => {
+      const key = s.replace(/\s+/g, '_').toLowerCase().replace(/[^a-z0-9_]/g, '')
+      return {
+        key,
+        speciesAndType: `${s}, ${typeLabel}`,
+        quantityKey: `quantity_${key}`,
+        packagesKey: `packages_${key}`
+      }
+    })
+    let totalAnimals = 0
+    let totalPackages = 0
+    speciesRows.forEach(s => {
+      const qty = parseInt(req.session.data[s.quantityKey], 10)
+      const pkg = parseInt(req.session.data[s.packagesKey], 10)
+      totalAnimals += (isNaN(qty) ? 0 : qty)
+      totalPackages += (isNaN(pkg) ? 0 : pkg)
+    })
+    res.render('v1-baseline/experimental/commodity-picker/commodity-quantities', {
+      commodityDetails,
+      speciesRows,
+      totalAnimals,
+      totalPackages
+    })
+  })
+  router.post(`${EXP_PICKER}/commodity-quantities`, (req, res) => {
+    const commodity = req.session.data.commodity
+    const commoditySpecies = req.session.data.commoditySpecies || []
+    const commoditiesData = require('../../data/commodities-eu.js')
+    const commodityDetails = commodity ? commoditiesData[commodity] : null
+    const errors = {}
+    const errorList = []
+    if (!commodityDetails || commoditySpecies.length === 0) return res.redirect(`${EXP_PICKER}/commodity`)
+    const typeLabel = req.session.data.commodityType === 'game' ? 'Game' : 'Domestic'
+    const speciesRows = commoditySpecies.map(s => {
+      const key = s.replace(/\s+/g, '_').toLowerCase().replace(/[^a-z0-9_]/g, '')
+      return { key, speciesAndType: `${s}, ${typeLabel}`, quantityKey: `quantity_${key}`, packagesKey: `packages_${key}` }
+    })
+    speciesRows.forEach((s) => {
+      const qtyVal = req.session.data[s.quantityKey]
+      if (!qtyVal || String(qtyVal).trim() === '' || parseInt(qtyVal, 10) < 0) {
+        errors[s.quantityKey] = 'Enter the number of animals'
+        errorList.push({ href: `#quantity-${s.key}`, text: `Enter the number of animals for ${s.speciesAndType}` })
+      }
+      const pkgVal = req.session.data[s.packagesKey]
+      if (pkgVal === undefined || pkgVal === null || String(pkgVal).trim() === '' || parseInt(pkgVal, 10) < 0) {
+        errors[s.packagesKey] = 'Enter the number of packages'
+        errorList.push({ href: `#packages-${s.key}`, text: `Enter the number of packages for ${s.speciesAndType}` })
+      }
+    })
+    if (Object.keys(errors).length > 0) {
+      req.session.data.errors = errors
+      req.session.data.errorList = errorList
+      return res.redirect(`${EXP_PICKER}/commodity-quantities`)
+    }
+    delete req.session.data.errors
+    delete req.session.data.errorList
+
+    const quantities = {}
+    speciesRows.forEach((s) => {
+      const q = req.session.data[s.quantityKey]
+      const p = req.session.data[s.packagesKey]
+      if (q !== undefined) quantities[s.quantityKey] = q
+      if (p !== undefined) quantities[s.packagesKey] = p
+    })
+    const entry = {
+      commodity,
+      commoditySpecies: commoditySpecies,
+      commodityType: req.session.data.commodityType || 'domestic',
+      quantities
+    }
+    const commodities = req.session.data.commodities || []
+    const editIdx = req.session.data.commodityEditIndex
+    if (typeof editIdx === 'number' && editIdx >= 0 && editIdx < commodities.length) {
+      commodities[editIdx] = entry
+    } else {
+      commodities.push(entry)
+    }
+    req.session.data.commodities = commodities
+    const quantityKeys = Object.keys(req.session.data).filter(k => k.startsWith('quantity_') || k.startsWith('packages_'))
+    quantityKeys.forEach(k => delete req.session.data[k])
+    delete req.session.data.commodity
+    delete req.session.data.commoditySpecies
+    delete req.session.data.commodityType
+    delete req.session.data.commodityEditIndex
+    delete req.session.data.commodityPickerFromHub
+    res.redirect(`${EXP_PICKER}/hub`)
+  })
+  router.get(`${EXP_PICKER}/commodity-quantities-prefill`, (req, res) => {
+    const commoditySpecies = req.session.data.commoditySpecies || []
+    if (commoditySpecies.length > 0) {
+      const key = commoditySpecies[0].replace(/\s+/g, '_').toLowerCase().replace(/[^a-z0-9_]/g, '')
+      req.session.data[`quantity_${key}`] = '10'
+      req.session.data[`packages_${key}`] = '1'
+    }
+    delete req.session.data.errors
+    delete req.session.data.errorList
+    res.redirect(`${EXP_PICKER}/commodity-quantities`)
+  })
+
   router.get(`${BASE}/create/commodity`, (req, res) => {
     delete req.session.data.errors
     delete req.session.data.errorList
@@ -1110,10 +1427,17 @@ module.exports = (router) => {
 
   router.get(`${BASE}/create/permanent-addresses-for-animals`, (req, res) => {
     const data = req.session.data || {}
-    if (!isPetConsignment(data)) return res.redirect(`${BASE}/create/contact-address-for-consignment`)
     delete data.errors
     delete data.errorList
-    const viewData = getPermanentAddressViewData(data)
+    let viewData = getPermanentAddressViewData(data)
+    // Fallback for standalone visits (e.g. from index) – show qualifying pet and sample address
+    if (!viewData.animalLabel) {
+      viewData = {
+        animalLabel: 'Dog (Canis familiaris)',
+        podAddressDisplay: 'Greenfield Farm, Marsh Lane, Ashford, TN25 4PQ, United Kingdom',
+        podAddressLines: ['Greenfield Farm', 'Marsh Lane, Ashford, TN25 4PQ', 'United Kingdom']
+      }
+    }
     res.render('v1-baseline/create/permanent-addresses-for-animals', { ...viewData, backHref: `${BASE}/create/addresses` })
   })
 
@@ -1144,7 +1468,6 @@ module.exports = (router) => {
 
   router.get(`${BASE}/create/permanent-addresses-for-animals-prefill`, (req, res) => {
     const data = req.session.data || {}
-    if (!isPetConsignment(data)) return res.redirect(`${BASE}/create/contact-address-for-consignment`)
     data.permanentAddressSameAsPOD = 'yes'
     delete data.errors
     delete data.errorList
@@ -1153,8 +1476,6 @@ module.exports = (router) => {
 
   router.get(`${BASE}/create/address-cph`, (req, res) => {
     const data = req.session.data || {}
-    if (isPetConsignment(data)) return res.redirect(`${BASE}/create/permanent-addresses-for-animals`)
-    if (!isLivestockConsignment(data)) return res.redirect(`${BASE}/create/contact-address-for-consignment`)
     delete data.errors
     delete data.errorList
     res.render('v1-baseline/create/address-cph')
@@ -1181,12 +1502,6 @@ module.exports = (router) => {
 
   router.get(`${BASE}/create/address-cph-prefill`, (req, res) => {
     const data = req.session.data || {}
-    if (isPetConsignment(data)) return res.redirect(`${BASE}/create/permanent-addresses-for-animals-prefill`)
-    if (!isLivestockConsignment(data)) {
-      delete data.errors
-      delete data.errorList
-      return res.redirect(`${BASE}/create/contact-address-for-consignment`)
-    }
     data.cphNumber = '12/345/6789'
     delete data.errors
     delete data.errorList
