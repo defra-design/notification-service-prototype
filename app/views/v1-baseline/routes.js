@@ -976,23 +976,46 @@ module.exports = (router) => {
     }
 
     const typeLabel = commodityType === 'game' ? 'Game' : 'Domestic'
+    const isPetIdentification = commodityDetails.code === '01061900'
+    const isGameBirdIdentification = commodityDetails.code === '01063980'
+    const isHorseIdentification = commodityDetails.code === '0101'
+    const isEarTagOnlyIdentification = commodityDetails.code === '010410'
     const speciesRows = commoditySpecies.map(s => {
       const key = s.replace(/\s+/g, '_').toLowerCase().replace(/[^a-z0-9_]/g, '')
       const quantityKey = `quantity_${key}`
       const quantity = parseInt(req.session.data[quantityKey], 10) || 0
       const animals = []
       for (let i = 1; i <= quantity; i++) {
-        animals.push({
-          index: i,
-          earTagKey: `earTag_${key}_${i}`,
-          passportKey: `passport_${key}_${i}`
-        })
+        const animal = { index: i }
+        if (isPetIdentification) {
+          animal.microchipKey = `microchip_${key}_${i}`
+          animal.passportKey = `passport_${key}_${i}`
+          animal.tattooKey = `tattoo_${key}_${i}`
+        } else if (isGameBirdIdentification) {
+          animal.flockIdKey = `flockId_${key}_${i}`
+          animal.hatchingDateKey = `hatchingDate_${key}_${i}`
+        } else if (isHorseIdentification) {
+          animal.horseNameKey = `horseName_${key}_${i}`
+          animal.microchipKey = `microchip_${key}_${i}`
+          animal.passportKey = `passport_${key}_${i}`
+        } else if (isEarTagOnlyIdentification) {
+          animal.earTagKey = `earTag_${key}_${i}`
+        } else {
+          animal.earTagKey = `earTag_${key}_${i}`
+          animal.passportKey = `passport_${key}_${i}`
+        }
+        animals.push(animal)
       }
       return {
         key,
+        speciesName: s,
         speciesAndType: `${s}, ${typeLabel}`,
         quantity,
-        animals
+        animals,
+        isPetIdentification,
+        isGameBirdIdentification,
+        isHorseIdentification,
+        isEarTagOnlyIdentification
       }
     })
 
@@ -1027,13 +1050,30 @@ module.exports = (router) => {
     const CHECK_DIGIT = '7'
     let animalCounter = 0
     const isCattle = commodity === 'Cow'
+    const isPetIdentification = commodityDetails && commodityDetails.code === '01061900'
+    const isGameBirdIdentification = commodityDetails && commodityDetails.code === '01063980'
+    const isHorseIdentification = commodityDetails && commodityDetails.code === '0101'
+    const isEarTagOnlyIdentification = commodityDetails && commodityDetails.code === '010410'
     commoditySpecies.forEach(s => {
       const key = s.replace(/\s+/g, '_').toLowerCase().replace(/[^a-z0-9_]/g, '')
       const quantityKey = `quantity_${key}`
       const quantity = parseInt(req.session.data[quantityKey], 10) || 0
       for (let i = 1; i <= quantity; i++) {
         animalCounter++
-        if (isCattle) {
+        if (isPetIdentification) {
+          req.session.data[`microchip_${key}_${i}`] = `9820001234567${String(i).padStart(2, '0')}`
+          req.session.data[`passport_${key}_${i}`] = `PASSPORT-${key}-${i}`
+          req.session.data[`tattoo_${key}_${i}`] = `TAT${key.slice(0, 4).toUpperCase()}-${i}`
+        } else if (isGameBirdIdentification) {
+          req.session.data[`flockId_${key}_${i}`] = `FLOCK-${key.slice(0, 6).toUpperCase()}-${String(i).padStart(3, '0')}`
+          req.session.data[`hatchingDate_${key}_${i}`] = `${15 + (i % 14)} ${4 + (i % 9)} 2025`
+        } else if (isHorseIdentification) {
+          req.session.data[`horseName_${key}_${i}`] = `Thunder ${i}`
+          req.session.data[`microchip_${key}_${i}`] = `9820001234567${String(i).padStart(2, '0')}`
+          req.session.data[`passport_${key}_${i}`] = `GBR-XIV-${String(i).padStart(6, '0')}`
+        } else if (isEarTagOnlyIdentification) {
+          req.session.data[`earTag_${key}_${i}`] = `UK0 ${key.slice(0, 6).toUpperCase()} ${String(i).padStart(6, '0')}`
+        } else if (isCattle) {
           req.session.data[`earTag_${key}_${i}`] = `${HERD_MARK}${String(animalCounter).padStart(6, '0')}`
           req.session.data[`passport_${key}_${i}`] = `UK ${HERD_MARK} ${CHECK_DIGIT} ${String(animalCounter).padStart(5, '0')}`
         } else {
@@ -2363,23 +2403,45 @@ module.exports = (router) => {
 
     const commodityType = req.session.data.commodityType || 'domestic'
     const typeLabel = commodityType === 'game' ? 'Game' : 'Domestic'
+    const isPetIdentification = commodityDetails.code === '01061900'
+    const isGameBirdIdentification = commodityDetails.code === '01063980'
+    const isHorseIdentification = commodityDetails.code === '0101'
+    const isEarTagOnlyIdentification = commodityDetails.code === '010410'
     const speciesRows = commoditySpecies.map(s => {
       const key = s.replace(/\s+/g, '_').toLowerCase().replace(/[^a-z0-9_]/g, '')
       const quantityKey = `quantity_${key}`
       const quantity = parseInt(req.session.data[quantityKey], 10) || 0
       const animals = []
       for (let i = 1; i <= quantity; i++) {
-        animals.push({
-          index: i,
-          earTagKey: `earTag_${key}_${i}`,
-          passportKey: `passport_${key}_${i}`
-        })
+        const animal = { index: i }
+        if (isPetIdentification) {
+          animal.microchipKey = `microchip_${key}_${i}`
+          animal.passportKey = `passport_${key}_${i}`
+          animal.tattooKey = `tattoo_${key}_${i}`
+        } else if (isGameBirdIdentification) {
+          animal.flockIdKey = `flockId_${key}_${i}`
+          animal.hatchingDateKey = `hatchingDate_${key}_${i}`
+        } else if (isHorseIdentification) {
+          animal.horseNameKey = `horseName_${key}_${i}`
+          animal.microchipKey = `microchip_${key}_${i}`
+          animal.passportKey = `passport_${key}_${i}`
+        } else if (isEarTagOnlyIdentification) {
+          animal.earTagKey = `earTag_${key}_${i}`
+        } else {
+          animal.earTagKey = `earTag_${key}_${i}`
+          animal.passportKey = `passport_${key}_${i}`
+        }
+        animals.push(animal)
       }
       return {
         key,
         speciesAndType: `${s}, ${typeLabel}`,
         quantity,
-        animals
+        animals,
+        isPetIdentification,
+        isGameBirdIdentification,
+        isHorseIdentification,
+        isEarTagOnlyIdentification
       }
     })
 
@@ -2387,23 +2449,82 @@ module.exports = (router) => {
     const errorList = []
     speciesRows.forEach(s => {
       s.animals.forEach(a => {
-        const earTagVal = req.session.data[a.earTagKey]
+        if (s.isHorseIdentification) {
+          const horseNameVal = req.session.data[a.horseNameKey]
+          const microchipVal = req.session.data[a.microchipKey]
+          const passportVal = req.session.data[a.passportKey]
+          const horseNameMissing = !horseNameVal || String(horseNameVal).trim() === ''
+          const microchipMissing = !microchipVal || String(microchipVal).trim() === ''
+          const passportMissing = !passportVal || String(passportVal).trim() === ''
+          if (horseNameMissing) errors[a.horseNameKey] = 'Enter the horse name'
+          if (microchipMissing) errors[a.microchipKey] = 'Enter the microchip number'
+          if (passportMissing) errors[a.passportKey] = 'Enter the passport number'
+          if (horseNameMissing || microchipMissing || passportMissing) {
+            const animalLabel = `${s.speciesAndType} ${a.index}`
+            const missingParts = []
+            if (horseNameMissing) missingParts.push('horse name')
+            if (microchipMissing) missingParts.push('microchip')
+            if (passportMissing) missingParts.push('passport')
+            errorList.push({ href: `#horse-name-${a.horseNameKey}`, text: `Enter the ${missingParts.join(', ')} for ${animalLabel}` })
+          }
+        } else if (s.isGameBirdIdentification) {
+          const flockIdVal = req.session.data[a.flockIdKey]
+          const hatchingDateVal = req.session.data[a.hatchingDateKey]
+          const flockIdMissing = !flockIdVal || String(flockIdVal).trim() === ''
+          const hatchingDateMissing = !hatchingDateVal || String(hatchingDateVal).trim() === ''
+          if (flockIdMissing) errors[a.flockIdKey] = 'Enter the flock id'
+          if (hatchingDateMissing) errors[a.hatchingDateKey] = 'Enter the hatching date'
+          if (flockIdMissing || hatchingDateMissing) {
+            const animalLabel = `${s.speciesAndType} ${a.index}`
+            const missingParts = []
+            if (flockIdMissing) missingParts.push('flock id')
+            if (hatchingDateMissing) missingParts.push('hatching date')
+            errorList.push({ href: `#flock-id-${a.flockIdKey}`, text: `Enter the ${missingParts.join(' and ')} for ${animalLabel}` })
+          }
+        } else if (s.isEarTagOnlyIdentification) {
+          const earTagVal = req.session.data[a.earTagKey]
+          const earTagMissing = !earTagVal || String(earTagVal).trim() === ''
+          if (earTagMissing) {
+            errors[a.earTagKey] = 'Enter the ear tag number'
+            const animalLabel = `${s.speciesAndType} ${a.index}`
+            errorList.push({ href: `#ear-tag-${a.earTagKey}`, text: `Enter the ear tag for ${animalLabel}` })
+          }
+        } else if (s.isPetIdentification) {
         const passportVal = req.session.data[a.passportKey]
-        const earTagMissing = !earTagVal || String(earTagVal).trim() === ''
         const passportMissing = !passportVal || String(passportVal).trim() === ''
-
-        if (earTagMissing) errors[a.earTagKey] = 'Enter the ear tag number'
-        if (passportMissing) errors[a.passportKey] = 'Enter the passport number'
-
-        if (earTagMissing || passportMissing) {
-          const animalLabel = `${s.speciesAndType} animal ${a.index}`
-          const missingParts = []
-          if (earTagMissing) missingParts.push('ear tag')
-          if (passportMissing) missingParts.push('passport')
-          const message = missingParts.length === 2
-            ? `Enter the ear tag and passport for ${animalLabel}`
-            : `Enter the ${missingParts[0]} for ${animalLabel}`
-          errorList.push({ href: `#ear-tag-${a.earTagKey}`, text: message })
+          const microchipVal = req.session.data[a.microchipKey]
+          const tattooVal = req.session.data[a.tattooKey]
+          const microchipMissing = !microchipVal || String(microchipVal).trim() === ''
+          const tattooMissing = !tattooVal || String(tattooVal).trim() === ''
+          if (microchipMissing) errors[a.microchipKey] = 'Enter the microchip number'
+          if (passportMissing) errors[a.passportKey] = 'Enter the passport number'
+          if (tattooMissing) errors[a.tattooKey] = 'Enter the tattoo number'
+          if (microchipMissing || passportMissing || tattooMissing) {
+            const animalLabel = `${s.speciesAndType} ${a.index}`
+            const missingParts = []
+            if (microchipMissing) missingParts.push('microchip')
+            if (passportMissing) missingParts.push('passport')
+            if (tattooMissing) missingParts.push('tattoo')
+            const message = `Enter the ${missingParts.join(', ')} for ${animalLabel}`
+            errorList.push({ href: `#microchip-${a.microchipKey}`, text: message })
+          }
+        } else {
+          const earTagVal = req.session.data[a.earTagKey]
+          const passportVal = req.session.data[a.passportKey]
+          const earTagMissing = !earTagVal || String(earTagVal).trim() === ''
+          const passportMissing = !passportVal || String(passportVal).trim() === ''
+          if (earTagMissing) errors[a.earTagKey] = 'Enter the ear tag number'
+          if (passportMissing) errors[a.passportKey] = 'Enter the passport number'
+          if (earTagMissing || passportMissing) {
+            const animalLabel = `${s.speciesAndType} animal ${a.index}`
+            const missingParts = []
+            if (earTagMissing) missingParts.push('ear tag')
+            if (passportMissing) missingParts.push('passport')
+            const message = missingParts.length === 2
+              ? `Enter the ear tag and passport for ${animalLabel}`
+              : `Enter the ${missingParts[0]} for ${animalLabel}`
+            errorList.push({ href: `#ear-tag-${a.earTagKey}`, text: message })
+          }
         }
       })
     })

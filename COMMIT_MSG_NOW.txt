@@ -1,0 +1,14 @@
+Add species-specific animal identification layouts (v1-baseline)
+
+- animal-identification.html: Add conditional table layouts for pets
+  (microchip, passport, tattoo), game birds (flock id, hatching date),
+  horses (horse name, microchip, passport), and sheep (ear tag only)
+- animal-identification.html: Use short animal labels (e.g. "Ovis aries 1")
+  for species with simplified layouts
+- routes.js: Add GET handler logic for isPetIdentification, isGameBirdIdentification,
+  isHorseIdentification, isEarTagOnlyIdentification by commodity code
+- routes.js: Add POST validation blocks for each identification type with
+  appropriate error messages and field checks
+- routes.js: Add prefill support for pets, game birds, horses, and sheep
+  (ear tag only) in animal-identification-prefill
+- routes.js: Fix duplicate isEarTagOnlyIdentification validation blocks
