@@ -48,6 +48,7 @@ function isLivestockConsignment (data) {
     : (data.commodity ? [{ commodity: data.commodity, commoditySpecies: Array.isArray(data.commoditySpecies) ? data.commoditySpecies : (data.commoditySpecies ? [data.commoditySpecies] : []), quantities: data }] : [])
   let totalBirds = 0
   for (const item of items) {
+    if (PET_COMMODITIES.has(item.commodity)) continue
     const details = commoditiesEu[item.commodity] || commoditiesData[item.commodity]
     const code = details && details.code ? String(details.code).replace(/\s/g, '') : ''
     if (code.startsWith('0102') || code.startsWith('0103') || code.startsWith('0104')) return true
@@ -212,7 +213,9 @@ module.exports = (router) => {
 
     const euCountries = require('../../data/eu-countries.js')
     const originsFromData = [...new Set(allNotifications.map(n => n.origin).filter(Boolean))]
-    res.locals.originCountries = [...new Set([...euCountries, ...originsFromData])].sort()
+    const euuCountries = ['Iceland', 'Liechtenstein', 'Norway', 'Switzerland']
+    const baseOriginCountries = [...euCountries, ...euuCountries]
+    res.locals.originCountries = [...new Set([...baseOriginCountries, ...originsFromData])].sort()
 
     const isDefaultDateRange = (data.filterStartDate === defaultStart && data.filterEndDate === defaultEnd) || (!data.filterPeriod && !data.filterStartDate && !data.filterEndDate)
     const activeFilters = []
@@ -281,9 +284,12 @@ module.exports = (router) => {
     delete req.session.data.errorList
     const euCountries = require('../../data/eu-countries.js')
     const euCountryCodes = require('../../data/eu-country-codes.js')
+    const euuCountries = ['Iceland', 'Liechtenstein', 'Norway', 'Switzerland']
+    const originCountries = [...euCountries, ...euuCountries].sort()
+    const originCountryCodes = { ...euCountryCodes, Iceland: 'IS', Liechtenstein: 'LI', Norway: 'NO', Switzerland: 'CH' }
     res.render('v1-baseline/create/origin', {
-      euCountries,
-      euCountryCodes
+      euCountries: originCountries,
+      euCountryCodes: originCountryCodes
     })
   })
 
@@ -390,7 +396,10 @@ module.exports = (router) => {
     delete req.session.data.errorList
     const euCountries = require('../../data/eu-countries.js')
     const euCountryCodes = require('../../data/eu-country-codes.js')
-    res.render('v1-baseline/experimental/origin', { euCountries, euCountryCodes })
+    const euuCountries = ['Iceland', 'Liechtenstein', 'Norway', 'Switzerland']
+    const expOriginCountries = [...euCountries, ...euuCountries].sort()
+    const expOriginCountryCodes = { ...euCountryCodes, Iceland: 'IS', Liechtenstein: 'LI', Norway: 'NO', Switzerland: 'CH' }
+    res.render('v1-baseline/experimental/origin', { euCountries: expOriginCountries, euCountryCodes: expOriginCountryCodes })
   })
   router.post(`${EXP}/origin`, (req, res) => {
     const countryOfOrigin = req.session.data.countryOfOrigin
@@ -643,10 +652,19 @@ module.exports = (router) => {
     delete req.session.data.errors
     delete req.session.data.errorList
     const commoditiesData = require('../../data/commodities-eu.js')
-    const commodityOptions = Object.entries(commoditiesData).map(([key, d]) => ({
-      value: key,
-      text: `${d.commonName || key} (${d.code})`
-    }))
+    const commodityOptions = []
+    for (const [commodityKey, d] of Object.entries(commoditiesData)) {
+      commodityOptions.push({ value: commodityKey, text: `${d.commonName || commodityKey} (${d.code})` })
+      if (d.species && d.species.length > 0) {
+        const commonName = d.commonName || commodityKey
+        for (const species of d.species) {
+          commodityOptions.push({
+            value: `species:${commodityKey}:${species}`,
+            text: `${species} (${commonName})`
+          })
+        }
+      }
+    }
     res.render('v1-baseline/create/commodity', {
       commodityOptions
     })
@@ -670,6 +688,16 @@ module.exports = (router) => {
 
     delete req.session.data.errors
     delete req.session.data.errorList
+
+    const speciesMatch = commodity.match(/^species:(.+?):(.+)$/)
+    if (speciesMatch) {
+      const [, commodityKey, speciesName] = speciesMatch
+      req.session.data.commodity = commodityKey
+      req.session.data.commoditySpecies = [speciesName]
+      req.session.data.commodityType = req.session.data.commodityType || 'domestic'
+      return res.redirect(`${BASE}/create/commodity-quantities`)
+    }
+
     res.redirect(`${BASE}/create/commodity-species`)
   })
 
@@ -1469,6 +1497,8 @@ module.exports = (router) => {
     const data = req.session.data || {}
     delete data.errors
     delete data.errorList
+    if (isLivestockConsignment(data)) return res.redirect(`${BASE}/create/address-cph`)
+    if (!isPetConsignment(data)) return res.redirect(`${BASE}/create/contact-address-for-consignment`)
     let viewData = getPermanentAddressViewData(data)
     // Fallback for standalone visits (e.g. from index) – show qualifying pet and sample address
     if (!viewData.animalLabel) {
@@ -1483,6 +1513,8 @@ module.exports = (router) => {
 
   router.post(`${BASE}/create/permanent-addresses-for-animals`, (req, res) => {
     const data = req.session.data || {}
+    if (isLivestockConsignment(data)) return res.redirect(`${BASE}/create/address-cph`)
+    if (!isPetConsignment(data)) return res.redirect(`${BASE}/create/contact-address-for-consignment`)
     const sameAsPOD = data.permanentAddressSameAsPOD === 'yes'
     const errors = {}
     const errorList = []
@@ -1518,11 +1550,15 @@ module.exports = (router) => {
     const data = req.session.data || {}
     delete data.errors
     delete data.errorList
+    if (isPetConsignment(data)) return res.redirect(`${BASE}/create/permanent-addresses-for-animals`)
+    if (!isLivestockConsignment(data)) return res.redirect(`${BASE}/create/contact-address-for-consignment`)
     res.render('v1-baseline/create/address-cph')
   })
 
   router.post(`${BASE}/create/address-cph`, (req, res) => {
     const data = req.session.data || {}
+    if (isPetConsignment(data)) return res.redirect(`${BASE}/create/permanent-addresses-for-animals`)
+    if (!isLivestockConsignment(data)) return res.redirect(`${BASE}/create/contact-address-for-consignment`)
     const cphNumber = (data.cphNumber || '').trim()
     const errors = {}
     const errorList = []
