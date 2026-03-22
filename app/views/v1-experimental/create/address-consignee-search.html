@@ -1,0 +1,195 @@
+
+{% extends "layouts/v1-baseline.html" %}
+{% from "govuk/components/input/macro.njk" import govukInput %}
+{% from "govuk/components/select/macro.njk" import govukSelect %}
+{% from "govuk/components/button/macro.njk" import govukButton %}
+{% from "govuk/components/back-link/macro.njk" import govukBackLink %}
+{% from "govuk/components/pagination/macro.njk" import govukPagination %}
+
+{% set title = returnTo === "transport-transporter" and "Search for a transporter" or "Search for an existing consignee" %}
+{% block pageTitle %}{{ title }} - {{ serviceName }}{% endblock %}
+
+{% block beforeContent %}
+  {{ super() }}
+  {{ govukBackLink({
+    text: "Back",
+    href: returnTo === "transport-transporter" and (basePath or '/v1-experimental') + '/create/transport-transporter' or (basePath or '/v1-experimental') + '/create/addresses'
+  }) }}
+{% endblock %}
+
+{% block content %}
+
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-full">
+
+    <span class="govuk-caption-l">{{ returnTo === "transport-transporter" and "Transport" or "Address" }}</span>
+    <h1 class="govuk-heading-xl">{{ title }}</h1>
+
+    <div class="search-panel">
+      <h2 class="govuk-heading-m govuk-!-margin-top-0">Search</h2>
+      <form method="get" novalidate>
+        {% if forImporter %}<input type="hidden" name="for" value="importer">{% endif %}
+        {% if returnTo %}<input type="hidden" name="returnTo" value="{{ returnTo }}">{% endif %}
+        <div class="govuk-grid-row">
+          {% if returnTo === 'transport-transporter' %}
+          <div class="govuk-grid-column-one-third">
+            <div class="govuk-form-group">
+              <label class="govuk-label" for="searchName">Name</label>
+              <input class="govuk-input" id="searchName" name="searchName" type="text" value="{{ data.searchTransporterName or '' }}">
+            </div>
+          </div>
+          <div class="govuk-grid-column-one-third">
+            <div class="govuk-form-group">
+              <label class="govuk-label" for="searchApprovalNumber">Approval Number</label>
+              <input class="govuk-input" id="searchApprovalNumber" name="searchApprovalNumber" type="text" value="{{ data.searchTransporterApprovalNumber or '' }}">
+            </div>
+          </div>
+          <div class="govuk-grid-column-one-third">
+            <div class="govuk-form-group">
+              <label class="govuk-label" for="searchPostCode">Post Code</label>
+              <input class="govuk-input" id="searchPostCode" name="searchPostCode" type="text" value="{{ data.searchTransporterPostCode or '' }}" class="govuk-input--width-10">
+            </div>
+          </div>
+          {% else %}
+          <div class="govuk-grid-column-one-third">
+            <div class="govuk-form-group">
+              <label class="govuk-label" for="searchName">Name</label>
+              <input class="govuk-input" id="searchName" name="searchName" type="text" value="{{ data.searchConsigneeName or '' }}">
+            </div>
+          </div>
+          <div class="govuk-grid-column-one-third">
+            <div class="govuk-form-group">
+              <label class="govuk-label" for="searchAddress">Address</label>
+              <input class="govuk-input" id="searchAddress" name="searchAddress" type="text" value="{{ data.searchConsigneeAddress or '' }}">
+            </div>
+          </div>
+          <div class="govuk-grid-column-one-third">
+            <div class="govuk-form-group">
+              <label class="govuk-label" for="searchCountry">Country</label>
+              <div class="autocomplete-wrapper autocomplete-wrapper--full">
+                <select class="govuk-select" id="searchCountry" name="searchCountry">
+                  <option value="">Type country name</option>
+                  {% for country in countries %}
+                    <option value="{{ country }}" {% if data.searchConsigneeCountry == country %}selected{% endif %}>{{ country }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+            </div>
+          </div>
+          {% endif %}
+        </div>
+        <div class="govuk-button-group">
+          {{ govukButton({
+            text: "Search"
+          }) }}
+          {% if returnTo === 'transport-transporter' %}
+          <a href="{{ (basePath or '/v1-experimental') }}/create/address-consignee-search?searchName=&searchApprovalNumber=&searchPostCode=&returnTo=transport-transporter" class="govuk-link govuk-link--no-visited-state">Clear search</a>
+          {% else %}
+          <a href="{{ (basePath or '/v1-experimental') }}/create/address-consignee-search?searchName=&searchAddress=&searchCountry={% if forImporter %}&for=importer{% endif %}{% if returnTo %}&returnTo={{ returnTo }}{% endif %}" class="govuk-link govuk-link--no-visited-state">Clear search</a>
+          {% endif %}
+        </div>
+      </form>
+    </div>
+
+    {% if results %}
+    <table class="govuk-table govuk-!-margin-top-8 address-table">
+      <thead class="govuk-table__head">
+        <tr class="govuk-table__row">
+          <th scope="col" class="govuk-table__header">Name</th>
+          <th scope="col" class="govuk-table__header">Address</th>
+          {% if returnTo === 'transport-transporter' %}
+          <th scope="col" class="govuk-table__header approval-number-cell">Approval Number</th>
+          <th scope="col" class="govuk-table__header">Type</th>
+          <th scope="col" class="govuk-table__header">Status</th>
+          {% endif %}
+          <th scope="col" class="govuk-table__header"><span class="govuk-visually-hidden">Actions</span></th>
+        </tr>
+      </thead>
+      <tbody class="govuk-table__body">
+        {% for row in results %}
+        <tr class="govuk-table__row">
+          <td class="govuk-table__cell">{{ row.name }}</td>
+          <td class="govuk-table__cell">
+            <span>{{ row.address }}</span>
+            <br>
+            <span class="govuk-body-s address-country">{{ row.country }}</span>
+          </td>
+          {% if returnTo === 'transport-transporter' %}
+          <td class="govuk-table__cell approval-number-cell">{% if row.transporterType === 'Private transporter' %}—{% else %}{{ row.approvalNumber or '—' }}{% endif %}</td>
+          <td class="govuk-table__cell">{% if row.transporterType === 'Commercial transporter' %}Commercial{% elif row.transporterType === 'Private transporter' %}Private{% else %}—{% endif %}</td>
+          <td class="govuk-table__cell">
+            {% if (row.status or 'Approved') === 'Approved' %}
+            <span class="govuk-tag govuk-tag--green">Approved</span>
+            {% else %}
+            <span class="govuk-tag govuk-tag--blue">{{ row.status or 'New' }}</span>
+            {% endif %}
+          </td>
+          {% endif %}
+          <td class="govuk-table__cell">
+            <a href="#" class="govuk-link govuk-!-font-size-16">View</a>
+            <span aria-hidden="true"> | </span>
+            <a href="{% if returnTo === 'transport-transporter' %}{{ (basePath or '/v1-experimental') }}/create/transport-transporter?transporter={{ row.id }}{% elif forImporter %}{{ (basePath or '/v1-experimental') }}/create/addresses?importer={{ row.id }}#importer{% else %}{{ (basePath or '/v1-experimental') }}/create/addresses?consignee={{ row.id }}{% endif %}" class="govuk-link govuk-!-font-size-16">Select</a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    <p class="govuk-body govuk-!-margin-top-4">
+      {% if returnTo === 'transport-transporter' %}
+      <a href="{{ (basePath or '/v1-experimental') }}/create/transport-add-transporter" class="govuk-link govuk-!-font-size-16">Add a new transporter</a>
+      {% else %}
+      <a href="{{ (basePath or '/v1-experimental') }}/create/address-consignee" class="govuk-link govuk-!-font-size-16">Create a new consignee</a>
+      {% endif %}
+    </p>
+
+    {% if totalPages > 1 %}
+    <div class="govuk-!-margin-top-6">
+      {% set forParam = "&for=importer" if forImporter else "" %}
+      {% set returnParam = "&returnTo=" + returnTo if returnTo else "" %}
+      {% if returnTo === 'transport-transporter' %}
+      {% set prevHref = "?page=" + (page - 1) + "&searchName=" + (data.searchTransporterName or '') + "&searchApprovalNumber=" + (data.searchTransporterApprovalNumber or '') + "&searchPostCode=" + (data.searchTransporterPostCode or '') + "&returnTo=transport-transporter" %}
+      {% set nextHref = "?page=" + (page + 1) + "&searchName=" + (data.searchTransporterName or '') + "&searchApprovalNumber=" + (data.searchTransporterApprovalNumber or '') + "&searchPostCode=" + (data.searchTransporterPostCode or '') + "&returnTo=transport-transporter" %}
+      {% else %}
+      {% set prevHref = "?page=" + (page - 1) + "&searchName=" + (data.searchConsigneeName or '') + "&searchAddress=" + (data.searchConsigneeAddress or '') + "&searchCountry=" + (data.searchConsigneeCountry or '') + forParam + returnParam %}
+      {% set nextHref = "?page=" + (page + 1) + "&searchName=" + (data.searchConsigneeName or '') + "&searchAddress=" + (data.searchConsigneeAddress or '') + "&searchCountry=" + (data.searchConsigneeCountry or '') + forParam + returnParam %}
+      {% endif %}
+      {{ govukPagination({
+        landmarkLabel: "Results pagination",
+        classes: "govuk-!-margin-top-0",
+        previous: page > 1 and {
+          href: prevHref,
+          text: "Previous page",
+          labelText: (page - 1) + " of " + totalPages
+        } or null,
+        next: page < totalPages and {
+          href: nextHref,
+          text: "Next page",
+          labelText: (page + 1) + " of " + totalPages
+        } or null
+      }) }}
+    </div>
+    {% endif %}
+    {% endif %}
+
+  </div>
+</div>
+
+{% endblock %}
+
+{% block pageScripts %}
+  <script src="https://cdn.jsdelivr.net/npm/accessible-autocomplete@2.0.4/dist/accessible-autocomplete.min.js"></script>
+  <script>
+    (function () {
+      var selectEl = document.querySelector('#searchCountry')
+      if (selectEl && typeof accessibleAutocomplete !== 'undefined') {
+        accessibleAutocomplete.enhanceSelectElement({
+          autoselect: true,
+          defaultValue: selectEl.options[selectEl.selectedIndex] ? selectEl.options[selectEl.selectedIndex].text : '',
+          minLength: 2,
+          selectElement: selectEl
+        })
+      }
+    })()
+  </script>
+{% endblock %}

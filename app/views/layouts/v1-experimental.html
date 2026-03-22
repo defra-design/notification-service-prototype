@@ -1,0 +1,22 @@
+
+{% extends "layouts/main.html" %}
+{% from "govuk/components/header/macro.njk" import govukHeader %}
+{% from "govuk/components/service-navigation/macro.njk" import govukServiceNavigation %}
+
+{% block header %}
+  {{ govukHeader({
+    homepageUrl: "/",
+    containerClasses: "govuk-width-container"
+  }) }}
+  {{ govukServiceNavigation({
+    serviceName: "Import notification service",
+    serviceUrl: (basePath or '/v1-experimental') + "/start",
+    navigation: [
+      {
+        text: "Start",
+        href: (basePath or '/v1-experimental') + "/start",
+        current: navCurrent === 'start'
+      }
+    ]
+  }) }}
+{% endblock %}

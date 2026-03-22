@@ -1,0 +1,72 @@
+
+{% extends "layouts/v1-baseline.html" %}
+{% from "govuk/components/input/macro.njk" import govukInput %}
+{% from "govuk/components/button/macro.njk" import govukButton %}
+{% from "govuk/components/back-link/macro.njk" import govukBackLink %}
+{% from "govuk/components/error-summary/macro.njk" import govukErrorSummary %}
+{% from "govuk/components/details/macro.njk" import govukDetails %}
+
+{% set title = "Add the County Parish Holding number (CPH)" %}
+{% block pageTitle %}{{ title }} - {{ serviceName }}{% endblock %}
+
+{% block beforeContent %}
+  {{ super() }}
+  {{ govukBackLink({
+    text: "Back",
+    href: (basePath or '/v1-experimental') + '/create/addresses'
+  }) }}
+{% endblock %}
+
+{% block content %}
+
+{% if data.errors %}
+  {{ govukErrorSummary({
+    titleText: "There is a problem",
+    errorList: data.errorList
+  }) }}
+{% endif %}
+
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-two-thirds">
+
+    <span class="govuk-caption-l">Addresses</span>
+    <h1 class="govuk-heading-xl">{{ title }}</h1>
+
+    <p class="govuk-body">
+      The County Parish Holding (CPH) number identifies the holding where the animals will be kept. You can find it on your movement documents or in your holding registration.
+    </p>
+
+    {{ govukDetails({
+      summaryText: "What is a CPH number?",
+      html: "<p class=\"govuk-body\">A CPH number is a unique identifier for agricultural and livestock holdings in Great Britain. It is made up of 3 parts (county, parish and holding number), for example 12/345/6789. Your vet or the Animal and Plant Health Agency (APHA) can help you find your CPH number if you do not have it.</p>"
+    }) }}
+
+    <form method="post" novalidate>
+      {{ govukInput({
+        label: {
+          text: "CPH number"
+        },
+        hint: {
+          text: "For example, 12/345/6789"
+        },
+        id: "cphNumber",
+        name: "cphNumber",
+        value: data.cphNumber,
+        classes: "govuk-input--width-15",
+        spellcheck: false,
+        errorMessage: data.errors and data.errors.cphNumber and { text: data.errors.cphNumber } or null
+      }) }}
+
+      {{ govukButton({
+        text: "Save and continue"
+      }) }}
+
+      <p class="govuk-body govuk-!-margin-top-4">
+        <a href="{{ (basePath or '/v1-experimental') }}/create/address-cph-prefill" class="govuk-link govuk-link--secondary govuk-!-font-size-14">Quick fill and continue (internal use)</a>
+      </p>
+    </form>
+
+  </div>
+</div>
+
+{% endblock %}

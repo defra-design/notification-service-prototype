@@ -1,0 +1,80 @@
+
+{% extends "layouts/v1-baseline.html" %}
+{% from "govuk/components/radios/macro.njk" import govukRadios %}
+{% from "govuk/components/button/macro.njk" import govukButton %}
+{% from "govuk/components/back-link/macro.njk" import govukBackLink %}
+{% from "govuk/components/error-summary/macro.njk" import govukErrorSummary %}
+{% from "govuk/components/notification-banner/macro.njk" import govukNotificationBanner %}
+
+{% set title = "Contact address for consignment" %}
+{% block pageTitle %}{{ title }} - {{ serviceName }}{% endblock %}
+
+{% block beforeContent %}
+  {{ super() }}
+  {{ govukBackLink({
+    text: "Back",
+    href: backHref or (basePath or '/v1-experimental') + '/create/addresses'
+  }) }}
+{% endblock %}
+
+{% block content %}
+
+{% if showBranchAddedSuccess %}
+  {{ govukNotificationBanner({
+    type: "success",
+    text: "Branch address added. Select it from the list below."
+  }) }}
+{% endif %}
+
+{% if data.errors %}
+  {{ govukErrorSummary({
+    titleText: "There is a problem",
+    errorList: data.errorList
+  }) }}
+{% endif %}
+
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-two-thirds">
+
+    <span class="govuk-caption-l">Addresses</span>
+    <h1 class="govuk-heading-xl">{{ title }}</h1>
+
+    <p class="govuk-body">
+      This is the contact address of the person responsible for the consignment from when it enters Great Britain until authorities complete their checks.
+    </p>
+
+    <form method="post" novalidate>
+      <div class="govuk-form-group{% if data.errors and data.errors.contactAddressId %} govuk-form-group--error{% endif %}">
+        <h2 class="govuk-heading-s">Select an address</h2>
+        <p class="govuk-body">
+          If the correct address is not shown, <a href="{{ (basePath or '/v1-experimental') }}/create/contact-address-add-branch" class="govuk-link">add a new branch address</a>, then return to this page.
+        </p>
+        {{ govukRadios({
+          name: "contactAddressId",
+          idPrefix: "contact-address",
+          fieldset: {
+            legend: {
+              text: "Select an address",
+              isPageHeading: false,
+              classes: "govuk-visually-hidden"
+            }
+          },
+          items: contactAddressItems,
+          value: data.contactAddressId,
+          errorMessage: data.errors and data.errors.contactAddressId and { text: data.errors.contactAddressId } or null
+        }) }}
+      </div>
+
+      {{ govukButton({
+        text: "Save and continue"
+      }) }}
+    </form>
+
+    <p class="govuk-body govuk-!-margin-top-4">
+      <a href="{{ (basePath or '/v1-experimental') }}/create/contact-address-for-consignment-prefill" class="govuk-link govuk-link--secondary govuk-!-font-size-14">Quick fill and continue (internal use)</a>
+    </p>
+
+  </div>
+</div>
+
+{% endblock %}

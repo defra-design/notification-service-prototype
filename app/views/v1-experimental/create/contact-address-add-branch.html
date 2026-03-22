@@ -1,0 +1,179 @@
+
+{% extends "layouts/v1-baseline.html" %}
+{% from "govuk/components/input/macro.njk" import govukInput %}
+{% from "govuk/components/button/macro.njk" import govukButton %}
+{% from "govuk/components/back-link/macro.njk" import govukBackLink %}
+{% from "govuk/components/error-summary/macro.njk" import govukErrorSummary %}
+
+{% set title = "Add branch address" %}
+{% block pageTitle %}{{ title }} - {{ serviceName }}{% endblock %}
+
+{% block beforeContent %}
+  {{ super() }}
+  {{ govukBackLink({
+    text: "Back",
+    href: (basePath or '/v1-experimental') + '/create/contact-address-for-consignment'
+  }) }}
+{% endblock %}
+
+{% block content %}
+
+{% if data.errors %}
+  {{ govukErrorSummary({
+    titleText: "There is a problem",
+    errorList: data.errorList
+  }) }}
+{% endif %}
+
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-two-thirds">
+
+    <span class="govuk-caption-l">Addresses</span>
+    <h1 class="govuk-heading-xl">{{ title }}</h1>
+
+    <p class="govuk-body">
+      <a href="{{ (basePath or '/v1-experimental') }}/create/contact-address-for-consignment" class="govuk-link">Return to notification</a>
+    </p>
+
+    <form method="post" novalidate>
+      {{ govukInput({
+        label: { text: "Branch address name" },
+        id: "branchAddressName",
+        name: "branchAddressName",
+        value: data.branchAddressName,
+        autocomplete: "organization",
+        classes: "govuk-input--width-30",
+        errorMessage: data.errors and data.errors.branchAddressName and { text: data.errors.branchAddressName } or null
+      }) }}
+
+      <h2 class="govuk-heading-s govuk-!-margin-top-6">Branch address</h2>
+
+      {{ govukInput({
+        label: { text: "Address line 1" },
+        id: "branchAddressLine1",
+        name: "branchAddressLine1",
+        value: data.branchAddressLine1,
+        autocomplete: "address-line1",
+        classes: "govuk-input--width-30",
+        errorMessage: data.errors and data.errors.branchAddressLine1 and { text: data.errors.branchAddressLine1 } or null
+      }) }}
+
+      {{ govukInput({
+        label: { text: "Address line 2 (optional)" },
+        id: "branchAddressLine2",
+        name: "branchAddressLine2",
+        value: data.branchAddressLine2,
+        autocomplete: "address-line2",
+        classes: "govuk-input--width-30"
+      }) }}
+
+      {{ govukInput({
+        label: { text: "Address line 3 (optional)" },
+        id: "branchAddressLine3",
+        name: "branchAddressLine3",
+        value: data.branchAddressLine3,
+        autocomplete: "address-level3",
+        classes: "govuk-input--width-30"
+      }) }}
+
+      {{ govukInput({
+        label: { text: "City or town" },
+        id: "branchCity",
+        name: "branchCity",
+        value: data.branchCity,
+        autocomplete: "address-level2",
+        classes: "govuk-input--width-20",
+        errorMessage: data.errors and data.errors.branchCity and { text: data.errors.branchCity } or null
+      }) }}
+
+      {{ govukInput({
+        label: { text: "Postcode or ZIP code" },
+        id: "branchPostcode",
+        name: "branchPostcode",
+        value: data.branchPostcode,
+        classes: "govuk-input--width-10",
+        autocomplete: "postal-code",
+        errorMessage: data.errors and data.errors.branchPostcode and { text: data.errors.branchPostcode } or null
+      }) }}
+
+      {{ govukInput({
+        label: { text: "Telephone number" },
+        id: "branchTelephone",
+        name: "branchTelephone",
+        value: data.branchTelephone,
+        type: "tel",
+        autocomplete: "tel",
+        classes: "govuk-input--width-20",
+        errorMessage: data.errors and data.errors.branchTelephone and { text: data.errors.branchTelephone } or null
+      }) }}
+
+      <div class="govuk-form-group {% if data.errors and data.errors.branchCountry %}govuk-form-group--error{% endif %}">
+        <label class="govuk-label" for="branchCountry">
+          Country
+        </label>
+        <div id="branchCountry-hint" class="govuk-hint">
+          Search and select a country. Start typing to filter the list.
+        </div>
+        {% if data.errors and data.errors.branchCountry %}
+          <p id="branchCountry-error" class="govuk-error-message">
+            <span class="govuk-visually-hidden">Error:</span> {{ data.errors.branchCountry }}
+          </p>
+        {% endif %}
+        <div class="autocomplete-wrapper autocomplete-wrapper--30em">
+          <select class="govuk-select" id="branchCountry" name="branchCountry" aria-describedby="branchCountry-hint{% if data.errors and data.errors.branchCountry %} branchCountry-error{% endif %}"{% if data.errors and data.errors.branchCountry %} aria-invalid="true"{% endif %}>
+            {% for item in countryItems %}
+              <option value="{{ item.value }}" {% if data.branchCountry == item.value %}selected{% endif %}>{{ item.text }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+
+      {{ govukInput({
+        label: { text: "Email address" },
+        id: "branchEmail",
+        name: "branchEmail",
+        value: data.branchEmail,
+        type: "email",
+        autocomplete: "email",
+        classes: "govuk-input--width-30",
+        errorMessage: data.errors and data.errors.branchEmail and { text: data.errors.branchEmail } or null
+      }) }}
+
+      {{ govukButton({
+        text: "Save and continue"
+      }) }}
+    </form>
+
+    <p class="govuk-body govuk-!-margin-top-4">
+      <a href="{{ (basePath or '/v1-experimental') }}/create/contact-address-add-branch-prefill" class="govuk-link govuk-link--secondary govuk-!-font-size-14">Quick fill and continue (internal use)</a>
+    </p>
+
+  </div>
+</div>
+
+{% endblock %}
+
+{% block pageScripts %}
+  <script src="https://cdn.jsdelivr.net/npm/accessible-autocomplete@2.0.4/dist/accessible-autocomplete.min.js"></script>
+  <script>
+    (function () {
+      var selectEl = document.querySelector('#branchCountry')
+      if (selectEl && typeof accessibleAutocomplete !== 'undefined') {
+        var selectedOpt = selectEl.options[selectEl.selectedIndex]
+        var defaultValue = (selectedOpt && selectedOpt.value) ? selectedOpt.text : (selectedOpt ? selectedOpt.text : '')
+        accessibleAutocomplete.enhanceSelectElement({
+          autoselect: true,
+          defaultValue: defaultValue,
+          minLength: 2,
+          selectElement: selectEl,
+          onConfirm: function (query) {
+            var requestedOption = [].filter.call(selectEl.options, function (opt) {
+              return (opt.textContent || opt.innerText) === query
+            })[0]
+            if (requestedOption) requestedOption.selected = true
+          }
+        })
+      }
+    })()
+  </script>
+{% endblock %}

@@ -1,0 +1,144 @@
+
+{% extends "layouts/v1-baseline.html" %}
+{% from "govuk/components/select/macro.njk" import govukSelect %}
+{% from "govuk/components/input/macro.njk" import govukInput %}
+{% from "govuk/components/button/macro.njk" import govukButton %}
+{% from "govuk/components/back-link/macro.njk" import govukBackLink %}
+{% from "govuk/components/error-summary/macro.njk" import govukErrorSummary %}
+{% from "govuk/components/details/macro.njk" import govukDetails %}
+
+{% set title = "Accompanying documents" %}
+{% block pageTitle %}{{ title }} - {{ serviceName }}{% endblock %}
+
+{% block beforeContent %}
+  {{ super() }}
+  {{ govukBackLink({
+    text: "Back",
+    href: (basePath or '/v1-experimental') + '/create/import-reason'
+  }) }}
+{% endblock %}
+
+{% block content %}
+
+{% if data.errors %}
+  {{ govukErrorSummary({
+    titleText: "There is a problem",
+    errorList: data.errorList
+  }) }}
+{% endif %}
+
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-two-thirds">
+
+    <span class="govuk-caption-l">Documents</span>
+    <h1 class="govuk-heading-xl">{{ title }}</h1>
+
+    <p class="govuk-body">
+      Upload any required documents. This may include:
+    </p>
+    <ul class="govuk-list govuk-list--bullet">
+      <li>ITAHC</li>
+      <li>import licences or authorisations</li>
+      <li>commercial documents or invoices</li>
+    </ul>
+
+    {{ govukDetails({
+      summaryText: "Check which additional documents you must upload",
+      html: "
+        <ul class=\"govuk-list govuk-list--bullet\">
+          <li>for animals that do not need a health certificate, an exporter's declaration that they are fit to travel</li>
+          <li>for livestock transiting bluetongue restricted territories, a bluetongue declaration GBHC172</li>
+          <li>for rodents imported for research purposes, a RM39 licence and supplementary health certificate</li>
+        </ul>
+        <p class=\"govuk-body\">For details about required documents, <a href=\"https://www.gov.uk\" target=\"_blank\" rel=\"noopener noreferrer\" class=\"govuk-link\">check the import rules you must follow</a> on GOV.UK (opens in new tab).</p>
+      "
+    }) }}
+
+    <form method="post" novalidate id="accompanying-documents-form">
+      <div class="documents-section govuk-!-margin-bottom-6">
+        <div id="document-rows">
+        {% for doc in documents %}
+        <div class="document-section document-row {% if loop.index0 > 0 %}govuk-!-margin-top-4{% endif %}" data-index="{{ loop.index0 }}">
+          <div class="document-row-header {% if loop.index0 > 0 %}govuk-!-margin-top-8{% endif %}">
+            <h2 class="govuk-heading-m govuk-!-margin-bottom-0">Document {{ loop.index0 + 1 }}</h2>
+            {% if documents | length > 1 %}
+            <a href="#" class="govuk-link govuk-link--secondary govuk-!-font-size-16 remove-document" data-index="{{ loop.index0 }}">Remove this document</a>
+            {% endif %}
+          </div>
+          {{ govukSelect({
+            id: "document-type-" ~ loop.index0,
+            name: "documentType_" ~ loop.index0,
+            label: { text: "Document type" },
+            items: documentTypeItems,
+            value: doc.type if doc else '',
+            formGroup: { classes: "govuk-!-margin-bottom-4" },
+            errorMessage: data.errors and data.errors["documentType_" ~ loop.index0]
+          }) }}
+          {{ govukInput({
+            id: "document-reference-" ~ loop.index0,
+            name: "documentReference_" ~ loop.index0,
+            label: { text: "Document reference" },
+            value: doc.reference if doc else '',
+            formGroup: { classes: "govuk-!-margin-bottom-4" },
+            errorMessage: data.errors and data.errors["documentReference_" ~ loop.index0]
+          }) }}
+          <div class="govuk-form-group {% if data.errors and data.errors['documentDate_' ~ loop.index0] %}govuk-form-group--error{% endif %} govuk-!-margin-bottom-4">
+            <label class="govuk-label" for="document-date-{{ loop.index0 }}">Date of issue</label>
+            <div id="document-date-{{ loop.index0 }}-hint" class="govuk-hint">For example, 27 3 2024</div>
+            {% if data.errors and data.errors['documentDate_' ~ loop.index0] %}
+            <p id="document-date-{{ loop.index0 }}-error" class="govuk-error-message"><span class="govuk-visually-hidden">Error:</span> {{ data.errors['documentDate_' ~ loop.index0] }}</p>
+            {% endif %}
+            <input class="govuk-input govuk-input--width-10" id="document-date-{{ loop.index0 }}" name="documentDate_{{ loop.index0 }}" type="date" value="{{ doc.date if doc else '' }}" aria-describedby="document-date-{{ loop.index0 }}-hint {% if data.errors and data.errors['documentDate_' ~ loop.index0] %}document-date-{{ loop.index0 }}-error{% endif %}" {% if data.errors and data.errors['documentDate_' ~ loop.index0] %}aria-invalid="true"{% endif %}>
+          </div>
+          <div class="govuk-form-group govuk-!-margin-bottom-4 attachment-control" data-index="{{ loop.index0 }}">
+            <label class="govuk-label">Attachment</label>
+            <input class="govuk-file-upload attachment-input-hidden" id="document-attachment-{{ loop.index0 }}" name="documentAttachment_{{ loop.index0 }}" type="file" aria-describedby="document-attachment-{{ loop.index0 }}-hint">
+            <input type="hidden" name="documentAttachmentFilenames_{{ loop.index0 }}" value="{{ doc.attachments | join(',') if doc and doc.attachments else '' }}">
+            <div id="document-attachment-{{ loop.index0 }}-hint" class="govuk-hint govuk-!-margin-top-2 attachment-add-area{% if doc and doc.attachments and (doc.attachments | length) > 0 %} attachment-hidden{% endif %}">
+              <p class="govuk-hint govuk-!-margin-bottom-1 govuk-!-font-weight-bold">Your file must be:</p>
+              <ul class="govuk-list govuk-list--bullet govuk-hint govuk-!-margin-bottom-2">
+                <li>smaller than 50MB</li>
+                <li>PDF, DOC, DOCX, JPEG, PNG or XLS</li>
+                <li>ZIP files are not allowed for security reasons</li>
+              </ul>
+              <a href="#" class="govuk-link govuk-link--no-visited-state add-attachment-link" data-for="document-attachment-{{ loop.index0 }}">Add attachment</a>
+            </div>
+            {% if doc and doc.attachments and (doc.attachments | length) > 0 %}
+            <div class="govuk-!-margin-top-3 attachment-list attachment-list-server" id="attachment-list-server-{{ loop.index0 }}">
+              {% for filename in doc.attachments %}
+              <div class="govuk-body attachment-item"><span>{{ filename }}</span><div class="govuk-!-margin-top-3 govuk-!-font-size-16"><a href="#" class="govuk-link govuk-link--secondary govuk-!-font-size-16 remove-attachment" data-index="{{ loop.index0 }}">Remove attachment</a></div></div>
+              {% endfor %}
+            </div>
+            {% endif %}
+            <div class="govuk-!-margin-top-3 attachment-list attachment-list-dynamic attachment-hidden" id="attachment-list-dynamic-{{ loop.index0 }}">
+              <div class="attachment-filenames"></div>
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+        <div class="add-another-document govuk-!-margin-top-4">
+          <a href="#" class="govuk-link govuk-link--secondary govuk-!-font-size-16" id="add-another-document">Add another document</a>
+        </div>
+      </div>
+    </div>
+
+      <div class="form-actions govuk-!-margin-top-8">
+        {{ govukButton({
+          text: "Save and continue"
+        }) }}
+
+      <p class="govuk-body govuk-!-margin-top-4">
+        <a href="{{ (basePath or '/v1-experimental') }}/create/accompanying-documents-prefill" class="govuk-link govuk-link--secondary govuk-!-font-size-14">Quick fill and continue (internal use)</a>
+      </p>
+      </div>
+    </form>
+
+  </div>
+</div>
+
+{% endblock %}
+
+{% block pageScripts %}
+<script type="application/json" id="document-type-items-data">{{ documentTypeItems | dump | safe }}</script>
+<script src="/public/javascripts/documents.js"></script>
+{% endblock %}

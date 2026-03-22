@@ -1,0 +1,118 @@
+
+{% extends "layouts/v1-baseline.html" %}
+{% from "govuk/components/button/macro.njk" import govukButton %}
+{% from "govuk/components/back-link/macro.njk" import govukBackLink %}
+{% from "govuk/components/error-summary/macro.njk" import govukErrorSummary %}
+
+{% set title = "What are you importing?" %}
+{% block pageTitle %}{{ title }} - {{ serviceName }}{% endblock %}
+
+{% block beforeContent %}
+  {{ super() }}
+  {{ govukBackLink({
+    text: "Back",
+    href: backHref | default((basePath or '/v1-experimental') + "/start")
+  }) }}
+{% endblock %}
+
+{% block content %}
+
+{% if data.errors %}
+  {{ govukErrorSummary({
+    titleText: "There is a problem",
+    errorList: data.errorList
+  }) }}
+{% endif %}
+
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-two-thirds">
+
+    <h1 class="govuk-heading-xl">{{ title }}</h1>
+
+    <form method="post" novalidate>
+      <div class="govuk-form-group {% if data.errors and data.errors['commodity'] %}govuk-form-group--error{% endif %}">
+        <label class="govuk-label" for="commodity">
+          Search for a commodity, common name or species
+        </label>
+        {% if data.errors and data.errors["commodity"] %}
+          <p id="commodity-error" class="govuk-error-message">
+            <span class="govuk-visually-hidden">Error:</span> {{ data.errors["commodity"] }}
+          </p>
+        {% endif %}
+        <div id="commodity-hint" class="govuk-hint">
+          For example, Cattle, Horse, Bos taurus or 0102
+        </div>
+        <div class="autocomplete-wrapper autocomplete-wrapper--42em">
+          <input type="hidden" name="commodity" id="commodity-value" value="{{ data.commodity or '' }}">
+          <select class="govuk-select" id="commodity" aria-describedby="commodity-hint{% if data.errors and data.errors['commodity'] %} commodity-error{% endif %}"{% if data.errors and data.errors["commodity"] %} aria-invalid="true"{% endif %}>
+            <option value="">Start typing to search</option>
+            {% for opt in commodityOptions %}
+              <option value="{{ opt.value }}" {% if data.commodity == opt.value %}selected{% endif %}>{{ opt.text }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+
+      {{ govukButton({
+        text: "Save and continue"
+      }) }}
+
+      <p class="govuk-body govuk-!-margin-top-4">
+        <a href="{{ (basePath or '/v1-experimental') }}/create/commodity-prefill" class="govuk-link govuk-link--secondary govuk-!-font-size-14">Quick fill and continue (internal use)</a>
+      </p>
+    </form>
+
+  </div>
+</div>
+
+<script type="application/json" id="initial-data">{{ initialDataJson | safe }}</script>
+
+{% endblock %}
+
+{% block pageScripts %}
+  <script src="https://cdn.jsdelivr.net/npm/accessible-autocomplete@2.0.4/dist/accessible-autocomplete.min.js"></script>
+  <script>
+    (function () {
+      var selectEl = document.querySelector('#commodity')
+
+      function syncCommodityHidden () {
+        var hid = document.getElementById('commodity-value')
+        var sel = document.getElementById('commodity-select') || selectEl
+        if (hid && sel && sel.tagName === 'SELECT' && sel.value) {
+          hid.value = sel.value
+        }
+      }
+
+      var form = document.querySelector('form')
+      if (form) {
+        form.addEventListener('submit', syncCommodityHidden)
+      }
+
+      if (selectEl && typeof accessibleAutocomplete !== 'undefined') {
+        accessibleAutocomplete.enhanceSelectElement({
+          autoselect: true,
+          showAllValues: false,
+          placeholder: 'Type to search',
+          defaultValue: (function () {
+            var opt = selectEl.options[selectEl.options.selectedIndex]
+            if (!opt || !opt.value) return ''
+            return opt.text
+          })(),
+          minLength: 1,
+          selectElement: selectEl,
+          onConfirm: function (query) {
+            var opt = [].filter.call(selectEl.options, function (o) {
+              return (o.textContent || o.innerText) === query
+            })[0]
+            if (opt) opt.selected = true
+            var val = opt ? opt.value : ''
+            var hid = document.getElementById('commodity-value')
+            if (hid && val) hid.value = val
+            syncCommodityHidden()
+          }
+        })
+        selectEl.addEventListener('change', syncCommodityHidden)
+      }
+    })()
+  </script>
+{% endblock %}

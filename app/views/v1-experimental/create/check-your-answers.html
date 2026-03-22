@@ -1,0 +1,234 @@
+
+{% extends "layouts/v1-baseline.html" %}
+{% from "govuk/components/button/macro.njk" import govukButton %}
+{% from "govuk/components/back-link/macro.njk" import govukBackLink %}
+{% from "govuk/components/summary-list/macro.njk" import govukSummaryList %}
+{% from "govuk/components/table/macro.njk" import govukTable %}
+
+{% set title = "Review your notification" %}
+{% block pageTitle %}{{ title }} - {{ serviceName }}{% endblock %}
+
+{% block beforeContent %}
+  {{ super() }}
+  {{ govukBackLink({
+    text: "Back",
+    href: (basePath or '/v1-experimental') + "/create/transport-transporter"
+  }) }}
+{% endblock %}
+
+{% block content %}
+
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-full">
+
+    <h1 class="govuk-heading-xl">{{ title }}</h1>
+
+    {# Country of origin - from origin page #}
+    {{ govukSummaryList({
+      card: {
+        title: { text: "Country of origin" },
+        actions: { items: [{ href: (basePath or '/v1-experimental') + "/create/origin", text: "Change" }] }
+      },
+      rows: originRows
+    }) }}
+
+    <hr class="govuk-section-break govuk-section-break--visible govuk-section-break--l govuk-!-margin-top-4 govuk-!-margin-bottom-4">
+
+    {# Commodity details - from commodity, commodity-species, commodity-quantities #}
+    <div class="govuk-summary-card govuk-!-margin-bottom-0">
+      <div class="govuk-summary-card__title-wrapper">
+        <h2 class="govuk-summary-card__title">Commodity details</h2>
+        <div class="govuk-summary-card__actions">
+          <a class="govuk-link" href="{{ (basePath or '/v1-experimental') }}/create/commodity-hub">Change<span class="govuk-visually-hidden"> (Commodity details)</span></a>
+        </div>
+      </div>
+      <div class="govuk-summary-card__content">
+        {% if (descriptionSummaryRows or []) | length %}
+        {{ govukSummaryList({
+          rows: descriptionSummaryRows
+        }) }}
+        {% endif %}
+        {{ govukTable({
+          classes: "commodity-details-table",
+          caption: "Species and quantities",
+          captionClasses: "govuk-table__caption--m",
+          head: [
+            { text: "Species and type" },
+            { text: "Number of animals", format: "numeric" },
+            { text: "Number of packages", format: "numeric" }
+          ],
+          rows: descriptionTableRows
+        }) }}
+      </div>
+    </div>
+
+    <hr class="govuk-section-break govuk-section-break--visible govuk-section-break--l govuk-!-margin-top-4 govuk-!-margin-bottom-4">
+
+    {# Animal identification details #}
+    <div class="govuk-summary-card govuk-!-margin-bottom-0">
+      <div class="govuk-summary-card__title-wrapper">
+        <h2 class="govuk-summary-card__title">Animal identification details</h2>
+        <div class="govuk-summary-card__actions">
+          <a class="govuk-link" href="{{ (basePath or '/v1-experimental') }}/create/animal-identification">Change<span class="govuk-visually-hidden"> (Animal identification details)</span></a>
+        </div>
+      </div>
+      <div class="govuk-summary-card__content">
+        {% if animalIdentificationUseTable %}
+        {% if animalIdentificationSpeciesLabel %}
+        {% set identificationCaption = { html: 'Identification details<br><span class="govuk-body-s govuk-!-display-block govuk-!-margin-top-1">' ~ (animalIdentificationSpeciesLabel | e) ~ '</span>' } %}
+        {% else %}
+        {% set identificationCaption = "Identification details" %}
+        {% endif %}
+        {{ govukTable({
+          classes: "commodity-details-table",
+          caption: identificationCaption,
+          captionClasses: "govuk-table__caption--m",
+          head: [
+            { text: "Animal" },
+            { text: "Ear tag" },
+            { text: "Passport" }
+          ],
+          rows: animalIdentificationTableRows
+        }) }}
+        {% else %}
+        {{ govukSummaryList({
+          rows: animalIdRows
+        }) }}
+        {% endif %}
+      </div>
+    </div>
+
+    <hr class="govuk-section-break govuk-section-break--visible govuk-section-break--l govuk-!-margin-top-4 govuk-!-margin-bottom-4">
+
+    {# Additional information details #}
+    {{ govukSummaryList({
+      card: {
+        title: { text: "Additional information details" },
+        actions: { items: [{ href: (basePath or '/v1-experimental') + "/create/additional-animal-details", text: "Change" }] }
+      },
+      rows: additionalAnimalRows
+    }) }}
+
+    <hr class="govuk-section-break govuk-section-break--visible govuk-section-break--l govuk-!-margin-top-4 govuk-!-margin-bottom-4">
+
+    {# Import reasons - from import-reason page #}
+    {{ govukSummaryList({
+      card: {
+        title: { text: "Import reasons" },
+        actions: { items: [{ href: (basePath or '/v1-experimental') + "/create/import-reason", text: "Change" }] }
+      },
+      rows: importReasonRows
+    }) }}
+
+    <hr class="govuk-section-break govuk-section-break--visible govuk-section-break--l govuk-!-margin-top-4 govuk-!-margin-bottom-4">
+
+    {# Accompanying documents - from accompanying-documents page #}
+    <div class="govuk-summary-card govuk-!-margin-bottom-0">
+      <div class="govuk-summary-card__title-wrapper">
+        <h2 class="govuk-summary-card__title">Accompanying documents</h2>
+        <div class="govuk-summary-card__actions">
+          <a class="govuk-link" href="{{ (basePath or '/v1-experimental') }}/create/accompanying-documents">Change<span class="govuk-visually-hidden"> (Accompanying documents)</span></a>
+        </div>
+      </div>
+      <div class="govuk-summary-card__content">
+        {{ govukTable({
+          classes: "commodity-details-table",
+          head: [
+            { text: "Document type" },
+            { text: "Document reference" },
+            { text: "Valid until" },
+            { text: "Attachments" }
+          ],
+          rows: documentsTableRows
+        }) }}
+      </div>
+    </div>
+
+    <hr class="govuk-section-break govuk-section-break--visible govuk-section-break--l govuk-!-margin-top-4 govuk-!-margin-bottom-4">
+
+    {# Addresses #}
+    {{ govukSummaryList({
+      card: {
+        title: { text: "Addresses" },
+        actions: { items: [{ href: (basePath or '/v1-experimental') + "/create/addresses", text: "Change" }] }
+      },
+      rows: addressRows
+    }) }}
+
+    <hr class="govuk-section-break govuk-section-break--visible govuk-section-break--l govuk-!-margin-top-4 govuk-!-margin-bottom-4">
+
+    {% if isLivestockConsignment %}
+    {# County Parish Holding number (CPH) – livestock only #}
+    {{ govukSummaryList({
+      card: {
+        title: { text: "County Parish Holding number (CPH)" },
+        actions: { items: [{ href: (basePath or '/v1-experimental') + "/create/address-cph", text: "Change" }] }
+      },
+      rows: cphRows
+    }) }}
+
+    <hr class="govuk-section-break govuk-section-break--visible govuk-section-break--l govuk-!-margin-top-4 govuk-!-margin-bottom-4">
+    {% endif %}
+
+    {% if isPetConsignment %}
+    {# Permanent addresses for these animals – pets only #}
+    {{ govukSummaryList({
+      card: {
+        title: { text: "Permanent addresses for these animals" },
+        actions: { items: [{ href: (basePath or '/v1-experimental') + "/create/permanent-addresses-for-animals", text: "Change" }] }
+      },
+      rows: permanentAddressRows
+    }) }}
+
+    <hr class="govuk-section-break govuk-section-break--visible govuk-section-break--l govuk-!-margin-top-4 govuk-!-margin-bottom-4">
+    {% endif %}
+
+    {# Contact details for consignment - from contact-address-for-consignment page #}
+    {{ govukSummaryList({
+      card: {
+        title: { text: "Contact details for consignment" },
+        actions: { items: [{ href: (basePath or '/v1-experimental') + "/create/contact-address-for-consignment", text: "Change" }] }
+      },
+      rows: contactAddressRows
+    }) }}
+
+    <hr class="govuk-section-break govuk-section-break--visible govuk-section-break--l govuk-!-margin-top-4 govuk-!-margin-bottom-4">
+
+    {# Transport - When will the consignment arrive? (transport-arrival) #}
+    {{ govukSummaryList({
+      card: {
+        title: { text: "When will the consignment arrive?" },
+        actions: { items: [{ href: (basePath or '/v1-experimental') + "/create/transport-arrival", text: "Change" }] }
+      },
+      rows: arrivalRows
+    }) }}
+
+    <hr class="govuk-section-break govuk-section-break--visible govuk-section-break--l govuk-!-margin-top-4 govuk-!-margin-bottom-4">
+
+    {# Transport - transport-transporter #}
+    {{ govukSummaryList({
+      card: {
+        title: { text: "Transport" },
+        actions: { items: [{ href: (basePath or '/v1-experimental') + "/create/transport-transporter", text: "Change" }] }
+      },
+      rows: transporterRows
+    }) }}
+
+    <form method="post" novalidate class="govuk-!-margin-top-6">
+      {{ govukButton({
+        text: "Confirm and submit"
+      }) }}
+    </form>
+
+    <p class="govuk-body govuk-!-margin-top-4">
+      <a href="{{ (basePath or '/v1-experimental') }}/dashboard" class="govuk-link">Save and continue later</a>
+    </p>
+
+    <p class="govuk-body govuk-!-margin-top-4">
+      <a href="{{ (basePath or '/v1-experimental') }}/create/check-your-answers-prefill" class="govuk-link govuk-link--secondary govuk-!-font-size-14">Quick fill (internal use)</a>
+    </p>
+
+  </div>
+</div>
+
+{% endblock %}

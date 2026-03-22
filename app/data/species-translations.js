@@ -1,0 +1,22 @@
+module.exports = {
+  'Bison bison': 'Bison',
+  'Bos spp.': 'Cattle species',
+  'Bos taurus': 'Cattle',
+  'Bubalus bubalis': 'Water buffalo',
+  'Bibos spp.': 'Wild cattle',
+  'Bison spp.': 'Bison species',
+  'Bubalus spp. (including Anoa)': 'Water buffalo species',
+  'Novibos spp.': 'Kouprey',
+  'Ovibos spp.': 'Muskox',
+  'Poephagus spp.': 'Yak',
+  'Syncerus spp.': 'African buffalo',
+  'Equus caballus': 'Horse',
+  'Equus asinus': 'Donkey',
+  'Equus przewalskii': 'Przewalski\'s horse',
+  'Sus scrofa domesticus': 'Pig',
+  'Ovis Aries': 'Sheep',
+  'Capra hircus': 'Goat',
+  'Canis familiaris': 'Dog',
+  'Felis catus': 'Cat',
+  'Oryctolagus cuniculus': 'Rabbit'
+}
