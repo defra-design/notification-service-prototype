@@ -4,6 +4,8 @@
 {% from "govuk/components/back-link/macro.njk" import govukBackLink %}
 {% from "govuk/components/inset-text/macro.njk" import govukInsetText %}
 {% from "govuk/components/table/macro.njk" import govukTable %}
+{% from "govuk/components/notification-banner/macro.njk" import govukNotificationBanner %}
+{% from "govuk/components/error-summary/macro.njk" import govukErrorSummary %}
 
 {% set title = "Addresses" %}
 {% block pageTitle %}{{ title }} - {{ serviceName }}{% endblock %}
@@ -27,6 +29,20 @@
     {{ govukInsetText({
       text: "Providing a false address is an act of fraud."
     }) }}
+
+    {% if showBranchAddedSuccess %}
+    {{ govukNotificationBanner({
+      type: "success",
+      text: "Branch address added. Select it from the list below."
+    }) }}
+    {% endif %}
+
+    {% if data.errors %}
+    {{ govukErrorSummary({
+      titleText: "There is a problem",
+      errorList: data.errorList
+    }) }}
+    {% endif %}
 
     <form method="post" novalidate>
 
@@ -114,6 +130,30 @@
           <span aria-hidden="true"> | </span>
           {% endif %}
           <a href="{{ (basePath or '/v1-experimental') }}/create/address-place-of-destination-search" class="govuk-link govuk-link--secondary govuk-!-font-size-16">Add a place of destination</a>
+        </p>
+        {% endif %}
+      </div>
+
+      <div class="govuk-!-margin-bottom-6 govuk-form-group{% if data.errors and data.errors.contactAddressId %} govuk-form-group--error{% endif %}" id="contact-address">
+        <h2 class="govuk-heading-m govuk-!-margin-bottom-2">Contact address for consignment</h2>
+        <p class="govuk-hint govuk-!-margin-bottom-2">This is the contact address of the person responsible for the consignment from when it enters Great Britain until authorities complete their checks.</p>
+        {% if data.errors and data.errors.contactAddressId %}
+        <p class="govuk-error-message govuk-!-margin-bottom-2">
+          <span class="govuk-visually-hidden">Error:</span> {{ data.errors.contactAddressId }}
+        </p>
+        {% endif %}
+        {% if hasContactAddress %}
+        <div class="govuk-inset-text govuk-!-margin-top-2 govuk-!-margin-bottom-2 address-inset">
+          {% for line in contactAddressLines %}
+          <p class="govuk-body {% if not loop.last %}govuk-!-margin-bottom-1{% else %}govuk-!-margin-bottom-0{% endif %}">{% if loop.first %}<strong>{{ line }}</strong>{% else %}{{ line }}{% endif %}</p>
+          {% endfor %}
+        </div>
+        <p class="govuk-body govuk-!-margin-bottom-0">
+          <a href="{{ (basePath or '/v1-experimental') }}/create/contact-address-search" class="govuk-link govuk-!-font-size-16">Change</a>
+        </p>
+        {% else %}
+        <p class="govuk-body govuk-!-margin-bottom-0">
+          <a href="{{ (basePath or '/v1-experimental') }}/create/contact-address-search" class="govuk-link govuk-link--secondary govuk-!-font-size-16">Add a contact address for consignment</a>
         </p>
         {% endif %}
       </div>

@@ -512,7 +512,8 @@ function registerPostHubRoutes (router, base) {
     })
   })
 
-  function runAnimalIdentificationPrefill (req, res) {
+  function runAnimalIdentificationPrefill (req, res, opts) {
+    const andContinue = opts && opts.andContinue
     const data = req.session.data
     const commodities = data.commodities || []
     const commoditiesData = require('../../data/commodities-eu.js')
@@ -571,7 +572,71 @@ function registerPostHubRoutes (router, base) {
     })
     delete data.errors
     delete data.errorList
-    res.redirect(create('/animal-identification'))
+    if (!andContinue) return res.redirect(create('/animal-identification'))
+    const saveQuantitiesFromSession = (item) => {
+      if (!item.commoditySpecies) return
+      item.quantities = item.quantities || {}
+      item.commoditySpecies.forEach(s => {
+        const key = toKey(s)
+        const count = parseInt(req.session.data[`animalCount_${key}`], 10)
+        const packages = parseInt(req.session.data[`numberOfPackages_${key}`], 10)
+        if (!isNaN(count) && count > 0) item.quantities[`quantity_${key}`] = count
+        if (!isNaN(packages) && packages >= 0) item.quantities[`packages_${key}`] = packages
+      })
+    }
+    if (useCurrentCommodity) {
+      const quantities = {}
+      speciesRows.forEach(s => {
+        const count = parseInt(req.session.data[`animalCount_${s.key}`], 10)
+        const packages = parseInt(req.session.data[`numberOfPackages_${s.key}`], 10)
+        if (!isNaN(count) && count > 0) quantities[`quantity_${s.key}`] = count
+        if (!isNaN(packages) && packages >= 0) quantities[`packages_${s.key}`] = packages
+      })
+      const entry = {
+        commodity: data.commodity,
+        commoditySpecies: Array.isArray(data.commoditySpecies) ? data.commoditySpecies : [data.commoditySpecies],
+        commodityType: data.commodityType || 'domestic',
+        quantities
+      }
+      const commoditiesArr = data.commodities || []
+      if (typeof editIdx === 'number' && editIdx >= 0 && editIdx < commoditiesArr.length) {
+        commoditiesArr[editIdx] = entry
+      } else {
+        commoditiesArr.push(entry)
+      }
+      data.commodities = commoditiesArr
+      delete data.commodity
+      delete data.commoditySpecies
+      delete data.commodityType
+      delete data.commodityFromHub
+      delete data.commodityEditIndex
+      Object.keys(data).filter(k => k.startsWith('quantity_') || k.startsWith('packages_') || k.startsWith('animalCount_') || k.startsWith('numberOfPackages_')).forEach(k => delete data[k])
+      return res.redirect(create('/commodity-hub'))
+    }
+    const idx = typeof commodityIndex === 'number' && commodityIndex >= 0 ? commodityIndex : 0
+    const item = commodities[idx]
+    if (item) saveQuantitiesFromSession(item)
+    const nextIdx = idx + 1
+    if (nextIdx < commodities.length) {
+      data.animalIdCommodityIndex = nextIdx
+      const nextItem = commodities[nextIdx]
+      data.commodity = nextItem.commodity
+      data.commoditySpecies = nextItem.commoditySpecies || []
+      data.commodityType = nextItem.commodityType || 'domestic'
+      if (nextItem.quantities) {
+        Object.assign(data, nextItem.quantities)
+        ;(nextItem.commoditySpecies || []).forEach(s => {
+          const key = toKey(s)
+          const qty = nextItem.quantities[`quantity_${key}`]
+          if (qty !== undefined) data[`animalCount_${key}`] = qty
+          const pkg = nextItem.quantities[`packages_${key}`]
+          if (pkg !== undefined) data[`numberOfPackages_${key}`] = pkg
+        })
+      }
+      return res.redirect(create('/animal-identification'))
+    }
+    delete data.animalIdCommodityIndex
+    return res.redirect(create('/additional-animal-details'))
   }
 
   router.get(create('/animal-identification-prefill'), runAnimalIdentificationPrefill)
@@ -580,7 +645,7 @@ function registerPostHubRoutes (router, base) {
     if (req.body && typeof req.body === 'object') {
       Object.assign(req.session.data, req.body)
     }
-    runAnimalIdentificationPrefill(req, res)
+    runAnimalIdentificationPrefill(req, res, { andContinue: true })
   })
 
   router.post(create('/animal-identification'), (req, res) => {
@@ -775,6 +840,15 @@ function registerPostHubRoutes (router, base) {
     }
   })
 
+  router.get(create('/additional-animal-details-prefill'), (req, res) => {
+    const data = req.session.data || {}
+    data.animalsCertifiedFor = 'breeding-production'
+    data.unweanedAnimals = 'no'
+    delete data.errors
+    delete data.errorList
+    res.redirect(create('/import-reason'))
+  })
+
   // --- additional-animal-details ---
   router.get(create('/additional-animal-details'), (req, res) => {
     delete req.session.data.errors
@@ -803,8 +877,8 @@ function registerPostHubRoutes (router, base) {
       : certifiedForOptions
 
     const code = commodityDetails && commodityDetails.code ? String(commodityDetails.code).replace(/\s/g, '') : ''
-    const isDogConsignment = code === '01061900' && commoditySpecies.includes('Canis familiaris')
-    const showUnweanedAnimals = !isDogConsignment
+    const isCatsOrDogs = code === '01061900' && (commodity === 'Cat' || commodity === 'Dog')
+    const showUnweanedAnimals = !isCatsOrDogs
 
     res.render('v1-experimental/create/additional-animal-details', { certifiedForItems, showUnweanedAnimals })
   })
@@ -817,8 +891,8 @@ function registerPostHubRoutes (router, base) {
     const commoditiesData = require('../../data/commodities-eu.js')
     const commodityDetails = commodity ? commoditiesData[commodity] : null
     const code = commodityDetails && commodityDetails.code ? String(commodityDetails.code).replace(/\s/g, '') : ''
-    const isDogConsignment = code === '01061900' && commoditySpecies.includes('Canis familiaris')
-    const showUnweanedAnimals = !isDogConsignment
+    const isCatsOrDogs = code === '01061900' && (commodity === 'Cat' || commodity === 'Dog')
+    const showUnweanedAnimals = !isCatsOrDogs
 
     const errors = {}
     const errorList = []
@@ -841,6 +915,15 @@ function registerPostHubRoutes (router, base) {
     delete req.session.data.errors
     delete req.session.data.errorList
     res.redirect(create('/import-reason'))
+  })
+
+  router.get(create('/import-reason-prefill'), (req, res) => {
+    const data = req.session.data || {}
+    data.importReason = 'internal-market'
+    data.internalMarketPurpose = 'breeding'
+    delete data.errors
+    delete data.errorList
+    res.redirect(create('/accompanying-documents'))
   })
 
   // --- import-reason ---
@@ -1221,6 +1304,27 @@ function registerPostHubRoutes (router, base) {
     )
     const showSameAsConsigneeForDestination = hasConsignee && !placeOfDestinationMatchesConsignee
 
+    const contactAddresses = require('../../data/contact-addresses.js')
+    const additional = Array.isArray(data.contactAddressesAdditional) ? data.contactAddressesAdditional : []
+    const allContactAddresses = [...contactAddresses, ...additional]
+    const contactAddressIdParam = req.query.contactAddress
+    if (contactAddressIdParam) {
+      const selected = allContactAddresses.find(c => String(c.id) === String(contactAddressIdParam))
+      if (selected) {
+        data.contactAddressId = selected.id
+      }
+    }
+    const contactAddressId = (data.contactAddressId || '').trim()
+    const selectedContact = contactAddressId && allContactAddresses.find(a => String(a.id) === String(contactAddressId))
+    const hasContactAddress = !!selectedContact
+    let contactAddressLines = []
+    if (hasContactAddress) {
+      contactAddressLines.push(selectedContact.name, ...(selectedContact.addressLines || [selectedContact.address] || []))
+      if (selectedContact.country) contactAddressLines.push(selectedContact.country)
+    }
+    const showBranchAddedSuccess = !!data.branchAddressAdded
+    if (data.branchAddressAdded) delete data.branchAddressAdded
+
     res.render('v1-experimental/create/addresses', {
       consignorName,
       consignorAddress,
@@ -1234,15 +1338,30 @@ function registerPostHubRoutes (router, base) {
       hasPlaceOfDestination,
       placeOfDestinationAddressLines,
       showSameAsConsigneeForDestination,
+      hasContactAddress,
+      contactAddressLines,
+      showBranchAddedSuccess,
       basePath: base
     })
   })
 
   router.post(create('/addresses'), (req, res) => {
     const data = req.session.data || {}
+    const contactAddressId = (data.contactAddressId || '').trim()
+    const errors = {}
+    const errorList = []
+    if (!contactAddressId) {
+      errors.contactAddressId = 'Add a contact address for consignment'
+      errorList.push({ href: '#contact-address', text: 'Add a contact address for consignment' })
+    }
+    if (errorList.length > 0) {
+      data.errors = errors
+      data.errorList = errorList
+      return res.redirect(create('/addresses') + '#contact-address')
+    }
     delete data.errors
     delete data.errorList
-    let next = create('/contact-address-for-consignment')
+    let next = create('/transport-arrival')
     if (isPetConsignment(data)) next = create('/permanent-addresses-for-animals')
     else if (isLivestockConsignment(data)) next = create('/address-cph')
     res.redirect(next)
@@ -1273,9 +1392,20 @@ function registerPostHubRoutes (router, base) {
     data.placeOfDestinationAddress = place.address
     data.placeOfDestinationCountry = place.country
     data.placeOfDestinationType = place.type
+    if (!Array.isArray(data.contactAddressesAdditional)) data.contactAddressesAdditional = []
+    const prefillContact = {
+      id: 'prefill-contact-1',
+      name: 'Animal and Plant Health Agency',
+      addressLines: ['Woodham Lane', 'New Haw', 'Surrey', 'Addlestone', 'KT15 3NB'],
+      country: 'United Kingdom of Great Britain and Northern Ireland'
+    }
+    if (!data.contactAddressesAdditional.find(a => a.id === prefillContact.id)) {
+      data.contactAddressesAdditional.push(prefillContact)
+    }
+    data.contactAddressId = prefillContact.id
     delete data.errors
     delete data.errorList
-    let nextPage = create('/contact-address-for-consignment')
+    let nextPage = create('/transport-arrival')
     if (isPetConsignment(data)) nextPage = create('/permanent-addresses-for-animals')
     else if (isLivestockConsignment(data)) nextPage = create('/address-cph')
     res.redirect(nextPage)
@@ -1287,7 +1417,7 @@ function registerPostHubRoutes (router, base) {
     delete data.errors
     delete data.errorList
     if (isLivestockConsignment(data)) return res.redirect(create('/address-cph'))
-    if (!isPetConsignment(data)) return res.redirect(create('/contact-address-for-consignment'))
+    if (!isPetConsignment(data)) return res.redirect(create('/addresses'))
     let viewData = getPermanentAddressViewData(data)
     if (!viewData.animalLabel) {
       viewData = {
@@ -1302,7 +1432,7 @@ function registerPostHubRoutes (router, base) {
   router.post(create('/permanent-addresses-for-animals'), (req, res) => {
     const data = req.session.data || {}
     if (isLivestockConsignment(data)) return res.redirect(create('/address-cph'))
-    if (!isPetConsignment(data)) return res.redirect(create('/contact-address-for-consignment'))
+    if (!isPetConsignment(data)) return res.redirect(create('/addresses'))
     const sameAsPOD = data.permanentAddressSameAsPOD === 'yes'
     const errors = {}
     const errorList = []
@@ -1323,7 +1453,7 @@ function registerPostHubRoutes (router, base) {
     }
     delete data.errors
     delete data.errorList
-    res.redirect(create('/contact-address-for-consignment'))
+    res.redirect(create('/transport-arrival'))
   })
 
   // --- address-cph ---
@@ -1333,12 +1463,16 @@ function registerPostHubRoutes (router, base) {
     if (!isLivestockConsignment(data)) {
       delete data.errors
       delete data.errorList
-      return res.redirect(create('/contact-address-for-consignment'))
+      if (!Array.isArray(data.contactAddressesAdditional)) data.contactAddressesAdditional = []
+      const prefillContact = { id: 'prefill-contact-1', name: 'Animal and Plant Health Agency', addressLines: ['Woodham Lane', 'New Haw', 'Surrey', 'Addlestone', 'KT15 3NB'], country: 'United Kingdom of Great Britain and Northern Ireland' }
+      if (!data.contactAddressesAdditional.find(a => a.id === prefillContact.id)) data.contactAddressesAdditional.push(prefillContact)
+      data.contactAddressId = prefillContact.id
+      return res.redirect(create('/transport-arrival'))
     }
     data.cphNumber = '12/345/6789'
     delete data.errors
     delete data.errorList
-    res.redirect(create('/contact-address-for-consignment'))
+    res.redirect(create('/transport-arrival'))
   })
 
   router.get(create('/address-cph'), (req, res) => {
@@ -1346,14 +1480,14 @@ function registerPostHubRoutes (router, base) {
     delete data.errors
     delete data.errorList
     if (isPetConsignment(data)) return res.redirect(create('/permanent-addresses-for-animals'))
-    if (!isLivestockConsignment(data)) return res.redirect(create('/contact-address-for-consignment'))
+    if (!isLivestockConsignment(data)) return res.redirect(create('/addresses'))
     res.render('v1-experimental/create/address-cph')
   })
 
   router.post(create('/address-cph'), (req, res) => {
     const data = req.session.data || {}
     if (isPetConsignment(data)) return res.redirect(create('/permanent-addresses-for-animals'))
-    if (!isLivestockConsignment(data)) return res.redirect(create('/contact-address-for-consignment'))
+    if (!isLivestockConsignment(data)) return res.redirect(create('/addresses'))
     const cphNumber = (data.cphNumber || '').trim()
     const errors = {}
     const errorList = []
@@ -1368,60 +1502,60 @@ function registerPostHubRoutes (router, base) {
     }
     delete data.errors
     delete data.errorList
-    res.redirect(create('/contact-address-for-consignment'))
-  })
-
-  // --- contact-address-for-consignment ---
-  router.get(create('/contact-address-for-consignment-prefill'), (req, res) => {
-    const data = req.session.data || {}
-    data.contactAddressId = '1'
-    delete data.errors
-    delete data.errorList
     res.redirect(create('/transport-arrival'))
   })
 
-  router.get(create('/contact-address-for-consignment'), (req, res) => {
+  // --- contact-address-search ---
+  router.get(create('/contact-address-search'), (req, res) => {
     const data = req.session.data || {}
-    const showBranchAddedSuccess = !!data.branchAddressAdded
-    delete data.branchAddressAdded
-    delete data.errors
-    delete data.errorList
     const contactAddresses = require('../../data/contact-addresses.js')
     const additional = Array.isArray(data.contactAddressesAdditional) ? data.contactAddressesAdditional : []
-    const allAddresses = [...contactAddresses, ...additional]
-    const contactAddressItems = allAddresses.map((addr) => {
-      const lines = [addr.name, ...(addr.addressLines || [addr.address] || [])]
-      if (addr.country) lines.push(addr.country)
-      const html = lines.join('<br>')
-      return { value: String(addr.id), html }
-    })
-    let backHref = create('/addresses')
-    if (isPetConsignment(data)) backHref = create('/permanent-addresses-for-animals')
-    else if (isLivestockConsignment(data)) backHref = create('/address-cph')
-    res.render('v1-experimental/create/contact-address-for-consignment', {
-      contactAddressItems,
-      backHref,
-      showBranchAddedSuccess
-    })
-  })
+    const allContacts = contactAddresses.map(c => ({
+      id: c.id,
+      name: c.name,
+      address: (c.addressLines || [c.address] || []).join(', '),
+      country: c.country || ''
+    })).concat(additional.map(c => ({
+      id: c.id,
+      name: c.name,
+      address: (c.addressLines || [c.address] || []).join(', '),
+      country: c.country || ''
+    })))
+    const searchName = (req.query.searchName || '').trim().toLowerCase()
+    const searchAddress = (req.query.searchAddress || '').trim().toLowerCase()
+    const searchCountry = (req.query.searchCountry || '').trim()
+    const page = parseInt(req.query.page, 10) || 1
+    const perPage = 10
 
-  router.post(create('/contact-address-for-consignment'), (req, res) => {
-    const data = req.session.data || {}
-    const contactAddressId = (data.contactAddressId || '').trim()
-    const errors = {}
-    const errorList = []
-    if (!contactAddressId) {
-      errors.contactAddressId = 'Select an address'
-      errorList.push({ href: '#contact-address-1', text: 'Select an address' })
-    }
-    if (errorList.length > 0) {
-      data.errors = errors
-      data.errorList = errorList
-      return res.redirect(create('/contact-address-for-consignment'))
-    }
-    delete data.errors
-    delete data.errorList
-    res.redirect(create('/transport-arrival'))
+    data.contactSearchName = req.query.searchName ?? data.contactSearchName
+    data.contactSearchAddress = req.query.searchAddress ?? data.contactSearchAddress
+    data.contactSearchCountry = req.query.searchCountry ?? data.contactSearchCountry
+
+    let filtered = allContacts
+    if (searchName) filtered = filtered.filter(c => (c.name || '').toLowerCase().includes(searchName))
+    if (searchAddress) filtered = filtered.filter(c => (c.address || '').toLowerCase().includes(searchAddress))
+    if (searchCountry) filtered = filtered.filter(c => c.country === searchCountry)
+
+    const total = filtered.length
+    const totalPages = Math.max(1, Math.ceil(total / perPage))
+    const pageNum = Math.max(1, Math.min(page, totalPages))
+    const start = (pageNum - 1) * perPage
+    const results = filtered.slice(start, start + perPage)
+    const euCountries = require('../../data/eu-countries.js')
+    const countriesFromData = [...new Set(allContacts.map(c => c.country).filter(Boolean))]
+    const countries = [...new Set([...euCountries, ...countriesFromData])].sort()
+
+    res.render('v1-experimental/create/contact-address-search', {
+      results,
+      countries,
+      page: pageNum,
+      totalPages,
+      total,
+      searchName: req.query.searchName ?? data.contactSearchName ?? '',
+      searchAddress: req.query.searchAddress ?? data.contactSearchAddress ?? '',
+      searchCountry: req.query.searchCountry ?? data.contactSearchCountry ?? '',
+      basePath: base
+    })
   })
 
   // --- contact-address-add-branch ---
@@ -1510,6 +1644,7 @@ function registerPostHubRoutes (router, base) {
     }
     if (!Array.isArray(data.contactAddressesAdditional)) data.contactAddressesAdditional = []
     data.contactAddressesAdditional.push(branchAddr)
+    data.contactAddressId = branchAddr.id
     data.branchAddressAdded = true
     delete data.errors
     delete data.errorList
@@ -1521,7 +1656,26 @@ function registerPostHubRoutes (router, base) {
     delete data.branchTelephone
     delete data.branchCountry
     delete data.branchEmail
-    res.redirect(create('/contact-address-for-consignment'))
+    res.redirect(create('/addresses') + '#contact-address')
+  })
+
+  router.get(create('/contact-address-add-branch-prefill'), (req, res) => {
+    const data = req.session.data || {}
+    if (!Array.isArray(data.contactAddressesAdditional)) data.contactAddressesAdditional = []
+    const branchId = `branch-${Date.now()}`
+    data.contactAddressesAdditional.push({
+      id: branchId,
+      name: 'Sample Branch Office',
+      addressLines: ['123 High Street', 'Manchester', 'M1 2AB'],
+      country: 'United Kingdom of Great Britain and Northern Ireland',
+      telephone: '0161 123 4567',
+      email: 'branch@example.com'
+    })
+    data.contactAddressId = branchId
+    data.branchAddressAdded = true
+    delete data.errors
+    delete data.errorList
+    res.redirect(create('/addresses') + '#contact-address')
   })
 
   // --- transport-arrival ---
@@ -1542,9 +1696,13 @@ function registerPostHubRoutes (router, base) {
     const d = new Date()
     d.setDate(d.getDate() + 3)
     const minArrivalDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+    let backHref = create('/addresses')
+    if (isPetConsignment(data)) backHref = create('/permanent-addresses-for-animals')
+    else if (isLivestockConsignment(data)) backHref = create('/address-cph')
     res.render('v1-experimental/create/transport-arrival', {
       minArrivalDate,
-      defaultArrivalDate: minArrivalDate
+      defaultArrivalDate: minArrivalDate,
+      backHref
     })
   })
 

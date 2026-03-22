@@ -5,14 +5,14 @@
 {% from "govuk/components/back-link/macro.njk" import govukBackLink %}
 {% from "govuk/components/error-summary/macro.njk" import govukErrorSummary %}
 
-{% set title = "Add branch address" %}
+{% set title = "Add a contact address for consignment" %}
 {% block pageTitle %}{{ title }} - {{ serviceName }}{% endblock %}
 
 {% block beforeContent %}
   {{ super() }}
   {{ govukBackLink({
     text: "Back",
-    href: (basePath or '/v1-experimental') + '/create/contact-address-for-consignment'
+    href: (basePath or '/v1-experimental') + '/create/contact-address-search'
   }) }}
 {% endblock %}
 
@@ -32,12 +32,12 @@
     <h1 class="govuk-heading-xl">{{ title }}</h1>
 
     <p class="govuk-body">
-      <a href="{{ (basePath or '/v1-experimental') }}/create/contact-address-for-consignment" class="govuk-link">Return to notification</a>
+      <a href="{{ (basePath or '/v1-experimental') }}/create/contact-address-search" class="govuk-link">Return to search</a>
     </p>
 
     <form method="post" novalidate>
       {{ govukInput({
-        label: { text: "Branch address name" },
+        label: { text: "Contact address name" },
         id: "branchAddressName",
         name: "branchAddressName",
         value: data.branchAddressName,
@@ -46,7 +46,7 @@
         errorMessage: data.errors and data.errors.branchAddressName and { text: data.errors.branchAddressName } or null
       }) }}
 
-      <h2 class="govuk-heading-s govuk-!-margin-top-6">Branch address</h2>
+      <h2 class="govuk-heading-s govuk-!-margin-top-6">Address</h2>
 
       {{ govukInput({
         label: { text: "Address line 1" },

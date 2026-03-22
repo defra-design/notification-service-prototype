@@ -9,10 +9,12 @@
 
 {% block beforeContent %}
   {{ super() }}
+  {% if backHref %}
   {{ govukBackLink({
     text: "Back",
-    href: backHref | default((basePath or '/v1-experimental') + "/start")
+    href: backHref
   }) }}
+  {% endif %}
 {% endblock %}
 
 {% block content %}

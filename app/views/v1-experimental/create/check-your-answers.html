@@ -183,11 +183,11 @@
     <hr class="govuk-section-break govuk-section-break--visible govuk-section-break--l govuk-!-margin-top-4 govuk-!-margin-bottom-4">
     {% endif %}
 
-    {# Contact details for consignment - from contact-address-for-consignment page #}
+    {# Contact details for consignment - from addresses page #}
     {{ govukSummaryList({
       card: {
         title: { text: "Contact details for consignment" },
-        actions: { items: [{ href: (basePath or '/v1-experimental') + "/create/contact-address-for-consignment", text: "Change" }] }
+        actions: { items: [{ href: (basePath or '/v1-experimental') + "/create/contact-address-search", text: "Change" }] }
       },
       rows: contactAddressRows
     }) }}

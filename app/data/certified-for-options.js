@@ -13,12 +13,12 @@ const allOptions = [
 ]
 
 // Species-specific overrides: code + species -> allowed values (alphabetical by text)
-const codeSpeciesToOptions = {
-  '01061900:Canis familiaris': ['approved-bodies', 'breeding-production', 'other', 'pets']
-}
+const codeSpeciesToOptions = {}
 
-// Code-level overrides: commodity code 0102 (cattle) shows only these three
+// Code-level overrides: commodity code -> allowed values
+// 01061900 = Cat, Dog, Ferrets, Rodents (pets)
 const codeToOptions = {
+  '01061900': ['approved-bodies', 'breeding-production', 'circus-exhibition', 'pets', 'other'],
   '0102': ['approved-bodies', 'breeding-production', 'slaughter']
 }
 

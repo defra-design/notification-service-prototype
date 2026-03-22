@@ -108,6 +108,13 @@ module.exports = (router) => {
     res.render('v1-experimental/start')
   })
 
+  const { registerDashboardRoutes } = require('../../lib/dashboard.js')
+  const notifications = require('../../data/notifications')
+  registerDashboardRoutes(router, BASE, {
+    templatePath: 'v1-experimental/dashboard',
+    notifications
+  })
+
   // === 1. Commodity + species (typeahead includes both) ===
   router.get(`${BASE}/create/commodity`, (req, res) => {
     const commoditiesData = require('../../data/commodities-eu.js')
@@ -129,7 +136,7 @@ module.exports = (router) => {
       }
       const allSpecies = d.speciesByType ? [...new Set(Object.values(d.speciesByType).flat())] : (d.species || [])
       allSpecies.forEach(s => {
-        const speciesText = `${s} (${d.commonName || key})`
+        const speciesText = `${d.commonName || key} (${s})`
         const combo = `${key}|${s}`
         if (!seenText.has(speciesText) && !existingCombos.has(combo)) {
           seenText.add(speciesText)
@@ -147,7 +154,7 @@ module.exports = (router) => {
       commodityType: req.session.data.commodityType || 'domestic'
     })
     const fromHub = req.session.data.commodityFromHub
-    const backHref = fromHub ? `${BASE}/create/commodity-hub` : `${BASE}/start`
+    const backHref = fromHub ? `${BASE}/create/commodity-hub` : null
     res.render('v1-experimental/create/commodity', {
       commodityOptions,
       initialDataJson,
