@@ -1,38 +1,13 @@
 
-{% extends "layouts/v1-baseline.html" %}
-{% from "govuk/components/input/macro.njk" import govukInput %}
-{% from "govuk/components/radios/macro.njk" import govukRadios %}
-{% from "govuk/components/button/macro.njk" import govukButton %}
-{% from "govuk/components/back-link/macro.njk" import govukBackLink %}
-{% from "govuk/components/error-summary/macro.njk" import govukErrorSummary %}
-{% from "govuk/components/inset-text/macro.njk" import govukInsetText %}
-
+{% extends "layouts/v1-baseline-forms.html" %}
 {% set title = "Permanent addresses for these animals" %}
-{% block pageTitle %}{{ title }} - {{ serviceName }}{% endblock %}
 
-{% block beforeContent %}
-  {{ super() }}
-  {{ govukBackLink({
-    text: "Back",
-    href: backHref or "/v1-baseline/create/addresses"
-  }) }}
-{% endblock %}
+{% set backLinkHref = backHref or "/v1-baseline/create/addresses" %}
 
-{% block content %}
+{% block formContent %}
 
-{% if data.errors %}
-  {{ govukErrorSummary({
-    titleText: "There is a problem",
-    errorList: data.errorList
-  }) }}
-{% endif %}
-
-<div class="govuk-grid-row">
-  <div class="govuk-grid-column-two-thirds">
-
-    <span class="govuk-caption-l">Addresses</span>
-    <h1 class="govuk-heading-xl">{{ title }}</h1>
-
+{% from "includes/page-header.njk" import pageHeader %}
+{% call pageHeader(title, "Addresses", "two-thirds") %}
     {{ govukInsetText({
       html: "You must provide accurate information."
     }) }}
@@ -174,7 +149,6 @@
       <a href="/v1-baseline/create/permanent-addresses-for-animals-prefill" class="govuk-link govuk-link--secondary govuk-!-font-size-14">Quick fill and continue (internal use)</a>
     </p>
 
-  </div>
-</div>
+{% endcall %}
 
 {% endblock %}

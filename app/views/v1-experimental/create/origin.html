@@ -1,37 +1,12 @@
 
-{% extends "layouts/v1-baseline.html" %}
-{% from "govuk/components/select/macro.njk" import govukSelect %}
-{% from "govuk/components/radios/macro.njk" import govukRadios %}
-{% from "govuk/components/input/macro.njk" import govukInput %}
-{% from "govuk/components/button/macro.njk" import govukButton %}
-{% from "govuk/components/back-link/macro.njk" import govukBackLink %}
-{% from "govuk/components/error-summary/macro.njk" import govukErrorSummary %}
+{% extends "layouts/v1-experimental-forms.html" %}
+{% set title = "Where is this consignment coming from?" %}
+{% set backLinkHref = backHref %}
 
-{% set title = "Country of origin" %}
-{% block pageTitle %}{{ title }} - {{ serviceName }}{% endblock %}
+{% block formContent %}
 
-{% block beforeContent %}
-  {{ super() }}
-  {{ govukBackLink({
-    text: "Back",
-    href: (basePath or '/v1-experimental') + "/create/commodity"
-  }) }}
-{% endblock %}
-
-{% block content %}
-
-{% if data.errors %}
-  {{ govukErrorSummary({
-    titleText: "There is a problem",
-    errorList: data.errorList
-  }) }}
-{% endif %}
-
-<div class="govuk-grid-row">
-  <div class="govuk-grid-column-two-thirds">
-
-    <h1 class="govuk-heading-xl">{{ title }}</h1>
-
+{% from "includes/page-header.njk" import pageHeader %}
+{% call pageHeader(title, null, "two-thirds") %}
     <form method="post" novalidate>
       <input type="hidden" name="commodity" value="{{ data.commodity or '' }}">
       <input type="hidden" name="commodityType" value="{{ data.commodityType or 'domestic' }}">
@@ -43,7 +18,8 @@
           Country of origin
         </label>
         <div id="countryOfOrigin-hint" class="govuk-hint">
-          Search and select a country. Start typing to filter the list.
+          The country where the animals or goods were born, produced or last kept.<br>
+          Includes EU and EEA.
         </div>
         {% if data.errors and data.errors["countryOfOrigin"] %}
           <p id="countryOfOrigin-error" class="govuk-error-message">
@@ -123,8 +99,7 @@
       </p>
     </form>
 
-  </div>
-</div>
+{% endcall %}
 
 {% endblock %}
 

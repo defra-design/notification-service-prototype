@@ -1,36 +1,12 @@
 
-{% extends "layouts/v1-baseline.html" %}
-{% from "govuk/components/input/macro.njk" import govukInput %}
-{% from "govuk/components/button/macro.njk" import govukButton %}
-{% from "govuk/components/back-link/macro.njk" import govukBackLink %}
-{% from "govuk/components/error-summary/macro.njk" import govukErrorSummary %}
-
+{% extends "layouts/v1-baseline-forms.html" %}
 {% set title = "Add branch address" %}
-{% block pageTitle %}{{ title }} - {{ serviceName }}{% endblock %}
+{% set backLinkHref = "/v1-baseline/create/contact-address-for-consignment" %}
 
-{% block beforeContent %}
-  {{ super() }}
-  {{ govukBackLink({
-    text: "Back",
-    href: "/v1-baseline/create/contact-address-for-consignment"
-  }) }}
-{% endblock %}
+{% block formContent %}
 
-{% block content %}
-
-{% if data.errors %}
-  {{ govukErrorSummary({
-    titleText: "There is a problem",
-    errorList: data.errorList
-  }) }}
-{% endif %}
-
-<div class="govuk-grid-row">
-  <div class="govuk-grid-column-two-thirds">
-
-    <span class="govuk-caption-l">Addresses</span>
-    <h1 class="govuk-heading-xl">{{ title }}</h1>
-
+{% from "includes/page-header.njk" import pageHeader %}
+{% call pageHeader(title, "Addresses", "two-thirds") %}
     <p class="govuk-body">
       <a href="/v1-baseline/create/contact-address-for-consignment" class="govuk-link">Return to notification</a>
     </p>
@@ -148,8 +124,7 @@
       <a href="/v1-baseline/create/contact-address-add-branch-prefill" class="govuk-link govuk-link--secondary govuk-!-font-size-14">Quick fill and continue (internal use)</a>
     </p>
 
-  </div>
-</div>
+{% endcall %}
 
 {% endblock %}
 

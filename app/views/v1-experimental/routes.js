@@ -154,7 +154,7 @@ module.exports = (router) => {
       commodityType: req.session.data.commodityType || 'domestic'
     })
     const fromHub = req.session.data.commodityFromHub
-    const backHref = fromHub ? `${BASE}/create/commodity-hub` : null
+    const backHref = fromHub ? `${BASE}/create/commodity-hub` : `${BASE}/create/origin`
     res.render('v1-experimental/create/commodity', {
       commodityOptions,
       initialDataJson,
@@ -206,10 +206,8 @@ module.exports = (router) => {
     const skipSpeciesPage = hasSpeciesSelection && !isEditing
     if (speciesList.length > 0 && !skipSpeciesPage) {
       res.redirect(`${BASE}/create/commodity-species`)
-    } else if (fromHub) {
-      res.redirect(`${BASE}/create/animal-identification`)
     } else {
-      res.redirect(`${BASE}/create/origin`)
+      res.redirect(`${BASE}/create/animal-identification`)
     }
   })
 
@@ -257,9 +255,7 @@ module.exports = (router) => {
       : (commodityDetails.species || [])
 
     if (species.length === 0) {
-      const fromHub = req.session.data.commodityFromHub
-      const fromAnimalId = req.session.data.addSpeciesFromAnimalId
-      return res.redirect((fromAnimalId || fromHub) ? `${BASE}/create/animal-identification` : `${BASE}/create/origin`)
+      return res.redirect(`${BASE}/create/animal-identification`)
     }
     if (species.length === 1 && (!req.session.data.commoditySpecies || req.session.data.commoditySpecies.length === 0)) {
       req.session.data.commoditySpecies = [species[0]]
@@ -323,31 +319,31 @@ module.exports = (router) => {
     }
     const returnToAnimalId = req.session.data.addSpeciesFromAnimalId
     delete req.session.data.addSpeciesFromAnimalId
-    if (returnToAnimalId || fromHub) {
-      res.redirect(`${BASE}/create/animal-identification`)
-    } else {
-      res.redirect(`${BASE}/create/origin`)
-    }
+    res.redirect(`${BASE}/create/animal-identification`)
   })
 
-  // === 2. Origin ===
+  // === 1. Origin (before commodity) ===
   router.get(`${BASE}/create/origin`, (req, res) => {
+    if (req.query.returnTo === 'check-your-answers') {
+      req.session.data = req.session.data || {}
+      req.session.data.returnTo = 'check-your-answers'
+      if (req.query.anchor) req.session.data.returnToAnchor = req.query.anchor
+    }
     delete req.session.data.errors
     delete req.session.data.errorList
-    const commodity = req.session.data.commodity
-    const commoditySpecies = req.session.data.commoditySpecies
-    const hasSpecies = Array.isArray(commoditySpecies) ? commoditySpecies.length > 0 : !!commoditySpecies
-    if (!commodity || !hasSpecies) {
-      return res.redirect(`${BASE}/create/commodity`)
-    }
     const euCountries = require('../../data/eu-countries.js')
     const euCountryCodes = require('../../data/eu-country-codes.js')
     const euuCountries = ['Iceland', 'Liechtenstein', 'Norway', 'Switzerland']
     const originCountries = [...euCountries, ...euuCountries].sort()
     const originCountryCodes = { ...euCountryCodes, Iceland: 'IS', Liechtenstein: 'LI', Norway: 'NO', Switzerland: 'CH' }
+    const commodity = req.session.data.commodity
+    const commoditySpecies = req.session.data.commoditySpecies
+    const hasSpecies = Array.isArray(commoditySpecies) ? commoditySpecies.length > 0 : !!commoditySpecies
+    const backHref = (commodity && hasSpecies) ? `${BASE}/create/commodity` : null
     res.render('v1-experimental/create/origin', {
       euCountries: originCountries,
-      euCountryCodes: originCountryCodes
+      euCountryCodes: originCountryCodes,
+      backHref
     })
   })
 
@@ -369,18 +365,17 @@ module.exports = (router) => {
       req.session.data.errorList = errorList
       return res.redirect(`${BASE}/create/origin`)
     }
-    const commodity = req.session.data.commodity
-    const commoditySpecies = Array.isArray(req.session.data.commoditySpecies)
-      ? req.session.data.commoditySpecies
-      : (req.session.data.commoditySpecies ? [req.session.data.commoditySpecies] : [])
-    if (!commodity || commoditySpecies.length === 0) {
-      return res.redirect(`${BASE}/create/commodity`)
-    }
-    req.session.data.commodity = commodity
-    req.session.data.commoditySpecies = commoditySpecies
     delete req.session.data.errors
     delete req.session.data.errorList
-    res.redirect(`${BASE}/create/animal-identification`)
+    const data = req.session.data || {}
+    if (data.returnTo === 'check-your-answers') {
+      delete data.returnTo
+      const anchor = data.returnToAnchor
+      delete data.returnToAnchor
+      const url = `${BASE}/create/check-your-answers`
+      return res.redirect(anchor ? `${url}#${anchor}` : url)
+    }
+    res.redirect(`${BASE}/create/commodity`)
   })
 
   function normalizeCommoditySpecies (val) {
@@ -400,6 +395,11 @@ module.exports = (router) => {
 
   // === 4. Commodity hub ===
   router.get(`${BASE}/create/commodity-hub`, (req, res) => {
+    if (req.query.returnTo === 'check-your-answers') {
+      req.session.data = req.session.data || {}
+      req.session.data.returnTo = 'check-your-answers'
+      if (req.query.anchor) req.session.data.returnToAnchor = req.query.anchor
+    }
     const { items, totalAnimals, totalPackages } = buildCommoditiesForHub(req)
     res.render('v1-experimental/create/commodity-hub', {
       commodities: items,
@@ -475,6 +475,13 @@ module.exports = (router) => {
     if (!data.importType) data.importType = 'live-animals'
     if (!data.importReason) data.importReason = 'internal-market'
     if (!data.internalMarketPurpose) data.internalMarketPurpose = 'breeding'
+    if (data.returnTo === 'check-your-answers') {
+      delete data.returnTo
+      const anchor = data.returnToAnchor
+      delete data.returnToAnchor
+      const url = `${BASE}/create/check-your-answers`
+      return res.redirect(anchor ? `${url}#${anchor}` : url)
+    }
     res.redirect(`${BASE}/create/additional-animal-details`)
   })
 
@@ -518,7 +525,7 @@ module.exports = (router) => {
     req.session.data.regionOfOriginRequired = 'no'
     delete req.session.data.errors
     delete req.session.data.errorList
-    res.redirect(`${BASE}/create/animal-identification`)
+    res.redirect(`${BASE}/create/commodity`)
   })
 
   router.get(`${BASE}/create/commodity-quantities-prefill`, (req, res) => {

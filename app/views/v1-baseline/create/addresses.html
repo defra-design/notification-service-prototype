@@ -1,29 +1,16 @@
 
 {% extends "layouts/v1-baseline.html" %}
 {% from "govuk/components/button/macro.njk" import govukButton %}
-{% from "govuk/components/back-link/macro.njk" import govukBackLink %}
 {% from "govuk/components/inset-text/macro.njk" import govukInsetText %}
 {% from "govuk/components/table/macro.njk" import govukTable %}
 
 {% set title = "Addresses" %}
-{% block pageTitle %}{{ title }} - {{ serviceName }}{% endblock %}
-
-{% block beforeContent %}
-  {{ super() }}
-  {{ govukBackLink({
-    text: "Back",
-    href: (basePath or '/v1-baseline') + '/create/accompanying-documents'
-  }) }}
-{% endblock %}
+{% set backLinkHref = (basePath or '/v1-baseline') + '/create/accompanying-documents' %}
 
 {% block content %}
 
-<div class="govuk-grid-row">
-  <div class="govuk-grid-column-two-thirds">
-
-    <span class="govuk-caption-l">Addresses</span>
-    <h1 class="govuk-heading-xl">Addresses</h1>
-
+{% from "includes/page-header.njk" import pageHeader %}
+{% call pageHeader("Addresses", "Addresses", "two-thirds") %}
     {{ govukInsetText({
       text: "Providing a false address is an act of fraud."
     }) }}
@@ -128,7 +115,6 @@
 
     </form>
 
-  </div>
-</div>
+{% endcall %}
 
 {% endblock %}

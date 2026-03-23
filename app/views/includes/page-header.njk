@@ -1,0 +1,9 @@
+{% macro pageHeader(title, caption, width) %}
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-{{ width or 'two-thirds' }}">
+    {% if caption %}<span class="govuk-caption-l">{{ caption }}</span>{% endif %}
+    <h1 class="govuk-heading-xl">{{ title }}</h1>
+    {{ caller() }}
+  </div>
+</div>
+{% endmacro %}

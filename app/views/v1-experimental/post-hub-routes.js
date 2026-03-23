@@ -71,12 +71,26 @@ function buildCheckYourAnswersData (data, base) {
   const commodities = Array.isArray(data.commodities) ? data.commodities : []
   const commodityDetails = data.commodity ? (commoditiesEu[data.commodity] || commoditiesData[data.commodity]) : null
   const descriptionSummaryRows = []
-  if (commodityDetails) {
+  const uniqueCommodityKeys = [...new Set(commodities.map(c => c.commodity).filter(Boolean))]
+  if (uniqueCommodityKeys.length === 1 && commodityDetails) {
     descriptionSummaryRows.push(row('Commodity code', commodityDetails.code || 'Not provided'))
     descriptionSummaryRows.push(row('Common name', commodityDetails.commonName || data.commodity || 'Not provided'))
     descriptionSummaryRows.push(row('Classification', commodityDetails.description || 'Not provided'))
-  } else if (data.commodity) {
+  } else if (uniqueCommodityKeys.length === 1 && data.commodity) {
     descriptionSummaryRows.push(row('Commodity', data.commodity))
+  } else if (uniqueCommodityKeys.length > 1) {
+    const codes = uniqueCommodityKeys.map(k => (commoditiesEu[k] || commoditiesData[k])?.code || k).filter(Boolean)
+    const names = uniqueCommodityKeys.map(k => (commoditiesEu[k] || commoditiesData[k])?.commonName || k)
+    if (codes.length > 0) descriptionSummaryRows.push(row('Commodity codes', codes.join(', ')))
+    if (names.length > 0) descriptionSummaryRows.push(row('Species', names.join(', ')))
+  } else if (commodities.length === 0 && data.commodity) {
+    if (commodityDetails) {
+      descriptionSummaryRows.push(row('Commodity code', commodityDetails.code || 'Not provided'))
+      descriptionSummaryRows.push(row('Common name', commodityDetails.commonName || data.commodity || 'Not provided'))
+      descriptionSummaryRows.push(row('Classification', commodityDetails.description || 'Not provided'))
+    } else {
+      descriptionSummaryRows.push(row('Commodity', data.commodity))
+    }
   }
   const rawSpecies = data.commoditySpecies
   const commoditySpecies = Array.isArray(rawSpecies) ? rawSpecies : (rawSpecies ? [rawSpecies] : [])
@@ -144,36 +158,147 @@ function buildCheckYourAnswersData (data, base) {
     permanentAddressRows.push(row('Email address', data.permanentAddressEmail))
   }
 
-  const animalIdRows = []
-  let animalIdentificationTableRows = []
-  let animalIdentificationSpeciesLabel = ''
-  const speciesForId = commoditySpecies.length > 0 ? commoditySpecies : (commodities[0] && commodities[0].commoditySpecies) || []
-  const typeForId = commoditySpecies.length > 0 ? typeLabel : (commodities[0] && commodities[0].commodityType === 'game' ? 'Game' : 'Domestic')
-  if (speciesForId.length > 0) {
-    const key = toKey(speciesForId[0])
-    const animalCount = parseInt(data[`animalCount_${key}`] || data[`quantity_${key}`], 10) || 1
-    animalIdentificationSpeciesLabel = `${speciesForId[0]}, ${typeForId}`
+  const allSpeciesForId = []
+  if (commodities.length > 0) {
+    commodities.forEach((item) => {
+      const type = item.commodityType === 'game' ? 'Game' : 'Domestic'
+      const quantities = item.quantities || {}
+      const details = item.commodity ? (commoditiesEu[item.commodity] || commoditiesData[item.commodity]) : null
+      const isEarTagOnly = details && ['010410', '0103'].includes(details.code)
+      ;(item.commoditySpecies || []).forEach((s) => {
+        allSpeciesForId.push({ speciesName: s, speciesAndType: `${s}, ${type}`, key: toKey(s), quantities, isEarTagOnly })
+      })
+    })
+  } else {
+    const details = commodityDetails
+    const isEarTagOnly = details && ['010410', '0103'].includes(details.code)
+    commoditySpecies.forEach((s) => {
+      allSpeciesForId.push({
+        speciesName: s,
+        speciesAndType: `${s}, ${typeLabel}`,
+        key: toKey(s),
+        quantities: {},
+        isEarTagOnly
+      })
+    })
+  }
+
+  const animalIdentificationGroups = []
+  for (const spec of allSpeciesForId) {
+    const key = spec.key
+    const animalCount = parseInt(data[`animalCount_${key}`] || spec.quantities[`quantity_${key}`] || data[`quantity_${key}`], 10) || 1
+    const identificationRows = []
     for (let i = 1; i <= animalCount; i++) {
       const earTag = data[`earTag_${key}_${i}`] || '-'
-      const passport = data[`passport_${key}_${i}`] || '-'
-      if (i === 1 && earTag === '-' && passport === '-') break
-      if (earTag === '-' && passport === '-') break
-      animalIdentificationTableRows.push([
-        { text: `${i} of ${animalCount}` },
-        { text: earTag },
-        { text: passport }
-      ])
+      const passport = spec.isEarTagOnly ? null : (data[`passport_${key}_${i}`] || '-')
+      if (spec.isEarTagOnly) {
+        if (i === 1 && earTag === '-') break
+        if (earTag === '-') break
+        identificationRows.push({ earTag, passport: null })
+      } else {
+        if (i === 1 && earTag === '-' && passport === '-') break
+        if (earTag === '-' && passport === '-') break
+        identificationRows.push({ earTag, passport })
+      }
     }
-  }
-  const animalIdentificationUseTable = animalIdentificationTableRows.length >= 3
-  if (!animalIdentificationTableRows.length) {
-    animalIdRows.push(row('Details', 'Not yet provided'))
-  } else if (!animalIdentificationUseTable) {
-    animalIdRows.push(rowHtml('Method of identification', 'Ear tag<br>Passport'))
-    animalIdentificationTableRows.forEach((r, i) => {
-      animalIdRows.push(row(`Animal ${i + 1} – Ear tag`, r[1].text))
-      animalIdRows.push(row(`Animal ${i + 1} – Passport`, r[2].text))
+    const useTable = identificationRows.length > 0
+    const tableRows = spec.isEarTagOnly
+      ? identificationRows.map((r, i) => [{ text: `${spec.speciesName} ${i + 1}` }, { text: r.earTag }])
+      : identificationRows.map((r, i) => [{ text: `${spec.speciesName} ${i + 1}` }, { text: r.earTag }, { text: r.passport }])
+    const summaryRows = []
+    if (!identificationRows.length) {
+      summaryRows.push(row('Details', 'Not yet provided'))
+    } else if (!useTable) {
+      summaryRows.push(rowHtml('Method of identification', spec.isEarTagOnly ? 'Ear tag' : 'Ear tag<br>Passport'))
+      identificationRows.forEach((r, i) => {
+        summaryRows.push(row(`Animal ${i + 1} – Ear tag`, r.earTag))
+        if (!spec.isEarTagOnly) summaryRows.push(row(`Animal ${i + 1} – Passport`, r.passport))
+      })
+    }
+    animalIdentificationGroups.push({
+      speciesLabel: spec.speciesAndType,
+      tableRows,
+      summaryRows,
+      useTable,
+      isEarTagOnly: spec.isEarTagOnly
     })
+  }
+
+  if (animalIdentificationGroups.length === 0) {
+    animalIdentificationGroups.push({
+      speciesLabel: '',
+      tableRows: [],
+      summaryRows: [row('Details', 'Not yet provided')],
+      useTable: false,
+      isEarTagOnly: false
+    })
+  }
+
+  const commodityIdCards = []
+  let idGroupIndex = 0
+  if (commodities.length > 0) {
+    commodities.forEach((item) => {
+      const d = item.commodity ? (commoditiesEu[item.commodity] || commoditiesData[item.commodity]) : {}
+      const type = (item.commodityType || 'domestic') === 'game' ? 'Game' : 'Domestic'
+      const quantities = item.quantities || {}
+      const species = []
+      ;(item.commoditySpecies || []).forEach((s) => {
+        const key = toKey(s)
+        const qty = parseInt(quantities[`quantity_${key}`], 10) || 0
+        const pkg = parseInt(quantities[`packages_${key}`], 10) || 0
+        const speciesAndType = `${s}, ${type}`
+        const group = animalIdentificationGroups[idGroupIndex++]
+        if (!group || qty === 0) return
+        species.push({
+          speciesAndType,
+          animalCount: qty,
+          packageCount: pkg,
+          quantitySummaryRows: [
+            { key: { text: 'Number of animals' }, value: { text: String(qty) } },
+            { key: { text: 'Number of packages' }, value: { text: String(pkg) } }
+          ],
+          idTableRows: group.tableRows || [],
+          isEarTagOnly: group.isEarTagOnly
+        })
+      })
+      if (species.length > 0) {
+        commodityIdCards.push({
+          commonName: d.commonName || item.commodity || 'Not provided',
+          commodityCode: d.code || '',
+          species
+        })
+      }
+    })
+  } else if (data.commodity && commoditySpecies.length > 0) {
+    const d = commodityDetails || {}
+    const quantities = data
+    const species = []
+    commoditySpecies.forEach((s) => {
+      const key = toKey(s)
+      const qty = parseInt(data[`quantity_${key}`], 10) || 0
+      const pkg = parseInt(data[`packages_${key}`], 10) || 0
+      const speciesAndType = `${s}, ${typeLabel}`
+      const group = animalIdentificationGroups[idGroupIndex++]
+      if (!group || qty === 0) return
+      species.push({
+        speciesAndType,
+        animalCount: qty,
+        packageCount: pkg,
+        quantitySummaryRows: [
+          { key: { text: 'Number of animals' }, value: { text: String(qty) } },
+          { key: { text: 'Number of packages' }, value: { text: String(pkg) } }
+        ],
+        idTableRows: group.tableRows || [],
+        isEarTagOnly: group.isEarTagOnly
+      })
+    })
+    if (species.length > 0) {
+      commodityIdCards.push({
+        commonName: d.commonName || data.commodity || 'Not provided',
+        commodityCode: d.code || '',
+        species
+      })
+    }
   }
 
   const certifiedForOptions = require('../../data/certified-for-options.js')
@@ -202,12 +327,19 @@ function buildCheckYourAnswersData (data, base) {
 
   const selectedConsignor = data.consignor || (data.consignorName && { name: data.consignorName, address: data.consignorAddress, country: data.consignorCountry })
   const consignorAddr = formatAddressHtml(selectedConsignor?.name || data.consignorName, selectedConsignor?.address || data.consignorAddress, selectedConsignor?.country || data.consignorCountry)
-  const selectedConsignee = data.consignee || (data.consigneeName && { name: data.consigneeName, address: data.consigneeAddress, country: data.consigneeCountry })
-  const consigneeAddr = selectedConsignee
-    ? formatAddressHtml(selectedConsignee.name, selectedConsignee.address, selectedConsignee.country)
-    : (data.consigneeAddress
-      ? formatAddressHtml(data.consigneeName, data.consigneeAddress, data.consigneeCountry)
-      : formatAddressHtml(data.consigneeName, [data.consigneeAddressLine1, data.consigneeAddressLine2, data.consigneeTown, data.consigneePostcode].filter(Boolean), null)) || (data.consigneeName ? formatAddressHtml(data.consigneeName, null, null) : 'Not provided')
+  const consigneeAddr = (() => {
+    const hasFromSearch = data.consigneeId && data.consigneeName && data.consigneeAddress && data.consigneeCountry
+    const hasFromForm = data.consigneeName && data.consigneeAddressLine1 && data.consigneeTown && data.consigneePostcode
+    if (hasFromSearch) {
+      return formatAddressHtml(data.consigneeName, data.consigneeAddress, data.consigneeCountry)
+    }
+    if (hasFromForm) {
+      const lines = [data.consigneeAddressLine1, data.consigneeAddressLine2, data.consigneeTown].filter(Boolean)
+      if (data.consigneePostcode) lines.push(data.consigneePostcode + ' United Kingdom')
+      return formatAddressHtml(data.consigneeName, lines, null)
+    }
+    return 'Not provided'
+  })()
   const importerAddr = data.importerAddress
     ? formatAddressHtml(data.importerName, data.importerAddress, data.importerCountry)
     : formatAddressHtml(data.importerName, [data.importerAddressLine1, data.importerAddressLine2, data.importerTown, data.importerPostcode].filter(Boolean), null) || (data.importerName ? formatAddressHtml(data.importerName, null, null) : 'Not provided')
@@ -232,7 +364,7 @@ function buildCheckYourAnswersData (data, base) {
   const contactAddrHtml = selectedContact
     ? formatAddressHtml(selectedContact.name, selectedContact.addressLines || [], selectedContact.country)
     : (data.consignorName ? formatAddressHtml(data.consignorName, data.consignorAddress, data.consignorCountry) : 'Not provided')
-  const contactAddressRows = [rowHtml('Contact details', contactAddrHtml)]
+  addressRows.push(rowHtml('Contact details for consignment', contactAddrHtml))
 
   let transporterTypeDisplay = data.transporterType
   if (!transporterTypeDisplay) {
@@ -276,16 +408,13 @@ function buildCheckYourAnswersData (data, base) {
     importReasonRows,
     descriptionSummaryRows,
     descriptionTableRows,
-    animalIdRows,
-    animalIdentificationTableRows,
-    animalIdentificationUseTable,
-    animalIdentificationSpeciesLabel,
+    animalIdentificationGroups,
+    commodityIdCards,
     additionalAnimalRows,
     documentsTableRows,
     addressRows,
     cphRows,
     permanentAddressRows,
-    contactAddressRows,
     arrivalRows,
     transporterRows,
     isPetConsignment: isPetConsignment(data),
@@ -296,6 +425,25 @@ function buildCheckYourAnswersData (data, base) {
 
 function registerPostHubRoutes (router, base) {
   const create = (path) => `${base}/create${path}`
+
+  function storeReturnToIfPresent (req) {
+    if (req.query.returnTo === 'check-your-answers') {
+      req.session.data = req.session.data || {}
+      req.session.data.returnTo = 'check-your-answers'
+      if (req.query.anchor) req.session.data.returnToAnchor = req.query.anchor
+    }
+  }
+
+  function getRedirectPath (data, defaultPath) {
+    if (data && data.returnTo === 'check-your-answers') {
+      delete data.returnTo
+      const anchor = data.returnToAnchor
+      delete data.returnToAnchor
+      const url = create('/check-your-answers')
+      return anchor ? `${url}#${anchor}` : url
+    }
+    return create(defaultPath)
+  }
 
   const toKey = (s) => String(s || '').replace(/\s+/g, '_').toLowerCase().replace(/[^a-z0-9_]/g, '')
 
@@ -426,6 +574,7 @@ function registerPostHubRoutes (router, base) {
 
   // --- animal-identification ---
   router.get(create('/animal-identification'), (req, res) => {
+    storeReturnToIfPresent(req)
     delete req.session.data.errors
     delete req.session.data.errorList
     const data = req.session.data
@@ -636,7 +785,7 @@ function registerPostHubRoutes (router, base) {
       return res.redirect(create('/animal-identification'))
     }
     delete data.animalIdCommodityIndex
-    return res.redirect(create('/additional-animal-details'))
+    return res.redirect(getRedirectPath(data, '/additional-animal-details'))
   }
 
   router.get(create('/animal-identification-prefill'), runAnimalIdentificationPrefill)
@@ -835,7 +984,7 @@ function registerPostHubRoutes (router, base) {
         delete data.animalIdCommodityIndex
         delete req.session.data.errors
         delete req.session.data.errorList
-        res.redirect(create('/additional-animal-details'))
+        res.redirect(getRedirectPath(req.session.data, '/additional-animal-details'))
       }
     }
   })
@@ -851,6 +1000,7 @@ function registerPostHubRoutes (router, base) {
 
   // --- additional-animal-details ---
   router.get(create('/additional-animal-details'), (req, res) => {
+    storeReturnToIfPresent(req)
     delete req.session.data.errors
     delete req.session.data.errorList
     const commodity = req.session.data.commodity
@@ -914,7 +1064,7 @@ function registerPostHubRoutes (router, base) {
 
     delete req.session.data.errors
     delete req.session.data.errorList
-    res.redirect(create('/import-reason'))
+    res.redirect(getRedirectPath(req.session.data, '/import-reason'))
   })
 
   router.get(create('/import-reason-prefill'), (req, res) => {
@@ -928,6 +1078,7 @@ function registerPostHubRoutes (router, base) {
 
   // --- import-reason ---
   router.get(create('/import-reason'), (req, res) => {
+    storeReturnToIfPresent(req)
     delete req.session.data.errors
     delete req.session.data.errorList
     const commoditySpecies = getCommoditySpeciesArray(req.session.data)
@@ -1027,7 +1178,7 @@ function registerPostHubRoutes (router, base) {
 
     delete req.session.data.errors
     delete req.session.data.errorList
-    res.redirect(create('/accompanying-documents'))
+    res.redirect(getRedirectPath(req.session.data, '/accompanying-documents'))
   })
 
   // --- accompanying-documents ---
@@ -1045,6 +1196,7 @@ function registerPostHubRoutes (router, base) {
   })
 
   router.get(create('/accompanying-documents'), (req, res) => {
+    storeReturnToIfPresent(req)
     delete req.session.data.errors
     delete req.session.data.errorList
     const documentTypes = require('../../data/document-types.js')
@@ -1115,11 +1267,12 @@ function registerPostHubRoutes (router, base) {
 
     delete data.errors
     delete data.errorList
-    res.redirect(create('/addresses'))
+    res.redirect(getRedirectPath(data, '/addresses'))
   })
 
   // --- addresses ---
   router.get(create('/addresses'), (req, res) => {
+    storeReturnToIfPresent(req)
     const data = req.session.data || {}
     delete data.errors
     delete data.errorList
@@ -1405,14 +1558,15 @@ function registerPostHubRoutes (router, base) {
     data.contactAddressId = prefillContact.id
     delete data.errors
     delete data.errorList
-    let nextPage = create('/transport-arrival')
-    if (isPetConsignment(data)) nextPage = create('/permanent-addresses-for-animals')
-    else if (isLivestockConsignment(data)) nextPage = create('/address-cph')
-    res.redirect(nextPage)
+    let nextPath = '/transport-arrival'
+    if (isPetConsignment(data)) nextPath = '/permanent-addresses-for-animals'
+    else if (isLivestockConsignment(data)) nextPath = '/address-cph'
+    res.redirect(getRedirectPath(data, nextPath))
   })
 
   // --- permanent-addresses-for-animals ---
   router.get(create('/permanent-addresses-for-animals'), (req, res) => {
+    storeReturnToIfPresent(req)
     const data = req.session.data || {}
     delete data.errors
     delete data.errorList
@@ -1453,7 +1607,7 @@ function registerPostHubRoutes (router, base) {
     }
     delete data.errors
     delete data.errorList
-    res.redirect(create('/transport-arrival'))
+    res.redirect(getRedirectPath(data, '/transport-arrival'))
   })
 
   // --- address-cph ---
@@ -1476,6 +1630,7 @@ function registerPostHubRoutes (router, base) {
   })
 
   router.get(create('/address-cph'), (req, res) => {
+    storeReturnToIfPresent(req)
     const data = req.session.data || {}
     delete data.errors
     delete data.errorList
@@ -1502,7 +1657,7 @@ function registerPostHubRoutes (router, base) {
     }
     delete data.errors
     delete data.errorList
-    res.redirect(create('/transport-arrival'))
+    res.redirect(getRedirectPath(data, '/transport-arrival'))
   })
 
   // --- contact-address-search ---
@@ -1690,6 +1845,7 @@ function registerPostHubRoutes (router, base) {
   })
 
   router.get(create('/transport-arrival'), (req, res) => {
+    storeReturnToIfPresent(req)
     const data = req.session.data || {}
     delete data.errors
     delete data.errorList
@@ -1722,7 +1878,7 @@ function registerPostHubRoutes (router, base) {
     }
     delete data.errors
     delete data.errorList
-    res.redirect(create('/transport-transporter'))
+    res.redirect(getRedirectPath(data, '/transport-transporter'))
   })
 
   // --- transport-transporter ---
@@ -1746,9 +1902,8 @@ function registerPostHubRoutes (router, base) {
   })
 
   router.get(create('/transport-transporter'), (req, res) => {
+    storeReturnToIfPresent(req)
     const data = req.session.data || {}
-    delete data.errors
-    delete data.errorList
 
     const transporterId = req.query.transporter
     if (req.query.removeTransporter === '1') {
@@ -1777,6 +1932,10 @@ function registerPostHubRoutes (router, base) {
     }
 
     const hasTransporter = !!(data.transporterName && (data.transporterId || data.transporterAddressLine1))
+    if (hasTransporter) {
+      delete data.errors
+      delete data.errorList
+    }
     const typeDisplay = data.transporterType === 'Commercial transporter' ? 'Commercial' : data.transporterType === 'Private transporter' ? 'Private' : ''
     const approvalDisplay = data.transporterType === 'Private transporter' ? 'Not required' : (data.transporterApprovalNumber || '')
     const transporterRows = [
@@ -1799,9 +1958,16 @@ function registerPostHubRoutes (router, base) {
   })
 
   router.post(create('/transport-transporter'), (req, res) => {
-    delete req.session.data.errors
-    delete req.session.data.errorList
-    res.redirect(create('/check-your-answers'))
+    const data = req.session.data || {}
+    const hasTransporter = !!(data.transporterName && (data.transporterId || data.transporterAddressLine1))
+    if (!hasTransporter) {
+      data.errors = { transporter: true }
+      data.errorList = [{ href: '#transporter-details', text: 'Add a transporter before continuing' }]
+      return res.redirect(create('/transport-transporter'))
+    }
+    delete data.errors
+    delete data.errorList
+    res.redirect(getRedirectPath(data, '/check-your-answers'))
   })
 
   // --- transport-add-transporter ---
@@ -1877,12 +2043,20 @@ function registerPostHubRoutes (router, base) {
     d.internalMarketPurpose = 'breeding'
     d.requiredRestInterval = 'N/A'
     d.commodity = 'Cow'
-    d.commoditySpecies = ['Bos taurus']
+    d.commoditySpecies = ['Bos taurus', 'Bos spp.']
     d.commodityType = 'domestic'
     d.quantity_bos_taurus = 24
     d.packages_bos_taurus = 3
+    d.quantity_bos_spp = 11
+    d.packages_bos_spp = 2
     d.earTag_bos_taurus_1 = 'UK123456789000'
     d.passport_bos_taurus_1 = 'GB-2024-001'
+    d.earTag_bos_spp_1 = '123456000001'
+    d.passport_bos_spp_1 = 'UK 123456 7 00001'
+    d.earTag_bos_spp_2 = '123456000002'
+    d.passport_bos_spp_2 = 'UK 123456 7 00002'
+    d.earTag_bos_spp_3 = '123456000003'
+    d.passport_bos_spp_3 = 'UK 123456 7 00003'
     d.animalsCertifiedFor = 'breeding-production'
     d.unweanedAnimals = 'no'
     d.documents = [

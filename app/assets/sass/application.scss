@@ -21,6 +21,80 @@
   font-size: 16px;
 }
 
+.govuk-link--underline {
+  text-decoration: underline;
+}
+
+.check-answers-spacer {
+  margin-top: govuk-spacing(6);
+  margin-bottom: 0;
+
+  &--s {
+    margin-top: govuk-spacing(4);
+  }
+}
+
+.commodities-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: govuk-spacing(2);
+  padding-bottom: govuk-spacing(2);
+  padding-inline: govuk-spacing(4);
+  border-bottom: 1px solid $govuk-border-colour;
+
+  .govuk-heading-m {
+    margin-inline-start: calc(-1 * #{govuk-spacing(4)});
+  }
+
+  .govuk-link {
+    font-size: 19px;
+    font-weight: 700;
+  }
+}
+
+.animal-id-block {
+  border-left: 4px solid $govuk-border-colour;
+  padding-left: govuk-spacing(3);
+}
+
+.animal-id-species-row {
+  .govuk-link {
+    font-size: 16px;
+  }
+}
+
+.animal-id-definition-list {
+  margin: 0;
+
+  .animal-id-definition-list__row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: govuk-spacing(2);
+    margin-bottom: govuk-spacing(2);
+
+    &:last-child {
+      margin-bottom: 0;
+    }
+  }
+
+  .animal-id-definition-list__key {
+    flex: 0 0 auto;
+    margin: 0;
+    font-weight: 700;
+  }
+
+  .animal-id-definition-list__value {
+    flex: 0 1 auto;
+    margin: 0;
+  }
+}
+
+.animal-id-definition-list + .commodity-details-table {
+  margin-top: govuk-spacing(4);
+}
+
 .quick-fill-btn {
   background: none;
   border: none;
@@ -100,7 +174,7 @@
 .species-section-header {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
+  align-items: center;
   flex-wrap: wrap;
   gap: govuk-spacing(3);
   margin-bottom: govuk-spacing(3);
@@ -319,6 +393,9 @@
   font-size: 16px;
 }
 .dashboard-card-content .govuk-body {
+  font-size: 16px;
+}
+.dashboard-card-content .govuk-tag {
   font-size: 16px;
 }
 

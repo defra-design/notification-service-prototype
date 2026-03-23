@@ -1,28 +1,15 @@
 
 {% extends "layouts/v1-baseline.html" %}
 {% from "govuk/components/button/macro.njk" import govukButton %}
-{% from "govuk/components/back-link/macro.njk" import govukBackLink %}
 {% from "govuk/components/pagination/macro.njk" import govukPagination %}
 
 {% set title = "Search for an existing place of destination" %}
-{% block pageTitle %}{{ title }} - {{ serviceName }}{% endblock %}
-
-{% block beforeContent %}
-  {{ super() }}
-  {{ govukBackLink({
-    text: "Back",
-    href: (basePath or '/v1-experimental') + '/create/addresses'
-  }) }}
-{% endblock %}
+{% set backLinkHref = (basePath or '/v1-experimental') + '/create/addresses' %}
 
 {% block content %}
 
-<div class="govuk-grid-row">
-  <div class="govuk-grid-column-full">
-
-    <span class="govuk-caption-l">Consignment</span>
-    <h1 class="govuk-heading-xl">{{ title }}</h1>
-
+{% from "includes/page-header.njk" import pageHeader %}
+{% call pageHeader(title, null, "full") %}
     <div class="search-panel">
       <h2 class="govuk-heading-m govuk-!-margin-top-0">Search</h2>
       <form method="get" novalidate>
@@ -131,8 +118,7 @@
     {% endif %}
     {% endif %}
 
-  </div>
-</div>
+{% endcall %}
 
 {% endblock %}
 

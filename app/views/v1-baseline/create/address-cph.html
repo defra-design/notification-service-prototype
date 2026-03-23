@@ -1,37 +1,12 @@
 
-{% extends "layouts/v1-baseline.html" %}
-{% from "govuk/components/input/macro.njk" import govukInput %}
-{% from "govuk/components/button/macro.njk" import govukButton %}
-{% from "govuk/components/back-link/macro.njk" import govukBackLink %}
-{% from "govuk/components/error-summary/macro.njk" import govukErrorSummary %}
-{% from "govuk/components/details/macro.njk" import govukDetails %}
-
+{% extends "layouts/v1-baseline-forms.html" %}
 {% set title = "Add the County Parish Holding number (CPH)" %}
-{% block pageTitle %}{{ title }} - {{ serviceName }}{% endblock %}
+{% set backLinkHref = "/v1-baseline/create/addresses" %}
 
-{% block beforeContent %}
-  {{ super() }}
-  {{ govukBackLink({
-    text: "Back",
-    href: "/v1-baseline/create/addresses"
-  }) }}
-{% endblock %}
+{% block formContent %}
 
-{% block content %}
-
-{% if data.errors %}
-  {{ govukErrorSummary({
-    titleText: "There is a problem",
-    errorList: data.errorList
-  }) }}
-{% endif %}
-
-<div class="govuk-grid-row">
-  <div class="govuk-grid-column-two-thirds">
-
-    <span class="govuk-caption-l">Addresses</span>
-    <h1 class="govuk-heading-xl">{{ title }}</h1>
-
+{% from "includes/page-header.njk" import pageHeader %}
+{% call pageHeader(title, "Addresses", "two-thirds") %}
     <p class="govuk-body">
       The County Parish Holding (CPH) number identifies the holding where the animals will be kept. You can find it on your movement documents or in your holding registration.
     </p>
@@ -66,7 +41,6 @@
       </p>
     </form>
 
-  </div>
-</div>
+{% endcall %}
 
 {% endblock %}

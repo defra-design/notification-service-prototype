@@ -6,6 +6,15 @@
 const govukPrototypeKit = require('govuk-prototype-kit')
 const router = govukPrototypeKit.requests.setupRouter()
 
+const JOURNEY_PREFIXES = ['/v1-experimental', '/v1-baseline']
+
+router.use((req, res, next) => {
+  const path = req.path || ''
+  const match = JOURNEY_PREFIXES.find(prefix => path.startsWith(prefix))
+  if (match) res.locals.basePath = match
+  next()
+})
+
 // Index – prototype home (GOV.UK logo links here)
 router.get('/', (req, res) => {
   res.render('index')
@@ -29,5 +38,4 @@ router.get('/clear-data', (req, res) => {
 
 // Version routes – add new versions here
 require('./views/v1-baseline/routes')(router)
-require('./views/v2-post-baseline/routes')(router)
 require('./views/v1-experimental/routes')(router)

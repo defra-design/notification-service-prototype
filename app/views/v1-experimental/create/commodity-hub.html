@@ -1,26 +1,14 @@
 
 {% extends "layouts/v1-baseline.html" %}
 {% from "govuk/components/button/macro.njk" import govukButton %}
-{% from "govuk/components/back-link/macro.njk" import govukBackLink %}
 
 {% set title = "Your commodities" %}
-{% block pageTitle %}{{ title }} - {{ serviceName }}{% endblock %}
-
-{% block beforeContent %}
-  {{ super() }}
-  {{ govukBackLink({
-    text: "Back",
-    href: backHref | default((basePath or '/v1-experimental') + "/create/commodity-quantities")
-  }) }}
-{% endblock %}
+{% set backLinkHref = backHref | default((basePath or '/v1-experimental') + "/create/commodity-quantities") %}
 
 {% block content %}
 
-<div class="govuk-grid-row">
-  <div class="govuk-grid-column-full">
-
-    <h1 class="govuk-heading-xl">{{ title }}</h1>
-
+{% from "includes/page-header.njk" import pageHeader %}
+{% call pageHeader(title, "Description of the goods", "full") %}
     {% if totalAnimals is defined and totalAnimals > 0 %}
     <div class="govuk-inset-text govuk-!-margin-top-0 govuk-!-margin-bottom-4">
       <p class="govuk-body govuk-!-margin-bottom-0">
@@ -96,7 +84,6 @@
       <a href="/" class="govuk-link">Back to index</a>
     </p>
 
-  </div>
-</div>
+{% endcall %}
 
 {% endblock %}

@@ -176,7 +176,7 @@
           '<li>PDF, DOC, DOCX, JPEG, PNG or XLS</li>' +
           '<li>ZIP files are not allowed for security reasons</li>' +
         '</ul>' +
-        '<a href="#" class="govuk-link govuk-link--no-visited-state add-attachment-link" data-for="document-attachment-' + index + '">Add attachment</a>' +
+        '<button type="button" class="govuk-button govuk-button--secondary govuk-button--small add-attachment-link govuk-!-margin-top-0 govuk-!-margin-bottom-0" data-for="document-attachment-' + index + '">Add attachment</button>' +
       '</div>' +
       '<div class="attachment-list attachment-list-dynamic attachment-hidden govuk-!-margin-top-3" id="attachment-list-dynamic-' + index + '">' +
         '<div class="attachment-filenames"></div>' +

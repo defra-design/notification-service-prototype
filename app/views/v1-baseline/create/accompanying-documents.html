@@ -1,38 +1,12 @@
 
-{% extends "layouts/v1-baseline.html" %}
-{% from "govuk/components/select/macro.njk" import govukSelect %}
-{% from "govuk/components/input/macro.njk" import govukInput %}
-{% from "govuk/components/button/macro.njk" import govukButton %}
-{% from "govuk/components/back-link/macro.njk" import govukBackLink %}
-{% from "govuk/components/error-summary/macro.njk" import govukErrorSummary %}
-{% from "govuk/components/details/macro.njk" import govukDetails %}
-
+{% extends "layouts/v1-baseline-forms.html" %}
 {% set title = "Accompanying documents" %}
-{% block pageTitle %}{{ title }} - {{ serviceName }}{% endblock %}
+{% set backLinkHref = "/v1-baseline/create/import-reason" %}
 
-{% block beforeContent %}
-  {{ super() }}
-  {{ govukBackLink({
-    text: "Back",
-    href: "/v1-baseline/create/import-reason"
-  }) }}
-{% endblock %}
+{% block formContent %}
 
-{% block content %}
-
-{% if data.errors %}
-  {{ govukErrorSummary({
-    titleText: "There is a problem",
-    errorList: data.errorList
-  }) }}
-{% endif %}
-
-<div class="govuk-grid-row">
-  <div class="govuk-grid-column-two-thirds">
-
-    <span class="govuk-caption-l">Documents</span>
-    <h1 class="govuk-heading-xl">{{ title }}</h1>
-
+{% from "includes/page-header.njk" import pageHeader %}
+{% call pageHeader(title, "Documents", "two-thirds") %}
     <p class="govuk-body">
       Upload any required documents. This may include:
     </p>
@@ -101,7 +75,7 @@
                 <li>PDF, DOC, DOCX, JPEG, PNG or XLS</li>
                 <li>ZIP files are not allowed for security reasons</li>
               </ul>
-              <a href="#" class="govuk-link govuk-link--no-visited-state add-attachment-link" data-for="document-attachment-{{ loop.index0 }}">Add attachment</a>
+              <button type="button" class="govuk-button govuk-button--secondary govuk-button--small add-attachment-link govuk-!-margin-top-0 govuk-!-margin-bottom-0" data-for="document-attachment-{{ loop.index0 }}">Add attachment</button>
             </div>
             {% if doc and doc.attachments and (doc.attachments | length) > 0 %}
             <div class="govuk-!-margin-top-3 attachment-list attachment-list-server" id="attachment-list-server-{{ loop.index0 }}">
@@ -133,17 +107,17 @@
       </div>
     </form>
 
-  </div>
-</div>
+{% endcall %}
 
 {% endblock %}
 
 {% block pageScripts %}
+<script type="application/json" id="document-type-items-data">{{ documentTypeItems | dump | safe }}</script>
 <script>
 (function () {
   var container = document.getElementById('document-rows')
   var addLink = document.getElementById('add-another-document')
-  var documentTypeItems = {{ documentTypeItems | dump | safe }}
+  var documentTypeItems = JSON.parse((document.getElementById('document-type-items-data') || {}).textContent || '[]')
 
   if (!container || !addLink) return
 
@@ -316,7 +290,7 @@
           '<li>PDF, DOC, DOCX, JPEG, PNG or XLS</li>' +
           '<li>ZIP files are not allowed for security reasons</li>' +
         '</ul>' +
-        '<a href="#" class="govuk-link govuk-link--no-visited-state add-attachment-link" data-for="document-attachment-' + index + '">Add attachment</a>' +
+        '<button type="button" class="govuk-button govuk-button--secondary govuk-button--small add-attachment-link govuk-!-margin-top-0 govuk-!-margin-bottom-0" data-for="document-attachment-' + index + '">Add attachment</button>' +
       '</div>' +
       '<div class="attachment-list attachment-list-dynamic govuk-!-margin-top-3" id="attachment-list-dynamic-' + index + '" style="display: none;">' +
         '<div class="attachment-filenames"></div>' +

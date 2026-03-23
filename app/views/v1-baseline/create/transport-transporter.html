@@ -1,27 +1,14 @@
 
 {% extends "layouts/v1-baseline.html" %}
 {% from "govuk/components/button/macro.njk" import govukButton %}
-{% from "govuk/components/back-link/macro.njk" import govukBackLink %}
 {% from "govuk/components/summary-list/macro.njk" import govukSummaryList %}
 {% set title = "Add a transporter" %}
-{% block pageTitle %}{{ title }} - {{ serviceName }}{% endblock %}
-
-{% block beforeContent %}
-  {{ super() }}
-  {{ govukBackLink({
-    text: "Back",
-    href: "/v1-baseline/create/transport-arrival"
-  }) }}
-{% endblock %}
+{% set backLinkHref = "/v1-baseline/create/transport-arrival" %}
 
 {% block content %}
 
-<div class="govuk-grid-row">
-  <div class="govuk-grid-column-two-thirds">
-
-    <span class="govuk-caption-l">Transport</span>
-    <h1 class="govuk-heading-xl">{{ title }}</h1>
-
+{% from "includes/page-header.njk" import pageHeader %}
+{% call pageHeader(title, "Transport", "two-thirds") %}
     <p class="govuk-body govuk-!-margin-bottom-4">
       Your transporter must hold a valid transporter authorisation, issued by DAERA or APHA in the UK if they are:
     </p>
@@ -52,8 +39,7 @@
           card: {
             title: { text: "Transporter details" },
             actions: { items: [
-              { href: "/v1-baseline/create/address-consignee-search?returnTo=transport-transporter", text: "Change" },
-              { href: "/v1-baseline/create/transport-transporter?removeTransporter=1", text: "Remove" }
+              { href: "/v1-baseline/create/address-consignee-search?returnTo=transport-transporter", text: "Change" }
             ] }
           },
           rows: [
@@ -79,7 +65,6 @@
       <a href="/v1-baseline/create/transport-transporter-prefill" class="govuk-link govuk-link--secondary govuk-!-font-size-14">Quick fill and continue (internal use)</a>
     </p>
 
-  </div>
-</div>
+{% endcall %}
 
 {% endblock %}

@@ -1,36 +1,12 @@
 
-{% extends "layouts/v1-baseline.html" %}
-{% from "govuk/components/input/macro.njk" import govukInput %}
-{% from "govuk/components/button/macro.njk" import govukButton %}
-{% from "govuk/components/back-link/macro.njk" import govukBackLink %}
-{% from "govuk/components/error-summary/macro.njk" import govukErrorSummary %}
-
+{% extends "layouts/v1-baseline-forms.html" %}
 {% set title = "What are you importing?" %}
-{% block pageTitle %}{{ title }} - {{ serviceName }}{% endblock %}
+{% set backLinkHref = "/v1-baseline/create/origin" %}
 
-{% block beforeContent %}
-  {{ super() }}
-  {{ govukBackLink({
-    text: "Back",
-    href: "/v1-baseline/create/origin"
-  }) }}
-{% endblock %}
+{% block formContent %}
 
-{% block content %}
-
-{% if data.errors %}
-  {{ govukErrorSummary({
-    titleText: "There is a problem",
-    errorList: data.errorList
-  }) }}
-{% endif %}
-
-<div class="govuk-grid-row">
-  <div class="govuk-grid-column-two-thirds">
-
-    <span class="govuk-caption-l">Description of the goods</span>
-    <h1 class="govuk-heading-xl">{{ title }}</h1>
-
+{% from "includes/page-header.njk" import pageHeader %}
+{% call pageHeader(title, "Description of the goods", "two-thirds") %}
     <form method="post" novalidate>
       <div class="govuk-form-group {% if data.errors and data.errors['commodity'] %}govuk-form-group--error{% endif %}">
         <label class="govuk-label" for="commodity">
@@ -63,8 +39,7 @@
       </p>
     </form>
 
-  </div>
-</div>
+{% endcall %}
 
 {% endblock %}
 

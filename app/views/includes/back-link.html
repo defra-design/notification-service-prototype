@@ -1,0 +1,7 @@
+{% if showBackLink !== false and backLinkHref %}
+{% from "govuk/components/back-link/macro.njk" import govukBackLink %}
+{{ govukBackLink({
+  text: backLinkText | default("Back"),
+  href: backLinkHref
+}) }}
+{% endif %}

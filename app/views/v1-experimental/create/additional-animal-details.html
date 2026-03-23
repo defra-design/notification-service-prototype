@@ -1,36 +1,12 @@
 
-{% extends "layouts/v1-baseline.html" %}
-{% from "govuk/components/radios/macro.njk" import govukRadios %}
-{% from "govuk/components/button/macro.njk" import govukButton %}
-{% from "govuk/components/back-link/macro.njk" import govukBackLink %}
-{% from "govuk/components/error-summary/macro.njk" import govukErrorSummary %}
-
+{% extends "layouts/v1-experimental-forms.html" %}
 {% set title = "Additional animal details" %}
-{% block pageTitle %}{{ title }} - {{ serviceName }}{% endblock %}
+{% set backLinkHref = (basePath or '/v1-experimental') + '/create/animal-identification' %}
 
-{% block beforeContent %}
-  {{ super() }}
-  {{ govukBackLink({
-    text: "Back",
-    href: (basePath or '/v1-experimental') + '/create/animal-identification'
-  }) }}
-{% endblock %}
+{% block formContent %}
 
-{% block content %}
-
-{% if data.errors %}
-  {{ govukErrorSummary({
-    titleText: "There is a problem",
-    errorList: data.errorList
-  }) }}
-{% endif %}
-
-<div class="govuk-grid-row">
-  <div class="govuk-grid-column-two-thirds">
-
-    <span class="govuk-caption-l">Description of the goods</span>
-    <h1 class="govuk-heading-xl">{{ title }}</h1>
-
+{% from "includes/page-header.njk" import pageHeader %}
+{% call pageHeader(title, null, "two-thirds") %}
     <form method="post" novalidate>
       {{ govukRadios({
         name: "animalsCertifiedFor",
@@ -80,7 +56,6 @@
       </p>
     </form>
 
-  </div>
-</div>
+{% endcall %}
 
 {% endblock %}

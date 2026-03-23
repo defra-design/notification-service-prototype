@@ -1,18 +1,12 @@
 
 {% extends "layouts/main.html" %}
 {% from "govuk/components/details/macro.njk" import govukDetails %}
-
-{% block pageTitle %}Home - {{ serviceName }}{% endblock %}
+{% set title = "Home" %}
 
 {% block content %}
 
-<div class="govuk-grid-row">
-  <div class="govuk-grid-column-two-thirds">
-
-    <h1 class="govuk-heading-xl">
-      {{ serviceName }}
-    </h1>
-
+{% from "includes/page-header.njk" import pageHeader %}
+{% call pageHeader(serviceName, null, "two-thirds") %}
     <p class="govuk-body">
       This prototype is for testing and gathering user feedback on the new Live animals notification service.
     </p>
@@ -65,7 +59,7 @@
 
     <h3 class="govuk-heading-s govuk-!-margin-top-4 govuk-!-margin-bottom-2">v1.2 experimental</h3>
     <ul class="govuk-list govuk-list--bullet govuk-!-margin-bottom-0">
-      <li><a href="/v1-experimental/create/commodity">New page sequence plus commodity picker</a></li>
+      <li><a href="/v1-experimental/create/origin">New page sequence plus commodity picker</a></li>
     </ul>
 
     {{ govukDetails({
@@ -104,41 +98,6 @@
       <li><a href="https://app.mural.co/t/coredefra2548/m/coredefra2548/1772120712980/494173716a3c40516be8dacb4e79601166761578?wid=0-1772120738043" target="_blank" rel="noopener noreferrer">V1 baseline design journey map (Mural)</a></li>
     </ul>
 
-    <hr class="govuk-section-break govuk-section-break--visible govuk-section-break--l govuk-!-margin-top-6 govuk-!-margin-bottom-4">
-
-    {{ govukDetails({
-      summaryText: "Archived: v2-post-baseline",
-      html: "<p class=\"govuk-body govuk-!-margin-bottom-3\">Second version. Copy of v1-baseline for iteration – exploring improvements to the commodity picker journey.</p>
-      <ul class=\"govuk-list govuk-list--bullet\">
-        <li><a href=\"/v2-post-baseline/create/start\">v2-post-baseline prototype</a></li>
-      </ul>
-      <p class=\"govuk-body govuk-!-margin-top-4 govuk-!-margin-bottom-2\"><strong>Journey (Description of the goods first):</strong></p>
-      <ul class=\"govuk-list govuk-list--bullet\">
-        <li><a href=\"/v2-post-baseline/commodity-picker/hub\">Your commodities hub</a></li>
-        <li><a href=\"/v2-post-baseline/create/commodity-quantities\">Commodity quantities</a></li>
-        <li><a href=\"/v2-post-baseline/create/animal-identification\">Animal identification</a></li>
-        <li><a href=\"/v2-post-baseline/create/additional-animal-details\">Additional animal details</a></li>
-        <li><a href=\"/v2-post-baseline/create/origin\">Origin</a></li>
-        <li><a href=\"/v2-post-baseline/create/import-reason\">Import reason</a></li>
-        <li><a href=\"/v2-post-baseline/create/accompanying-documents\">Accompanying documents</a></li>
-        <li><a href=\"/v2-post-baseline/create/addresses\">Addresses</a></li>
-        <li><a href=\"/v2-post-baseline/create/address-cph\">Add CPH number</a> (livestock only)</li>
-        <li><a href=\"/v2-post-baseline/create/permanent-addresses-for-animals\">Permanent addresses for these animals</a> (pets only)</li>
-        <li><a href=\"/v2-post-baseline/create/contact-address-for-consignment\">Contact address for consignment</a></li>
-        <li><a href=\"/v2-post-baseline/create/transport-arrival\">When will the animals arrive?</a></li>
-        <li><a href=\"/v2-post-baseline/create/transport-transporter\">Transporter</a></li>
-        <li><a href=\"/v2-post-baseline/create/check-your-answers\">Check your answers</a></li>
-        <li><a href=\"/v2-post-baseline/create/check-your-answers-prefill\">Check your answers with dummy data</a></li>
-        <li><a href=\"/v2-post-baseline/create/declaration\">Declaration</a></li>
-        <li><a href=\"/v2-post-baseline/create/confirmation\">Confirmation</a></li>
-        <li><a href=\"/v2-post-baseline/create/transport-add-transporter\">Add a transporter</a></li>
-        <li><a href=\"/v2-post-baseline/create/address-consignor-search\">Search for consignor or exporter</a></li>
-        <li><a href=\"/v2-post-baseline/create/address-consignee-search\">Search for consignee</a></li>
-        <li><a href=\"/v2-post-baseline/create/address-place-of-destination-search\">Search for place of destination</a></li>
-      </ul>"
-    }) }}
-
-  </div>
-</div>
+{% endcall %}
 
 {% endblock %}

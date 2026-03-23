@@ -1,35 +1,12 @@
 
-{% extends "layouts/v1-baseline.html" %}
-{% from "govuk/components/radios/macro.njk" import govukRadios %}
-{% from "govuk/components/button/macro.njk" import govukButton %}
-{% from "govuk/components/back-link/macro.njk" import govukBackLink %}
-{% from "govuk/components/error-summary/macro.njk" import govukErrorSummary %}
-
+{% extends "layouts/v1-experimental-forms.html" %}
 {% set title = "What is the main reason for importing the animals?" %}
-{% block pageTitle %}{{ title }} - {{ serviceName }}{% endblock %}
+{% set backLinkHref = (basePath or '/v1-experimental') + '/create/additional-animal-details' %}
 
-{% block beforeContent %}
-  {{ super() }}
-  {{ govukBackLink({
-    text: "Back",
-    href: (basePath or '/v1-experimental') + '/create/additional-animal-details'
-  }) }}
-{% endblock %}
+{% block formContent %}
 
-{% block content %}
-
-{% if data.errors %}
-  {{ govukErrorSummary({
-    titleText: "There is a problem",
-    errorList: data.errorList
-  }) }}
-{% endif %}
-
-<div class="govuk-grid-row">
-  <div class="govuk-grid-column-two-thirds">
-
-    <span class="govuk-caption-l">About the consignment</span>
-
+{% from "includes/page-header.njk" import pageHeader %}
+{% call pageHeader(title, "About the consignment", "two-thirds") %}
     <form method="post" novalidate>
       {{ govukRadios({
         name: "importReason",
@@ -37,8 +14,8 @@
         fieldset: {
           legend: {
             text: title,
-            isPageHeading: true,
-            classes: "govuk-fieldset__legend--xl"
+            isPageHeading: false,
+            classes: "govuk-fieldset__legend--m"
           }
         },
         items: importReasonItems,
@@ -55,7 +32,6 @@
       </p>
     </form>
 
-  </div>
-</div>
+{% endcall %}
 
 {% endblock %}

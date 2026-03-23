@@ -1,36 +1,12 @@
 
-{% extends "layouts/v1-baseline.html" %}
-{% from "govuk/components/input/macro.njk" import govukInput %}
-{% from "govuk/components/button/macro.njk" import govukButton %}
-{% from "govuk/components/back-link/macro.njk" import govukBackLink %}
-{% from "govuk/components/error-summary/macro.njk" import govukErrorSummary %}
-
+{% extends "layouts/v1-experimental-forms.html" %}
 {% set title = "Enter animal identification details" %}
-{% block pageTitle %}{{ title }} - {{ serviceName }}{% endblock %}
+{% set backLinkHref = backHref or (basePath or '/v1-experimental') + "/create/commodity-quantities" %}
 
-{% block beforeContent %}
-  {{ super() }}
-  {{ govukBackLink({
-    text: "Back",
-    href: backHref or (basePath or '/v1-experimental') + "/create/commodity-quantities"
-  }) }}
-{% endblock %}
+{% block formContent %}
 
-{% block content %}
-
-{% if data.errors %}
-  {{ govukErrorSummary({
-    titleText: "There is a problem",
-    errorList: data.errorList
-  }) }}
-{% endif %}
-
-<div class="govuk-grid-row">
-  <div class="govuk-grid-column-full">
-
-    <span class="govuk-caption-l">Description of the goods</span>
-    <h1 class="govuk-heading-xl">{{ title }}</h1>
-
+{% from "includes/page-header.njk" import pageHeader %}
+{% call pageHeader(title, null, "full") %}
     <p class="govuk-body govuk-!-margin-bottom-6">
       You must enter all animal identification details into the notification before arrival at the port of entry.
     </p>
@@ -78,8 +54,7 @@
       <div class="species-section species-section--bordered govuk-!-margin-top-6" data-species-key="{{ species.key }}" data-species-and-type="{{ species.speciesAndType }}" data-is-pet="{{ 'true' if species.isPetIdentification else 'false' }}" data-is-game-bird="{{ 'true' if species.isGameBirdIdentification else 'false' }}" data-is-horse="{{ 'true' if species.isHorseIdentification else 'false' }}" data-is-ear-tag-only="{{ 'true' if species.isEarTagOnlyIdentification else 'false' }}">
       <div class="species-section-header">
         <div>
-          <span class="govuk-caption-m govuk-!-display-block govuk-!-margin-bottom-1">{{ species.speciesName }}</span>
-          <h2 class="govuk-heading-m govuk-!-margin-bottom-0">Identification details</h2>
+          <h2 class="govuk-heading-m govuk-!-margin-bottom-0">{{ species.speciesName }}</h2>
         </div>
         <div class="species-section-set-rows">
           <label for="set-rows-{{ species.key }}" class="govuk-body govuk-!-font-size-14 govuk-!-margin-right-1">Number of animals</label>
@@ -267,8 +242,7 @@
       <button type="submit" form="animal-identification-form" formaction="{{ prefillHref or (basePath or '/v1-experimental') + '/create/animal-identification-prefill' }}" formmethod="post" class="govuk-link govuk-link--secondary govuk-!-font-size-14 quick-fill-btn">Quick fill and continue (internal use)</button>
     </p>
 
-  </div>
-</div>
+{% endcall %}
 
 {% endblock %}
 

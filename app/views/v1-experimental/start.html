@@ -1,16 +1,13 @@
 
 {% extends "layouts/v1-baseline.html" %}
 {% from "govuk/components/button/macro.njk" import govukButton %}
+{% from "includes/page-header.njk" import pageHeader %}
 
 {% set title = "Create a notification" %}
-{% block pageTitle %}{{ title }} - {{ serviceName }}{% endblock %}
 
 {% block content %}
 
-<div class="govuk-grid-row">
-  <div class="govuk-grid-column-two-thirds">
-
-    <h1 class="govuk-heading-xl">{{ title }}</h1>
+{% call pageHeader(title, null, "two-thirds") %}
     <p class="govuk-body">
       This flow collects commodity and origin details first, then allows you to add multiple commodities before continuing.
     </p>
@@ -26,7 +23,6 @@
       <a href="/" class="govuk-link">Back to index</a>
     </p>
 
-  </div>
-</div>
+{% endcall %}
 
 {% endblock %}

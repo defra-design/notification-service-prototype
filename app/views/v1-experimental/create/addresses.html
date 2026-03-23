@@ -1,31 +1,14 @@
 
-{% extends "layouts/v1-baseline.html" %}
-{% from "govuk/components/button/macro.njk" import govukButton %}
-{% from "govuk/components/back-link/macro.njk" import govukBackLink %}
-{% from "govuk/components/inset-text/macro.njk" import govukInsetText %}
+{% extends "layouts/v1-experimental-forms.html" %}
 {% from "govuk/components/table/macro.njk" import govukTable %}
 {% from "govuk/components/notification-banner/macro.njk" import govukNotificationBanner %}
-{% from "govuk/components/error-summary/macro.njk" import govukErrorSummary %}
-
 {% set title = "Addresses" %}
-{% block pageTitle %}{{ title }} - {{ serviceName }}{% endblock %}
+{% set backLinkHref = (basePath or '/v1-experimental') + '/create/accompanying-documents' %}
 
-{% block beforeContent %}
-  {{ super() }}
-  {{ govukBackLink({
-    text: "Back",
-    href: (basePath or '/v1-experimental') + '/create/accompanying-documents'
-  }) }}
-{% endblock %}
+{% block formContent %}
 
-{% block content %}
-
-<div class="govuk-grid-row">
-  <div class="govuk-grid-column-two-thirds">
-
-    <span class="govuk-caption-l">Addresses</span>
-    <h1 class="govuk-heading-xl">Addresses</h1>
-
+{% from "includes/page-header.njk" import pageHeader %}
+{% call pageHeader("Addresses", null, "two-thirds") %}
     {{ govukInsetText({
       text: "Providing a false address is an act of fraud."
     }) }}
@@ -34,13 +17,6 @@
     {{ govukNotificationBanner({
       type: "success",
       text: "Branch address added. Select it from the list below."
-    }) }}
-    {% endif %}
-
-    {% if data.errors %}
-    {{ govukErrorSummary({
-      titleText: "There is a problem",
-      errorList: data.errorList
     }) }}
     {% endif %}
 
@@ -168,7 +144,6 @@
 
     </form>
 
-  </div>
-</div>
+{% endcall %}
 
 {% endblock %}

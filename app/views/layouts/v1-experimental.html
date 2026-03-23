@@ -10,12 +10,12 @@
   }) }}
   {{ govukServiceNavigation({
     serviceName: "Import notification service",
-    serviceUrl: (basePath or '/v1-experimental') + "/start",
+    serviceUrl: (basePath or '/v1-experimental') + "/dashboard",
     navigation: [
       {
-        text: "Start",
-        href: (basePath or '/v1-experimental') + "/start",
-        current: navCurrent === 'start'
+        text: "Dashboard",
+        href: (basePath or '/v1-experimental') + "/dashboard",
+        current: navCurrent === 'dashboard'
       }
     ]
   }) }}
