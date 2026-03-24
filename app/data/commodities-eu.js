@@ -36,7 +36,7 @@ module.exports = {
   'Game Birds - Day old chicks - Pheasant': { code: '01063980', commonName: 'Game Birds - Day old chicks - Pheasant', description: 'Phasianus Spp.', commodityTypes: ['Domestic'], species: ['Phasianus Spp.'] },
   'Game Birds - Hatching eggs - Pheasant and Partridge': { code: '04071919', commonName: 'Game Birds - Hatching eggs - Pheasant and Partridge', description: 'Phasianidae', commodityTypes: ['Domestic'], species: ['Phasianidae'] },
   Goats: { code: '010420', commonName: 'Goats', description: 'Live sheep and goats', commodityTypes: ['Domestic'], species: ['Capra hircus'] },
-  Horse: { code: '0101', commonName: 'Horse', description: 'Live horses', commodityTypes: ['Domestic', 'Game'], species: ['Equus caballus', 'Equus asinus', 'Equus przewalskii'] },
+  Horse: { code: '0101', commonName: 'Horse', description: 'Live horses', commodityTypes: ['Domestic'], species: ['Equus caballus', 'Equus asinus', 'Equus przewalskii'] },
   'Insects and other invertebrates': { code: '01064900', commonName: 'Insects and other invertebrates', description: 'Other insects', commodityTypes: ['Domestic'], species: ['Otra Insecta'] },
   'Pig (Domestic)': { code: '0103', commonName: 'Pig', description: 'Live swine', commodityTypes: ['Domestic'], species: ['Sus scrofa domesticus'] },
   'Pig Meat under safeguard measure': { code: '0203', commonName: 'Pig Meat under safeguard measure', description: 'Pig meat', commodityTypes: ['Domestic'], species: ['Sus scrofa domesticus'] },

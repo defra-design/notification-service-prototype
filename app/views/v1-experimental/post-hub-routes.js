@@ -56,7 +56,13 @@ function buildCheckYourAnswersData (data, base) {
   const refNum = (data.consignmentReference || '').trim()
   if (refNum) originRows.push(row('Your internal reference number', refNum))
 
-  const mainReasonLabels = { 'internal-market': 'Internal market', 're-entry': 'Re-entry', 'temporary-admission-horses': 'Temporary admission (horses)' }
+  const mainReasonLabels = {
+    'internal-market': 'Internal market',
+    're-entry': 'Re-entry',
+    'temporary-admission-horses': 'Temporary admission horses',
+    breeding: 'Breeding',
+    'racing-competition': 'Racing, competition, show or training'
+  }
   const mainReasonLabel = mainReasonLabels[data.importReason] || data.importReason || 'Not provided'
   const importReasonRows = [row('Main reason for importing the animals', mainReasonLabel)]
   if (data.importReason === 'internal-market' && data.internalMarketPurpose) {
@@ -165,20 +171,23 @@ function buildCheckYourAnswersData (data, base) {
       const quantities = item.quantities || {}
       const details = item.commodity ? (commoditiesEu[item.commodity] || commoditiesData[item.commodity]) : null
       const isEarTagOnly = details && ['010410', '0103'].includes(details.code)
+      const isHorseIdentification = details && details.code === '0101' && item.commodity === 'Horse'
       ;(item.commoditySpecies || []).forEach((s) => {
-        allSpeciesForId.push({ speciesName: s, speciesAndType: `${s}, ${type}`, key: toKey(s), quantities, isEarTagOnly })
+        allSpeciesForId.push({ speciesName: s, speciesAndType: `${s}, ${type}`, key: toKey(s), quantities, isEarTagOnly, isHorseIdentification })
       })
     })
   } else {
     const details = commodityDetails
     const isEarTagOnly = details && ['010410', '0103'].includes(details.code)
+    const isHorseIdentification = details && details.code === '0101' && data.commodity === 'Horse'
     commoditySpecies.forEach((s) => {
       allSpeciesForId.push({
         speciesName: s,
         speciesAndType: `${s}, ${typeLabel}`,
         key: toKey(s),
         quantities: {},
-        isEarTagOnly
+        isEarTagOnly,
+        isHorseIdentification
       })
     })
   }
@@ -188,6 +197,40 @@ function buildCheckYourAnswersData (data, base) {
     const key = spec.key
     const animalCount = parseInt(data[`animalCount_${key}`] || spec.quantities[`quantity_${key}`] || data[`quantity_${key}`], 10) || 1
     const identificationRows = []
+    if (spec.isHorseIdentification) {
+      for (let i = 1; i <= animalCount; i++) {
+        const microchip = data[`microchip_${key}_${i}`] || '-'
+        const passport = data[`passport_${key}_${i}`] || '-'
+        if (i === 1 && microchip === '-' && passport === '-') break
+        if (microchip === '-' && passport === '-') break
+        identificationRows.push({ microchip, passport })
+      }
+      const useTable = identificationRows.length > 0
+      const tableRows = identificationRows.map((r, i) => [
+        { text: `${spec.speciesName} ${i + 1}` },
+        { text: r.microchip },
+        { text: r.passport }
+      ])
+      const summaryRows = []
+      if (!identificationRows.length) {
+        summaryRows.push(row('Details', 'Not yet provided'))
+      } else if (!useTable) {
+        summaryRows.push(rowHtml('Method of identification', 'Microchip<br>Passport'))
+        identificationRows.forEach((r, i) => {
+          summaryRows.push(row(`Animal ${i + 1} – Microchip`, r.microchip))
+          summaryRows.push(row(`Animal ${i + 1} – Passport`, r.passport))
+        })
+      }
+      animalIdentificationGroups.push({
+        speciesLabel: spec.speciesAndType,
+        tableRows,
+        summaryRows,
+        useTable,
+        isEarTagOnly: false,
+        isHorseIdentification: true
+      })
+      continue
+    }
     for (let i = 1; i <= animalCount; i++) {
       const earTag = data[`earTag_${key}_${i}`] || '-'
       const passport = spec.isEarTagOnly ? null : (data[`passport_${key}_${i}`] || '-')
@@ -220,7 +263,8 @@ function buildCheckYourAnswersData (data, base) {
       tableRows,
       summaryRows,
       useTable,
-      isEarTagOnly: spec.isEarTagOnly
+      isEarTagOnly: spec.isEarTagOnly,
+      isHorseIdentification: false
     })
   }
 
@@ -230,7 +274,8 @@ function buildCheckYourAnswersData (data, base) {
       tableRows: [],
       summaryRows: [row('Details', 'Not yet provided')],
       useTable: false,
-      isEarTagOnly: false
+      isEarTagOnly: false,
+      isHorseIdentification: false
     })
   }
 
@@ -258,7 +303,8 @@ function buildCheckYourAnswersData (data, base) {
             { key: { text: 'Number of packages' }, value: { text: String(pkg) } }
           ],
           idTableRows: group.tableRows || [],
-          isEarTagOnly: group.isEarTagOnly
+          isEarTagOnly: group.isEarTagOnly,
+          isHorseIdentification: !!group.isHorseIdentification
         })
       })
       if (species.length > 0) {
@@ -289,7 +335,8 @@ function buildCheckYourAnswersData (data, base) {
           { key: { text: 'Number of packages' }, value: { text: String(pkg) } }
         ],
         idTableRows: group.tableRows || [],
-        isEarTagOnly: group.isEarTagOnly
+        isEarTagOnly: group.isEarTagOnly,
+        isHorseIdentification: !!group.isHorseIdentification
       })
     })
     if (species.length > 0) {
@@ -388,9 +435,13 @@ function buildCheckYourAnswersData (data, base) {
         ? 'Private transporter'
         : transporterTypeDisplay)
     : 'Not provided'
-  const arrivalRows = [row('Arrival date', formatDate(data.arrivalDate))]
+  const { getBorderPortLabel } = require('../../data/uk-border-ports.js')
+  const arrivalRows = [
+    row('Port of entry', getBorderPortLabel(data.ukBorderPort)),
+    row('Arrival date at destination', formatDate(data.arrivalDate))
+  ]
   const transporterAddrHtml = formatAddressHtml(
-    data.transporterName,
+    null,
     data.transporterAddress || [data.transporterAddressLine1, data.transporterAddressLine2, data.transporterTown, data.transporterPostcode].filter(Boolean),
     data.transporterCountry
   )
@@ -398,10 +449,12 @@ function buildCheckYourAnswersData (data, base) {
     ? 'Not required'
     : (data.transporterApprovalNumber || 'Not provided')
   const transporterRows = [
-    rowHtml('Details', transporterAddrHtml),
+    row('Transporter name', data.transporterName || 'Not provided'),
+    rowHtml('Transporter address', transporterAddrHtml),
     row('Type', transporterTypeDisplay),
     row('Approval number', transporterApprovalDisplay)
   ]
+  const transportAndArrivalRows = transporterRows.concat(arrivalRows)
 
   return {
     originRows,
@@ -417,6 +470,7 @@ function buildCheckYourAnswersData (data, base) {
     permanentAddressRows,
     arrivalRows,
     transporterRows,
+    transportAndArrivalRows,
     isPetConsignment: isPetConsignment(data),
     isLivestockConsignment: isLivestockConsignment(data),
     changeBase: base
@@ -445,6 +499,92 @@ function registerPostHubRoutes (router, base) {
     return create(defaultPath)
   }
 
+  function postTransportAndArrival (req, res) {
+    const data = req.session.data || {}
+    const hasTransporter = !!(data.transporterName && (data.transporterId || data.transporterAddressLine1))
+    const arrivalDate = (data.arrivalDate || '').trim()
+    const ukBorderPort = (data.ukBorderPort || '').trim()
+    const errors = {}
+    const errorList = []
+    if (!hasTransporter) {
+      errors.transporter = true
+      errorList.push({ href: '#transporter-details', text: 'Add a transporter before continuing' })
+    }
+    if (!ukBorderPort) {
+      errors.ukBorderPort = 'Select a port or border point'
+      errorList.push({ href: '#ukBorderPort', text: 'Select a port or border point' })
+    }
+    if (!arrivalDate) {
+      errors.arrivalDate = 'Enter the arrival date at destination'
+      errorList.push({ href: '#arrivalDate', text: 'Enter the arrival date at destination' })
+    }
+    if (errorList.length > 0) {
+      data.errors = errors
+      data.errorList = errorList
+      return res.redirect(create('/transport-and-arrival'))
+    }
+    delete data.errors
+    delete data.errorList
+    res.redirect(getRedirectPath(data, '/check-your-answers'))
+  }
+
+  function getTransportAndArrivalView (req, res) {
+    storeReturnToIfPresent(req)
+    const data = req.session.data || {}
+
+    const transporterId = req.query.transporter
+    if (req.query.removeTransporter === '1') {
+      delete data.transporterId
+      delete data.transporterName
+      delete data.transporterAddress
+      delete data.transporterCountry
+      delete data.transporterType
+      delete data.transporterApprovalNumber
+      delete data.transporterAddressLine1
+      delete data.transporterAddressLine2
+      delete data.transporterTown
+      delete data.transporterPostcode
+    } else if (transporterId) {
+      const consignees = require('../../data/consignees.js')
+      const selected = consignees.find(c => String(c.id) === String(transporterId))
+      if (selected) {
+        data.transporterId = selected.id
+        data.transporterName = selected.name
+        data.transporterAddress = selected.address
+        data.transporterCountry = selected.country
+        data.transporterType = selected.transporterType || ''
+        data.transporterApprovalNumber = selected.approvalNumber || ''
+      }
+      return res.redirect(create('/transport-and-arrival'))
+    }
+
+    const hasTransporter = !!(data.transporterName && (data.transporterId || data.transporterAddressLine1))
+    const typeDisplay = data.transporterType === 'Commercial transporter' ? 'Commercial' : data.transporterType === 'Private transporter' ? 'Private' : ''
+    const approvalDisplay = data.transporterType === 'Private transporter' ? 'Not required' : (data.transporterApprovalNumber || '')
+    const transporterRows = [
+      { key: { text: 'Transporter name' }, value: { text: data.transporterName || '—' } },
+      { key: { text: 'Transporter address' }, value: { html: (data.transporterAddress || '') + (data.transporterAddress && data.transporterCountry ? '<br>' : '') + (data.transporterCountry || '') } },
+      { key: { text: 'Type' }, value: { text: typeDisplay || '—' } }
+    ]
+    if (typeDisplay !== 'Private') {
+      transporterRows.push({ key: { text: 'Approval number' }, value: { text: approvalDisplay || '—' } })
+    }
+    const d = new Date()
+    d.setDate(d.getDate() + 3)
+    const minArrivalDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+    const { borderPortItems } = require('../../data/uk-border-ports.js')
+    let backHref = create('/addresses')
+    if (isPetConsignment(data)) backHref = create('/permanent-addresses-for-animals')
+    else if (isLivestockConsignment(data)) backHref = create('/address-cph')
+    res.render('v1-experimental/create/transport-and-arrival', {
+      hasTransporter,
+      transporterRows,
+      minArrivalDate,
+      borderPortItems,
+      backHref
+    })
+  }
+
   const toKey = (s) => String(s || '').replace(/\s+/g, '_').toLowerCase().replace(/[^a-z0-9_]/g, '')
 
   function commodityHasMultipleSpecies (commodityKey, commodityType, commoditiesData) {
@@ -468,7 +608,7 @@ function registerPostHubRoutes (router, base) {
     const typeLabel = commodityType === 'game' ? 'Game' : 'Domestic'
     const isPetIdentification = details.code === '01061900'
     const isGameBirdIdentification = details.code === '01063980'
-    const isHorseIdentification = details.code === '0101'
+    const isHorseIdentification = details.code === '0101' && commodity === 'Horse'
     const isEarTagOnlyIdentification = ['010410', '0103'].includes(details.code)
     const speciesRows = []
     for (const s of commoditySpecies) {
@@ -487,7 +627,6 @@ function registerPostHubRoutes (router, base) {
           animal.flockIdKey = `flockId_${key}_${i}`
           animal.hatchingDateKey = `hatchingDate_${key}_${i}`
         } else if (isHorseIdentification) {
-          animal.horseNameKey = `horseName_${key}_${i}`
           animal.microchipKey = `microchip_${key}_${i}`
           animal.passportKey = `passport_${key}_${i}`
         } else if (isEarTagOnlyIdentification) {
@@ -523,7 +662,7 @@ function registerPostHubRoutes (router, base) {
       const typeLabel = commodityType === 'game' ? 'Game' : 'Domestic'
       const isPetIdentification = details.code === '01061900'
       const isGameBirdIdentification = details.code === '01063980'
-      const isHorseIdentification = details.code === '0101'
+      const isHorseIdentification = details.code === '0101' && item.commodity === 'Horse'
       const isEarTagOnlyIdentification = ['010410', '0103'].includes(details.code)
       const itemSpecies = item.commoditySpecies || []
       const itemQuantities = item.quantities || {}
@@ -544,7 +683,6 @@ function registerPostHubRoutes (router, base) {
             animal.flockIdKey = `flockId_${key}_${i}`
             animal.hatchingDateKey = `hatchingDate_${key}_${i}`
           } else if (isHorseIdentification) {
-            animal.horseNameKey = `horseName_${key}_${i}`
             animal.microchipKey = `microchip_${key}_${i}`
             animal.passportKey = `passport_${key}_${i}`
           } else if (isEarTagOnlyIdentification) {
@@ -705,7 +843,6 @@ function registerPostHubRoutes (router, base) {
           data[`flockId_${s.key}_${i}`] = `FLOCK-${s.key.slice(0, 6).toUpperCase()}-${String(i).padStart(3, '0')}`
           data[`hatchingDate_${s.key}_${i}`] = `${15 + (i % 14)} ${4 + (i % 9)} 2025`
         } else if (s.isHorseIdentification) {
-          data[`horseName_${s.key}_${i}`] = `Thunder ${i}`
           data[`microchip_${s.key}_${i}`] = `9820001234567${String(i).padStart(2, '0')}`
           data[`passport_${s.key}_${i}`] = `GBR-XIV-${String(i).padStart(6, '0')}`
         } else if (s.isEarTagOnlyIdentification) {
@@ -825,22 +962,22 @@ function registerPostHubRoutes (router, base) {
     speciesRows.forEach(s => {
       s.animals.forEach(a => {
         if (s.isHorseIdentification) {
-          const horseNameVal = req.session.data[a.horseNameKey]
           const microchipVal = req.session.data[a.microchipKey]
           const passportVal = req.session.data[a.passportKey]
-          const horseNameMissing = !horseNameVal || String(horseNameVal).trim() === ''
           const microchipMissing = !microchipVal || String(microchipVal).trim() === ''
           const passportMissing = !passportVal || String(passportVal).trim() === ''
-          if (horseNameMissing) errors[a.horseNameKey] = 'Enter the horse name'
           if (microchipMissing) errors[a.microchipKey] = 'Enter the microchip number'
           if (passportMissing) errors[a.passportKey] = 'Enter the passport number'
-          if (horseNameMissing || microchipMissing || passportMissing) {
+          if (microchipMissing || passportMissing) {
             const animalLabel = `${s.speciesAndType} ${a.index}`
             const missingParts = []
-            if (horseNameMissing) missingParts.push('horse name')
             if (microchipMissing) missingParts.push('microchip')
             if (passportMissing) missingParts.push('passport')
-            errorList.push({ href: `#horse-name-${a.horseNameKey}`, text: `Enter the ${missingParts.join(', ')} for ${animalLabel}` })
+            const firstHref = microchipMissing ? `#microchip-${a.microchipKey}` : `#passport-${a.passportKey}`
+            const message = missingParts.length === 2
+              ? `Enter the microchip and passport for ${animalLabel}`
+              : `Enter the ${missingParts[0]} for ${animalLabel}`
+            errorList.push({ href: firstHref, text: message })
           }
         } else if (s.isGameBirdIdentification) {
           const flockIdVal = req.session.data[a.flockIdKey]
@@ -1079,21 +1216,32 @@ function registerPostHubRoutes (router, base) {
   // --- import-reason ---
   router.get(create('/import-reason'), (req, res) => {
     storeReturnToIfPresent(req)
-    delete req.session.data.errors
-    delete req.session.data.errorList
+    const data = req.session.data
+    if (data.importReason === 'breeding' || data.importReason === 'racing-competition') {
+      data.internalMarketPurpose = data.importReason
+      data.importReason = 'internal-market'
+    }
     const commoditySpecies = getCommoditySpeciesArray(req.session.data)
     const horseSpecies = require('../../data/commodity-list.js').horseSpecies
     const showTemporaryAdmissionHorses = commoditySpecies.some(s => horseSpecies.includes(s))
-    const internalMarketPurposes = require('../../data/internal-market-purposes.js')
-    const commoditiesEu = require('../../data/commodities-eu.js')
-    const purposeOptions = internalMarketPurposes.getPurposeOptionsForCommodityAndSpecies
-      ? internalMarketPurposes.getPurposeOptionsForCommodityAndSpecies(req.session.data.commodity, commoditySpecies, commoditiesEu)
-      : internalMarketPurposes
 
-    const purposeItems = purposeOptions.map(p => ({
+    const internalMarketSubPurposes = [
+      {
+        value: 'breeding',
+        text: 'Breeding',
+        hint: { text: 'Animals for reproduction, intended to contribute to a genetic pool, improve livestock or produce offspring.' }
+      },
+      {
+        value: 'racing-competition',
+        text: 'Racing, competition, show or training',
+        hint: { text: 'Animals participating in competitive or training events.' }
+      }
+    ]
+
+    const purposeItems = internalMarketSubPurposes.map(p => ({
       value: p.value,
       text: p.text,
-      hint: p.hint ? { text: p.hint } : undefined,
+      hint: p.hint ? { text: p.hint.text } : undefined,
       checked: req.session.data.internalMarketPurpose === p.value
     }))
 
@@ -1156,18 +1304,24 @@ function registerPostHubRoutes (router, base) {
     const commoditySpecies = getCommoditySpeciesArray(req.session.data)
     const horseSpecies = require('../../data/commodity-list.js').horseSpecies
     const showTemporaryAdmissionHorses = commoditySpecies.some(s => horseSpecies.includes(s))
+    const allowedTopReasons = ['internal-market', 're-entry']
+    if (showTemporaryAdmissionHorses) allowedTopReasons.push('temporary-admission-horses')
+    const allowedInternalPurposes = ['breeding', 'racing-competition']
     const errors = {}
     const errorList = []
 
     if (!importReason || importReason.trim() === '') {
       errors.importReason = 'Select the main reason for importing the animals'
       errorList.push({ href: '#import-reason-1', text: 'Select the main reason for importing the animals' })
+    } else if (!allowedTopReasons.includes(importReason)) {
+      errors.importReason = 'Select a valid reason for importing the animals'
+      errorList.push({ href: '#import-reason-1', text: 'Select a valid reason for importing the animals' })
+    } else if (importReason === 'internal-market' && (!internalMarketPurpose || !allowedInternalPurposes.includes(internalMarketPurpose))) {
+      errors.internalMarketPurpose = 'Select the purpose in the internal market'
+      errorList.push({ href: '#internal-market-purpose-0', text: 'Select the purpose in the internal market' })
     } else if (importReason === 'temporary-admission-horses' && !showTemporaryAdmissionHorses) {
       errors.importReason = 'Temporary admission horses is only available when importing horses'
       errorList.push({ href: '#import-reason-1', text: 'Select a valid reason for importing the animals' })
-    } else if (importReason === 'internal-market' && (!internalMarketPurpose || internalMarketPurpose.trim() === '')) {
-      errors.internalMarketPurpose = 'Select the purpose in the internal market'
-      errorList.push({ href: '#internal-market-purpose-0', text: 'Select the purpose in the internal market' })
     }
 
     if (Object.keys(errors).length > 0) {
@@ -1176,6 +1330,9 @@ function registerPostHubRoutes (router, base) {
       return res.redirect(create('/import-reason'))
     }
 
+    if (importReason !== 'internal-market') {
+      delete req.session.data.internalMarketPurpose
+    }
     delete req.session.data.errors
     delete req.session.data.errorList
     res.redirect(getRedirectPath(req.session.data, '/accompanying-documents'))
@@ -1514,7 +1671,7 @@ function registerPostHubRoutes (router, base) {
     }
     delete data.errors
     delete data.errorList
-    let next = create('/transport-arrival')
+    let next = create('/transport-and-arrival')
     if (isPetConsignment(data)) next = create('/permanent-addresses-for-animals')
     else if (isLivestockConsignment(data)) next = create('/address-cph')
     res.redirect(next)
@@ -1558,7 +1715,7 @@ function registerPostHubRoutes (router, base) {
     data.contactAddressId = prefillContact.id
     delete data.errors
     delete data.errorList
-    let nextPath = '/transport-arrival'
+    let nextPath = '/transport-and-arrival'
     if (isPetConsignment(data)) nextPath = '/permanent-addresses-for-animals'
     else if (isLivestockConsignment(data)) nextPath = '/address-cph'
     res.redirect(getRedirectPath(data, nextPath))
@@ -1607,7 +1764,7 @@ function registerPostHubRoutes (router, base) {
     }
     delete data.errors
     delete data.errorList
-    res.redirect(getRedirectPath(data, '/transport-arrival'))
+    res.redirect(getRedirectPath(data, '/transport-and-arrival'))
   })
 
   // --- address-cph ---
@@ -1621,12 +1778,12 @@ function registerPostHubRoutes (router, base) {
       const prefillContact = { id: 'prefill-contact-1', name: 'Animal and Plant Health Agency', addressLines: ['Woodham Lane', 'New Haw', 'Surrey', 'Addlestone', 'KT15 3NB'], country: 'United Kingdom of Great Britain and Northern Ireland' }
       if (!data.contactAddressesAdditional.find(a => a.id === prefillContact.id)) data.contactAddressesAdditional.push(prefillContact)
       data.contactAddressId = prefillContact.id
-      return res.redirect(create('/transport-arrival'))
+      return res.redirect(create('/transport-and-arrival'))
     }
     data.cphNumber = '12/345/6789'
     delete data.errors
     delete data.errorList
-    res.redirect(create('/transport-arrival'))
+    res.redirect(create('/transport-and-arrival'))
   })
 
   router.get(create('/address-cph'), (req, res) => {
@@ -1657,7 +1814,7 @@ function registerPostHubRoutes (router, base) {
     }
     delete data.errors
     delete data.errorList
-    res.redirect(getRedirectPath(data, '/transport-arrival'))
+    res.redirect(getRedirectPath(data, '/transport-and-arrival'))
   })
 
   // --- contact-address-search ---
@@ -1833,55 +1990,41 @@ function registerPostHubRoutes (router, base) {
     res.redirect(create('/addresses') + '#contact-address')
   })
 
-  // --- transport-arrival ---
+  // --- transport (combined transporter + arrival) ---
   router.get(create('/transport-arrival-prefill'), (req, res) => {
     const data = req.session.data || {}
     const d = new Date()
     d.setDate(d.getDate() + 3)
     data.arrivalDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+    data.ukBorderPort = 'dover'
     delete data.errors
     delete data.errorList
-    res.redirect(create('/transport-transporter'))
+    res.redirect(getRedirectPath(data, '/check-your-answers'))
   })
 
-  router.get(create('/transport-arrival'), (req, res) => {
-    storeReturnToIfPresent(req)
+  router.get(create('/transport-and-arrival-prefill'), (req, res) => {
     const data = req.session.data || {}
     delete data.errors
     delete data.errorList
+    if (!data.transporterName || !data.transporterType) {
+      const consignees = require('../../data/consignees.js')
+      const sample = consignees.find(c => c.transporterType) || consignees[0]
+      if (sample) {
+        data.transporterId = sample.id
+        data.transporterName = sample.name
+        data.transporterAddress = sample.address
+        data.transporterCountry = sample.country
+        data.transporterType = sample.transporterType || ''
+        data.transporterApprovalNumber = sample.approvalNumber || ''
+      }
+    }
     const d = new Date()
     d.setDate(d.getDate() + 3)
-    const minArrivalDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-    let backHref = create('/addresses')
-    if (isPetConsignment(data)) backHref = create('/permanent-addresses-for-animals')
-    else if (isLivestockConsignment(data)) backHref = create('/address-cph')
-    res.render('v1-experimental/create/transport-arrival', {
-      minArrivalDate,
-      defaultArrivalDate: minArrivalDate,
-      backHref
-    })
+    data.arrivalDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+    data.ukBorderPort = 'dover'
+    res.redirect(getRedirectPath(data, '/check-your-answers'))
   })
 
-  router.post(create('/transport-arrival'), (req, res) => {
-    const data = req.session.data || {}
-    const arrivalDate = (data.arrivalDate || '').trim()
-    const errors = {}
-    const errorList = []
-    if (!arrivalDate) {
-      errors.arrivalDate = 'Enter the arrival date'
-      errorList.push({ href: '#arrivalDate', text: 'Enter the arrival date' })
-    }
-    if (errorList.length > 0) {
-      data.errors = errors
-      data.errorList = errorList
-      return res.redirect(create('/transport-arrival'))
-    }
-    delete data.errors
-    delete data.errorList
-    res.redirect(getRedirectPath(data, '/transport-transporter'))
-  })
-
-  // --- transport-transporter ---
   router.get(create('/transport-transporter-prefill'), (req, res) => {
     const data = req.session.data || {}
     delete data.errors
@@ -1898,77 +2041,26 @@ function registerPostHubRoutes (router, base) {
         data.transporterApprovalNumber = sample.approvalNumber || ''
       }
     }
-    res.redirect(create('/check-your-answers'))
+    res.redirect(create('/transport-and-arrival'))
+  })
+
+  router.get(create('/transport-arrival'), (req, res) => {
+    const qs = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : ''
+    res.redirect(302, create('/transport-and-arrival') + qs)
   })
 
   router.get(create('/transport-transporter'), (req, res) => {
-    storeReturnToIfPresent(req)
-    const data = req.session.data || {}
-
-    const transporterId = req.query.transporter
-    if (req.query.removeTransporter === '1') {
-      delete data.transporterId
-      delete data.transporterName
-      delete data.transporterAddress
-      delete data.transporterCountry
-      delete data.transporterType
-      delete data.transporterApprovalNumber
-      delete data.transporterAddressLine1
-      delete data.transporterAddressLine2
-      delete data.transporterTown
-      delete data.transporterPostcode
-    } else if (transporterId) {
-      const consignees = require('../../data/consignees.js')
-      const selected = consignees.find(c => String(c.id) === String(transporterId))
-      if (selected) {
-        data.transporterId = selected.id
-        data.transporterName = selected.name
-        data.transporterAddress = selected.address
-        data.transporterCountry = selected.country
-        data.transporterType = selected.transporterType || ''
-        data.transporterApprovalNumber = selected.approvalNumber || ''
-      }
-      return res.redirect(create('/transport-transporter'))
-    }
-
-    const hasTransporter = !!(data.transporterName && (data.transporterId || data.transporterAddressLine1))
-    if (hasTransporter) {
-      delete data.errors
-      delete data.errorList
-    }
-    const typeDisplay = data.transporterType === 'Commercial transporter' ? 'Commercial' : data.transporterType === 'Private transporter' ? 'Private' : ''
-    const approvalDisplay = data.transporterType === 'Private transporter' ? 'Not required' : (data.transporterApprovalNumber || '')
-    const transporterRows = [
-      { key: { text: 'Name' }, value: { html: `<strong>${data.transporterName || ''}</strong>` } },
-      { key: { text: 'Address' }, value: { html: (data.transporterAddress || '') + (data.transporterAddress && data.transporterCountry ? '<br>' : '') + (data.transporterCountry || '') } },
-      { key: { text: 'Type' }, value: { text: typeDisplay || '—' } }
-    ]
-    if (typeDisplay !== 'Private') {
-      transporterRows.push({ key: { text: 'Approval number' }, value: { text: approvalDisplay || '—' } })
-    }
-    res.render('v1-experimental/create/transport-transporter', {
-      hasTransporter,
-      transporterName: data.transporterName || '',
-      transporterAddress: data.transporterAddress || '',
-      transporterCountry: data.transporterCountry || '',
-      transporterType: typeDisplay,
-      transporterApprovalNumber: approvalDisplay,
-      transporterRows
-    })
+    const qs = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : ''
+    res.redirect(302, create('/transport-and-arrival') + qs)
   })
 
-  router.post(create('/transport-transporter'), (req, res) => {
-    const data = req.session.data || {}
-    const hasTransporter = !!(data.transporterName && (data.transporterId || data.transporterAddressLine1))
-    if (!hasTransporter) {
-      data.errors = { transporter: true }
-      data.errorList = [{ href: '#transporter-details', text: 'Add a transporter before continuing' }]
-      return res.redirect(create('/transport-transporter'))
-    }
-    delete data.errors
-    delete data.errorList
-    res.redirect(getRedirectPath(data, '/check-your-answers'))
+  router.get(create('/transport-and-arrival'), (req, res) => {
+    getTransportAndArrivalView(req, res)
   })
+
+  router.post(create('/transport-and-arrival'), postTransportAndArrival)
+  router.post(create('/transport-arrival'), postTransportAndArrival)
+  router.post(create('/transport-transporter'), postTransportAndArrival)
 
   // --- transport-add-transporter ---
   router.get(create('/transport-add-transporter'), (req, res) => {
@@ -2029,7 +2121,7 @@ function registerPostHubRoutes (router, base) {
     data.transporterCountry = transporterCountry
     delete data.errors
     delete data.errorList
-    res.redirect(create('/transport-transporter'))
+    res.redirect(create('/transport-and-arrival'))
   })
 
   // --- check-your-answers-prefill ---
@@ -2081,6 +2173,7 @@ function registerPostHubRoutes (router, base) {
     d.contactAddressTown = 'Canterbury'
     d.contactAddressPostcode = 'CT1 2AB'
     d.arrivalDate = '2025-06-15'
+    d.ukBorderPort = 'dover'
     d.transporterName = 'EuroHaul Transport Ltd'
     d.transporterAddress = ['10 Depot Way', 'Folkestone', 'CT19 5AB']
     d.transporterCountry = 'United Kingdom'
@@ -2209,7 +2302,7 @@ function registerPostHubRoutes (router, base) {
     const data = req.session.data || {}
     const consignees = require('../../data/consignees.js')
     const returnTo = req.query.returnTo || ''
-    const isTransporter = returnTo === 'transport-transporter'
+    const isTransporter = returnTo === 'transport-transporter' || returnTo === 'transport-and-arrival'
     const page = parseInt(req.query.page, 10) || 1
     const perPage = 10
 

@@ -9,6 +9,7 @@ const allOptions = [
   { value: 'circus-exhibition', text: 'Circus/exhibition' },
   { value: 'other', text: 'Other' },
   { value: 'pets', text: 'Pets' },
+  { value: 'registered-equidae', text: 'Registered equidae' },
   { value: 'slaughter', text: 'Slaughter' }
 ]
 
@@ -32,6 +33,18 @@ function getCertifiedForOptions (commodityName, speciesList, commoditiesEu) {
     return [...rest, ...other]
   }
 
+  if (commodityName === 'Horse' && code === '0101') {
+    const allowed = new Set([
+      'approved-bodies',
+      'breeding-production',
+      'pets',
+      'registered-equidae',
+      'slaughter',
+      'other'
+    ])
+    return sortOptions(allOptions.filter(o => allowed.has(o.value)))
+  }
+
   for (const species of (speciesList || [])) {
     const key = `${code}:${species}`
     if (codeSpeciesToOptions[key]) {
@@ -45,7 +58,7 @@ function getCertifiedForOptions (commodityName, speciesList, commoditiesEu) {
     return sortOptions(allOptions.filter(o => allowed.has(o.value)))
   }
 
-  return sortOptions(allOptions)
+  return sortOptions(allOptions.filter(o => o.value !== 'registered-equidae'))
 }
 
 module.exports = allOptions

@@ -75,7 +75,6 @@
             <th scope="col" class="govuk-table__header">Flock id</th>
             <th scope="col" class="govuk-table__header">Hatching date</th>
             {% elif species.isHorseIdentification %}
-            <th scope="col" class="govuk-table__header">Horse name</th>
             <th scope="col" class="govuk-table__header">Microchip</th>
             <th scope="col" class="govuk-table__header">Passport</th>
             {% elif species.isEarTagOnlyIdentification %}
@@ -149,15 +148,6 @@
               </div>
             </td>
             {% elif species.isHorseIdentification %}
-            <td class="govuk-table__cell">
-              <div class="govuk-form-group govuk-!-margin-bottom-0 {% if data.errors and data.errors[animal.horseNameKey] %}govuk-form-group--error{% endif %}">
-                <label class="govuk-label govuk-visually-hidden" for="horse-name-{{ animal.horseNameKey }}">Horse name for {{ species.speciesAndType }} {{ animal.index }}</label>
-                {% if data.errors and data.errors[animal.horseNameKey] %}
-                  <p class="govuk-error-message" id="horse-name-{{ animal.horseNameKey }}-error"><span class="govuk-visually-hidden">Error:</span> {{ data.errors[animal.horseNameKey] }}</p>
-                {% endif %}
-                <input class="govuk-input govuk-input--width-20" id="horse-name-{{ animal.horseNameKey }}" name="{{ animal.horseNameKey }}" type="text" value="{{ data[animal.horseNameKey] or '' }}" spellcheck="false" {% if data.errors and data.errors[animal.horseNameKey] %}aria-describedby="horse-name-{{ animal.horseNameKey }}-error" aria-invalid="true"{% endif %}>
-              </div>
-            </td>
             <td class="govuk-table__cell">
               <div class="govuk-form-group govuk-!-margin-bottom-0 {% if data.errors and data.errors[animal.microchipKey] %}govuk-form-group--error{% endif %}">
                 <label class="govuk-label govuk-visually-hidden" for="microchip-{{ animal.microchipKey }}">Microchip for {{ species.speciesAndType }} {{ animal.index }}</label>

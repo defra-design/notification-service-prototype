@@ -63,7 +63,7 @@
           <td class="govuk-table__cell govuk-table__cell--numeric">
             <a href="{{ (basePath or '/v1-experimental') }}/create/commodity-edit/{{ item.index }}" class="govuk-link">Edit</a>
             <span class="govuk-body-s govuk-!-margin-left-1 govuk-!-margin-right-1" aria-hidden="true">|</span>
-            <a href="{{ (basePath or '/v1-experimental') }}/create/commodity-remove/{{ item.index }}" class="govuk-link govuk-link--destructive">Remove</a>
+            <a href="{{ (basePath or '/v1-experimental') }}/create/commodity-remove/{{ item.index }}" class="govuk-link govuk-link--destructive js-commodity-remove-open" data-commodity-label="{{ item.label | e }}">Remove</a>
           </td>
         </tr>
         {% endfor %}
@@ -78,6 +78,17 @@
         Continue
       </a>
     </div>
+
+    <dialog class="ns-dialog" id="commodity-remove-dialog" aria-labelledby="commodity-remove-dialog-title" aria-describedby="commodity-remove-dialog-body">
+      <div class="govuk-!-padding-4">
+        <h2 class="govuk-heading-m" id="commodity-remove-dialog-title">Remove this commodity?</h2>
+        <p class="govuk-body" id="commodity-remove-dialog-body"></p>
+        <div class="govuk-button-group govuk-!-margin-top-6 govuk-!-margin-bottom-0">
+          <button type="button" class="govuk-button govuk-button--secondary" id="commodity-remove-cancel" data-module="govuk-button">Cancel</button>
+          <button type="button" class="govuk-button govuk-button--warning" id="commodity-remove-confirm" data-module="govuk-button">Yes, remove</button>
+        </div>
+      </div>
+    </dialog>
     {% endif %}
 
     <p class="govuk-body govuk-!-margin-top-6">
@@ -86,4 +97,47 @@
 
 {% endcall %}
 
+{% endblock %}
+
+{% block pageScripts %}
+{% if commodities.length > 0 %}
+<script>
+  (function () {
+    var dialog = document.getElementById('commodity-remove-dialog')
+    var bodyEl = document.getElementById('commodity-remove-dialog-body')
+    var confirmBtn = document.getElementById('commodity-remove-confirm')
+    var cancelBtn = document.getElementById('commodity-remove-cancel')
+    var pendingUrl = ''
+    var lastTrigger = null
+
+    if (!dialog || !bodyEl || !confirmBtn || !cancelBtn || typeof dialog.showModal !== 'function') {
+      return
+    }
+
+    document.querySelectorAll('.js-commodity-remove-open').forEach(function (link) {
+      link.addEventListener('click', function (e) {
+        e.preventDefault()
+        pendingUrl = link.getAttribute('href') || ''
+        lastTrigger = link
+        var label = link.getAttribute('data-commodity-label') || 'this commodity'
+        bodyEl.textContent = 'Are you sure you want to remove ' + label + ' from this notification? You can add it again later if you need to.'
+        dialog.showModal()
+        cancelBtn.focus()
+      })
+    })
+
+    confirmBtn.addEventListener('click', function () {
+      if (pendingUrl) window.location.href = pendingUrl
+    })
+
+    cancelBtn.addEventListener('click', function () {
+      dialog.close()
+    })
+
+    dialog.addEventListener('close', function () {
+      if (lastTrigger) lastTrigger.focus()
+    })
+  })()
+</script>
+{% endif %}
 {% endblock %}

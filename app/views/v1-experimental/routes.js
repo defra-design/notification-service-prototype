@@ -401,6 +401,9 @@ module.exports = (router) => {
       if (req.query.anchor) req.session.data.returnToAnchor = req.query.anchor
     }
     const { items, totalAnimals, totalPackages } = buildCommoditiesForHub(req)
+    if (items.length === 0) {
+      return res.redirect(`${BASE}/create/commodity`)
+    }
     res.render('v1-experimental/create/commodity-hub', {
       commodities: items,
       totalAnimals,
@@ -463,6 +466,14 @@ module.exports = (router) => {
     const commodities = req.session.data.commodities || []
     if (idx >= 0 && idx < commodities.length) {
       req.session.data.commodities = commodities.filter((_, i) => i !== idx)
+    }
+    const remaining = req.session.data.commodities || []
+    if (remaining.length === 0) {
+      clearCommoditySession(req.session.data)
+      req.session.data.commodityFromHub = false
+      delete req.session.data.errors
+      delete req.session.data.errorList
+      return res.redirect(`${BASE}/create/commodity`)
     }
     res.redirect(`${BASE}/create/commodity-hub`)
   })

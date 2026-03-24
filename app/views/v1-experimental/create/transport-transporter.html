@@ -4,7 +4,7 @@
 {% from "govuk/components/summary-list/macro.njk" import govukSummaryList %}
 {% from "govuk/components/error-summary/macro.njk" import govukErrorSummary %}
 {% set title = "Add a transporter" %}
-{% set backLinkHref = (basePath or '/v1-experimental') + '/create/transport-arrival' %}
+{% set backLinkHref = backHref or (basePath or '/v1-experimental') + '/create/addresses' %}
 
 {% block content %}
 

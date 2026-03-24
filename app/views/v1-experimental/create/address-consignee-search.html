@@ -5,8 +5,9 @@
 {% from "govuk/components/button/macro.njk" import govukButton %}
 {% from "govuk/components/pagination/macro.njk" import govukPagination %}
 
-{% set title = returnTo === "transport-transporter" and "Search for a transporter" or "Search for an existing consignee" %}
-{% set backLinkHref = returnTo === "transport-transporter" and (basePath or '/v1-experimental') + '/create/transport-transporter' or (basePath or '/v1-experimental') + '/create/addresses' %}
+{% set transportReturn = returnTo === 'transport-transporter' or returnTo === 'transport-and-arrival' %}
+{% set title = transportReturn and "Search for a transporter" or "Search for an existing consignee" %}
+{% set backLinkHref = transportReturn and (basePath or '/v1-experimental') + '/create/transport-and-arrival' or (basePath or '/v1-experimental') + '/create/addresses' %}
 
 {% block content %}
 
@@ -18,7 +19,7 @@
         {% if forImporter %}<input type="hidden" name="for" value="importer">{% endif %}
         {% if returnTo %}<input type="hidden" name="returnTo" value="{{ returnTo }}">{% endif %}
         <div class="govuk-grid-row">
-          {% if returnTo === 'transport-transporter' %}
+          {% if transportReturn %}
           <div class="govuk-grid-column-one-third">
             <div class="govuk-form-group">
               <label class="govuk-label" for="searchName">Name</label>
@@ -69,8 +70,8 @@
           {{ govukButton({
             text: "Search"
           }) }}
-          {% if returnTo === 'transport-transporter' %}
-          <a href="{{ (basePath or '/v1-experimental') }}/create/address-consignee-search?searchName=&searchApprovalNumber=&searchPostCode=&returnTo=transport-transporter" class="govuk-link govuk-link--no-visited-state">Clear search</a>
+          {% if transportReturn %}
+          <a href="{{ (basePath or '/v1-experimental') }}/create/address-consignee-search?searchName=&searchApprovalNumber=&searchPostCode=&returnTo={{ returnTo }}" class="govuk-link govuk-link--no-visited-state">Clear search</a>
           {% else %}
           <a href="{{ (basePath or '/v1-experimental') }}/create/address-consignee-search?searchName=&searchAddress=&searchCountry={% if forImporter %}&for=importer{% endif %}{% if returnTo %}&returnTo={{ returnTo }}{% endif %}" class="govuk-link govuk-link--no-visited-state">Clear search</a>
           {% endif %}
@@ -84,7 +85,7 @@
         <tr class="govuk-table__row">
           <th scope="col" class="govuk-table__header">Name</th>
           <th scope="col" class="govuk-table__header">Address</th>
-          {% if returnTo === 'transport-transporter' %}
+          {% if transportReturn %}
           <th scope="col" class="govuk-table__header approval-number-cell">Approval Number</th>
           <th scope="col" class="govuk-table__header">Type</th>
           <th scope="col" class="govuk-table__header">Status</th>
@@ -101,7 +102,7 @@
             <br>
             <span class="govuk-body-s address-country">{{ row.country }}</span>
           </td>
-          {% if returnTo === 'transport-transporter' %}
+          {% if transportReturn %}
           <td class="govuk-table__cell approval-number-cell">{% if row.transporterType === 'Private transporter' %}—{% else %}{{ row.approvalNumber or '—' }}{% endif %}</td>
           <td class="govuk-table__cell">{% if row.transporterType === 'Commercial transporter' %}Commercial{% elif row.transporterType === 'Private transporter' %}Private{% else %}—{% endif %}</td>
           <td class="govuk-table__cell">
@@ -115,7 +116,7 @@
           <td class="govuk-table__cell">
             <a href="#" class="govuk-link govuk-!-font-size-16">View</a>
             <span aria-hidden="true"> | </span>
-            <a href="{% if returnTo === 'transport-transporter' %}{{ (basePath or '/v1-experimental') }}/create/transport-transporter?transporter={{ row.id }}{% elif forImporter %}{{ (basePath or '/v1-experimental') }}/create/addresses?importer={{ row.id }}#importer{% else %}{{ (basePath or '/v1-experimental') }}/create/addresses?consignee={{ row.id }}{% endif %}" class="govuk-link govuk-!-font-size-16">Select</a>
+            <a href="{% if transportReturn %}{{ (basePath or '/v1-experimental') }}/create/transport-and-arrival?transporter={{ row.id }}{% elif forImporter %}{{ (basePath or '/v1-experimental') }}/create/addresses?importer={{ row.id }}#importer{% else %}{{ (basePath or '/v1-experimental') }}/create/addresses?consignee={{ row.id }}{% endif %}" class="govuk-link govuk-!-font-size-16">Select</a>
           </td>
         </tr>
         {% endfor %}
@@ -123,7 +124,7 @@
     </table>
 
     <p class="govuk-body govuk-!-margin-top-4">
-      {% if returnTo === 'transport-transporter' %}
+      {% if transportReturn %}
       <a href="{{ (basePath or '/v1-experimental') }}/create/transport-add-transporter" class="govuk-link govuk-!-font-size-16">Add a new transporter</a>
       {% else %}
       <a href="{{ (basePath or '/v1-experimental') }}/create/address-consignee" class="govuk-link govuk-!-font-size-16">Create a new consignee</a>
@@ -134,9 +135,9 @@
     <div class="govuk-!-margin-top-6">
       {% set forParam = "&for=importer" if forImporter else "" %}
       {% set returnParam = "&returnTo=" + returnTo if returnTo else "" %}
-      {% if returnTo === 'transport-transporter' %}
-      {% set prevHref = "?page=" + (page - 1) + "&searchName=" + (data.searchTransporterName or '') + "&searchApprovalNumber=" + (data.searchTransporterApprovalNumber or '') + "&searchPostCode=" + (data.searchTransporterPostCode or '') + "&returnTo=transport-transporter" %}
-      {% set nextHref = "?page=" + (page + 1) + "&searchName=" + (data.searchTransporterName or '') + "&searchApprovalNumber=" + (data.searchTransporterApprovalNumber or '') + "&searchPostCode=" + (data.searchTransporterPostCode or '') + "&returnTo=transport-transporter" %}
+      {% if transportReturn %}
+      {% set prevHref = "?page=" + (page - 1) + "&searchName=" + (data.searchTransporterName or '') + "&searchApprovalNumber=" + (data.searchTransporterApprovalNumber or '') + "&searchPostCode=" + (data.searchTransporterPostCode or '') + "&returnTo=" + returnTo %}
+      {% set nextHref = "?page=" + (page + 1) + "&searchName=" + (data.searchTransporterName or '') + "&searchApprovalNumber=" + (data.searchTransporterApprovalNumber or '') + "&searchPostCode=" + (data.searchTransporterPostCode or '') + "&returnTo=" + returnTo %}
       {% else %}
       {% set prevHref = "?page=" + (page - 1) + "&searchName=" + (data.searchConsigneeName or '') + "&searchAddress=" + (data.searchConsigneeAddress or '') + "&searchCountry=" + (data.searchConsigneeCountry or '') + forParam + returnParam %}
       {% set nextHref = "?page=" + (page + 1) + "&searchName=" + (data.searchConsigneeName or '') + "&searchAddress=" + (data.searchConsigneeAddress or '') + "&searchCountry=" + (data.searchConsigneeCountry or '') + forParam + returnParam %}

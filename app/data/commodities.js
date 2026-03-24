@@ -19,7 +19,7 @@ module.exports = {
     code: '0101',
     commonName: 'Horse',
     description: 'Live horses, asses, mules and hinnies',
-    commodityTypes: ['Domestic', 'Game'],
+    commodityTypes: ['Domestic'],
     species: [
       'Equus asinus',
       'Equus caballus',
