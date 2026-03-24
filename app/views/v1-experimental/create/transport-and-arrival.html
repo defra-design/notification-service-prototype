@@ -28,12 +28,6 @@
         {% if hasTransporter %}
         <div id="transporter-details">
         {{ govukSummaryList({
-          card: {
-            title: { text: "Transport details", headingLevel: 3 },
-            actions: { items: [
-              { href: (basePath or '/v1-experimental') + '/create/address-consignee-search?returnTo=transport-and-arrival', text: "Change", visuallyHiddenText: "transport details" }
-            ] }
-          },
           rows: transporterRows
         }) }}
         </div>

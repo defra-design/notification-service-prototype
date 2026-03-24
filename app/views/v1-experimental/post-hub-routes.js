@@ -472,8 +472,7 @@ function buildCheckYourAnswersData (data, base) {
     transporterRows,
     transportAndArrivalRows,
     isPetConsignment: isPetConsignment(data),
-    isLivestockConsignment: isLivestockConsignment(data),
-    changeBase: base
+    isLivestockConsignment: isLivestockConsignment(data)
   }
 }
 
@@ -561,13 +560,48 @@ function registerPostHubRoutes (router, base) {
     const hasTransporter = !!(data.transporterName && (data.transporterId || data.transporterAddressLine1))
     const typeDisplay = data.transporterType === 'Commercial transporter' ? 'Commercial' : data.transporterType === 'Private transporter' ? 'Private' : ''
     const approvalDisplay = data.transporterType === 'Private transporter' ? 'Not required' : (data.transporterApprovalNumber || '')
-    const transporterRows = [
-      { key: { text: 'Transporter name' }, value: { text: data.transporterName || '—' } },
-      { key: { text: 'Transporter address' }, value: { html: (data.transporterAddress || '') + (data.transporterAddress && data.transporterCountry ? '<br>' : '') + (data.transporterCountry || '') } },
-      { key: { text: 'Type' }, value: { text: typeDisplay || '—' } }
-    ]
-    if (typeDisplay !== 'Private') {
-      transporterRows.push({ key: { text: 'Approval number' }, value: { text: approvalDisplay || '—' } })
+    const escapeHtmlT = (s) => typeof s !== 'string' ? '' : String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+    const changeTransporterHref = create('/address-consignee-search?returnTo=transport-and-arrival')
+    const rightAlignChangeLink =
+      (String(req.query.returnTo || '') === 'check-your-answers' &&
+        String(req.query.anchor || '') === 'transport-and-arrival') ||
+      (data.returnTo === 'check-your-answers' && data.returnToAnchor === 'transport-and-arrival')
+    const noRowActions = { items: [] }
+    const transporterRows = []
+    if (rightAlignChangeLink) {
+      transporterRows.push(
+        {
+          key: { text: 'Transporter name' },
+          value: { text: data.transporterName || '—' },
+          actions: {
+            items: [{ href: changeTransporterHref, text: 'Change', visuallyHiddenText: ' transporter' }]
+          }
+        },
+        {
+          key: { text: 'Transporter address' },
+          value: { html: escapeHtmlT(data.transporterAddress || '') + (data.transporterAddress && data.transporterCountry ? '<br>' : '') + escapeHtmlT(data.transporterCountry || '') },
+          actions: noRowActions
+        },
+        {
+          key: { text: 'Type' },
+          value: { text: typeDisplay || '—' },
+          actions: noRowActions
+        }
+      )
+      if (typeDisplay !== 'Private') {
+        transporterRows.push({ key: { text: 'Approval number' }, value: { text: approvalDisplay || '—' }, actions: noRowActions })
+      }
+    } else {
+      const nameEscaped = escapeHtmlT(data.transporterName || '—')
+      const nameWithChange = `${nameEscaped}<span class="govuk-visually-hidden">. </span> <a class="govuk-link govuk-!-margin-left-2" href="${changeTransporterHref}">Change<span class="govuk-visually-hidden"> transporter</span></a>`
+      transporterRows.push(
+        { key: { text: 'Transporter name' }, value: { html: nameWithChange } },
+        { key: { text: 'Transporter address' }, value: { html: escapeHtmlT(data.transporterAddress || '') + (data.transporterAddress && data.transporterCountry ? '<br>' : '') + escapeHtmlT(data.transporterCountry || '') } },
+        { key: { text: 'Type' }, value: { text: typeDisplay || '—' } }
+      )
+      if (typeDisplay !== 'Private') {
+        transporterRows.push({ key: { text: 'Approval number' }, value: { text: approvalDisplay || '—' } })
+      }
     }
     const d = new Date()
     d.setDate(d.getDate() + 3)

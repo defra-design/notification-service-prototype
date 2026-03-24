@@ -183,11 +183,11 @@
     <div class="check-answers-spacer"></div>
     {% endif %}
 
-    {# Transport and arrival (combined step) #}
+    {# Transport and arrival #}
     <div id="transport-and-arrival">{{ govukSummaryList({
       card: {
-        title: { text: "Transport details", headingLevel: 3 },
-        actions: { items: [{ href: (basePath or '/v1-experimental') + "/create/transport-and-arrival?returnTo=check-your-answers&anchor=transport-and-arrival", text: "Change", visuallyHiddenText: "transport details" }] }
+        title: { text: "Transport details" },
+        actions: { items: [{ href: (basePath or '/v1-experimental') + "/create/transport-and-arrival?returnTo=check-your-answers&anchor=transport-and-arrival", text: "Change" }] }
       },
       rows: transportAndArrivalRows
     }) }}</div>

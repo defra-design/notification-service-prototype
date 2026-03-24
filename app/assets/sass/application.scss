@@ -40,12 +40,9 @@
   align-items: baseline;
   gap: govuk-spacing(2);
   padding-bottom: govuk-spacing(2);
-  padding-inline: govuk-spacing(4);
+  padding-left: 0;
+  padding-right: govuk-spacing(4);
   border-bottom: 1px solid $govuk-border-colour;
-
-  .govuk-heading-m {
-    margin-inline-start: calc(-1 * #{govuk-spacing(4)});
-  }
 
   .govuk-link {
     font-size: 19px;
