@@ -56,9 +56,11 @@ function buildCheckYourAnswersData (data, base) {
   const refNum = (data.consignmentReference || '').trim()
   if (refNum) originRows.push(row('Your internal reference number', refNum))
 
+  const { getInternalMarketPurposeLabel } = require('../../data/internal-market-purposes.js')
   const mainReasonLabels = {
     'internal-market': 'Internal market',
     're-entry': 'Re-entry',
+    transit: 'Transit',
     'temporary-admission-horses': 'Temporary admission horses',
     breeding: 'Breeding',
     'racing-competition': 'Racing, competition, show or training'
@@ -66,9 +68,7 @@ function buildCheckYourAnswersData (data, base) {
   const mainReasonLabel = mainReasonLabels[data.importReason] || data.importReason || 'Not provided'
   const importReasonRows = [row('Main reason for importing the animals', mainReasonLabel)]
   if (data.importReason === 'internal-market' && data.internalMarketPurpose) {
-    const purposes = require('../../data/internal-market-purposes.js')
-    const purpose = purposes.find && purposes.find(p => p.value === data.internalMarketPurpose)
-    importReasonRows.push(row('Purpose in the internal market', purpose ? purpose.text : data.internalMarketPurpose))
+    importReasonRows.push(row('Purpose in the internal market', getInternalMarketPurposeLabel(data.internalMarketPurpose)))
   }
 
   const commoditiesData = require('../../data/commodities.js')
@@ -1259,18 +1259,31 @@ function registerPostHubRoutes (router, base) {
     const horseSpecies = require('../../data/commodity-list.js').horseSpecies
     const showTemporaryAdmissionHorses = commoditySpecies.some(s => horseSpecies.includes(s))
 
-    const internalMarketSubPurposes = [
-      {
-        value: 'breeding',
-        text: 'Breeding',
-        hint: { text: 'Animals for reproduction, intended to contribute to a genetic pool, improve livestock or produce offspring.' }
-      },
-      {
-        value: 'racing-competition',
-        text: 'Racing, competition, show or training',
-        hint: { text: 'Animals participating in competitive or training events.' }
-      }
-    ]
+    const commoditiesEu = require('../../data/commodities-eu.js')
+    const {
+      cow0102InternalMarketPurposes,
+      sessionIsCow0102Only
+    } = require('../../data/internal-market-purposes.js')
+    const useCow0102Purposes = sessionIsCow0102Only(req.session.data, commoditiesEu)
+
+    const internalMarketSubPurposes = useCow0102Purposes
+      ? cow0102InternalMarketPurposes.map(p => ({
+          value: p.value,
+          text: p.text,
+          hint: { text: p.hint }
+        }))
+      : [
+          {
+            value: 'breeding',
+            text: 'Breeding',
+            hint: { text: 'Animals for reproduction, intended to contribute to a genetic pool, improve livestock or produce offspring.' }
+          },
+          {
+            value: 'racing-competition',
+            text: 'Racing, competition, show or training',
+            hint: { text: 'Animals participating in competitive or training events.' }
+          }
+        ]
 
     const purposeItems = internalMarketSubPurposes.map(p => ({
       value: p.value,
@@ -1317,6 +1330,11 @@ function registerPostHubRoutes (router, base) {
         value: 're-entry',
         text: 'Re-entry',
         hint: { text: 'The consignment is authorised for re-entry or includes rejected exports that are re-entering Great Britain.' }
+      },
+      {
+        value: 'transit',
+        text: 'Transit',
+        hint: { text: 'For animals moving through Great Britain for direct travel to a third country, that will enter Great Britain at one port or airport and leave from a different one within England, Scotland or Wales.' }
       }
     ]
     if (showTemporaryAdmissionHorses) {
@@ -1338,9 +1356,14 @@ function registerPostHubRoutes (router, base) {
     const commoditySpecies = getCommoditySpeciesArray(req.session.data)
     const horseSpecies = require('../../data/commodity-list.js').horseSpecies
     const showTemporaryAdmissionHorses = commoditySpecies.some(s => horseSpecies.includes(s))
-    const allowedTopReasons = ['internal-market', 're-entry']
+    const commoditiesEu = require('../../data/commodities-eu.js')
+    const { cow0102InternalMarketPurposes, sessionIsCow0102Only } = require('../../data/internal-market-purposes.js')
+    const useCow0102Purposes = sessionIsCow0102Only(req.session.data, commoditiesEu)
+    const allowedTopReasons = ['internal-market', 're-entry', 'transit']
     if (showTemporaryAdmissionHorses) allowedTopReasons.push('temporary-admission-horses')
-    const allowedInternalPurposes = ['breeding', 'racing-competition']
+    const allowedInternalPurposes = useCow0102Purposes
+      ? cow0102InternalMarketPurposes.map(p => p.value)
+      : ['breeding', 'racing-competition']
     const errors = {}
     const errorList = []
 

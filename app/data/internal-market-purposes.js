@@ -129,6 +129,62 @@ function getPurposeOptionsForCommodityAndSpecies (commodityName, speciesList, co
   return getPurposeOptionsForCommodities(commodityName ? [commodityName] : [], commoditiesEu)
 }
 
+const cow0102InternalMarketPurposes = [
+  {
+    value: 'slaughter',
+    text: 'Slaughter',
+    hint: 'Animals to be slaughtered and processed for meat production shortly after arrival into Great Britain.'
+  },
+  {
+    value: 'breeding',
+    text: 'Breeding',
+    hint: 'Animals for reproduction. This includes animals intended to contribute to the genetic pool of a breeding program, improve livestock quality, or produce offspring.'
+  },
+  {
+    value: 'fattening',
+    text: 'Fattening',
+    hint: 'Animals to be fattened for meat production.'
+  },
+  {
+    value: 'production',
+    text: 'Production',
+    hint: 'Animals that are farmed for the production of meat, milk, eggs, wool or any other animal product or by-product.'
+  },
+  {
+    value: 'transfer-sale-gift',
+    text: 'Transfer of ownership - Sale/gift',
+    hint: 'Any movement of an animal that has as its aim the sale of or the transfer of ownership of the animal from one person or entity to another. For example, animals that have been sold and are being moved to a new owner or will be sold once in Great Britain, purchases from a breeder or shop overseas and where an animal is being moved to a new owner with no sale involved (for example, a gift).'
+  }
+]
+
+function sessionIsCow0102Only (data, commoditiesEu) {
+  const names = new Set()
+  if (Array.isArray(data.commodities)) {
+    data.commodities.forEach(c => {
+      if (c && c.commodity) names.add(c.commodity)
+    })
+  }
+  if (data.commodity) names.add(data.commodity)
+  if (names.size === 0) return false
+  for (const n of names) {
+    const d = commoditiesEu[n]
+    const code = d && d.code ? String(d.code).replace(/\s/g, '') : ''
+    if (code !== '0102') return false
+  }
+  return true
+}
+
+function getInternalMarketPurposeLabel (value) {
+  if (!value) return ''
+  const cow = cow0102InternalMarketPurposes.find(p => p.value === value)
+  if (cow) return cow.text
+  const p = allPurposes.find(x => x.value === value)
+  return p ? p.text : value
+}
+
 module.exports = allPurposes
 module.exports.getPurposeOptionsForCommodities = getPurposeOptionsForCommodities
 module.exports.getPurposeOptionsForCommodityAndSpecies = getPurposeOptionsForCommodityAndSpecies
+module.exports.cow0102InternalMarketPurposes = cow0102InternalMarketPurposes
+module.exports.sessionIsCow0102Only = sessionIsCow0102Only
+module.exports.getInternalMarketPurposeLabel = getInternalMarketPurposeLabel
