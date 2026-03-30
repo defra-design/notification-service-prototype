@@ -101,9 +101,8 @@
           text: "Save and continue"
         }) }}
 
-      <p class="govuk-body govuk-!-margin-top-4">
-        <a href="/v1-baseline/create/accompanying-documents-prefill" class="govuk-link govuk-link--secondary govuk-!-font-size-14">Quick fill and continue (internal use)</a>
-      </p>
+        {% set quickFillHref = (basePath or '/v1-baseline') + '/create/accompanying-documents-prefill' %}
+        {% include "includes/quick-fill-internal-link.njk" %}
       </div>
     </form>
 

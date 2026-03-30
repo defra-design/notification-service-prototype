@@ -3,7 +3,7 @@
 {% from "govuk/components/table/macro.njk" import govukTable %}
 {% from "govuk/components/notification-banner/macro.njk" import govukNotificationBanner %}
 {% set title = "Addresses" %}
-{% set backLinkHref = (basePath or '/v1-experimental') + '/create/accompanying-documents' %}
+{% set backLinkHref = (basePath or '/v1-experimental') + '/create/import-reason' %}
 
 {% block formContent %}
 
@@ -32,7 +32,7 @@
           <p class="govuk-body govuk-!-margin-bottom-0">{{ consignorCountry }}</p>
         </div>
         <p class="govuk-body govuk-!-margin-bottom-0">
-          <a href="{{ (basePath or '/v1-experimental') }}/create/address-consignor-search" class="govuk-link govuk-!-font-size-16">Change</a>
+          <a href="{{ (basePath or '/v1-experimental') }}/create/address-consignor-search" class="govuk-link govuk-!-font-size-16">Change consignor or exporter</a>
         </p>
         {% else %}
         <a href="{{ (basePath or '/v1-experimental') }}/create/address-consignor-search" class="govuk-link govuk-link--secondary govuk-!-font-size-16">Add a consignor or exporter</a>
@@ -49,7 +49,7 @@
           {% endfor %}
         </div>
         <p class="govuk-body govuk-!-margin-bottom-0">
-          <a href="{{ (basePath or '/v1-experimental') }}/create/address-consignee-search" class="govuk-link govuk-!-font-size-16">Change</a>
+          <a href="{{ (basePath or '/v1-experimental') }}/create/address-consignee-search" class="govuk-link govuk-!-font-size-16">Change consignee</a>
         </p>
         {% else %}
         <a href="{{ (basePath or '/v1-experimental') }}/create/address-consignee-search" class="govuk-link govuk-link--secondary govuk-!-font-size-16">Add a consignee</a>
@@ -66,7 +66,7 @@
           {% endfor %}
         </div>
         <p class="govuk-body govuk-!-margin-bottom-0">
-          <a href="{{ (basePath or '/v1-experimental') }}/create/address-consignee-search?for=importer" class="govuk-link govuk-!-font-size-16">Change</a>
+          <a href="{{ (basePath or '/v1-experimental') }}/create/address-consignee-search?for=importer" class="govuk-link govuk-!-font-size-16">Change importer</a>
           {% if showSameAsConsignee %}
           <span aria-hidden="true"> | </span>
           <a href="{{ (basePath or '/v1-experimental') }}/create/addresses?importerSameAsConsignee=1#importer" class="govuk-link govuk-!-font-size-16">Same as consignee</a>
@@ -93,7 +93,7 @@
           {% endfor %}
         </div>
         <p class="govuk-body govuk-!-margin-bottom-0">
-          <a href="{{ (basePath or '/v1-experimental') }}/create/address-place-of-destination-search" class="govuk-link govuk-!-font-size-16">Change</a>
+          <a href="{{ (basePath or '/v1-experimental') }}/create/address-place-of-destination-search" class="govuk-link govuk-!-font-size-16">Change place of destination</a>
           {% if showSameAsConsigneeForDestination %}
           <span aria-hidden="true"> | </span>
           <a href="{{ (basePath or '/v1-experimental') }}/create/addresses?placeOfDestinationSameAsConsignee=1#place-of-destination" class="govuk-link govuk-!-font-size-16">Same as consignee</a>
@@ -125,7 +125,7 @@
           {% endfor %}
         </div>
         <p class="govuk-body govuk-!-margin-bottom-0">
-          <a href="{{ (basePath or '/v1-experimental') }}/create/contact-address-search" class="govuk-link govuk-!-font-size-16">Change</a>
+          <a href="{{ (basePath or '/v1-experimental') }}/create/contact-address-search" class="govuk-link govuk-!-font-size-16">Change contact address for consignment</a>
         </p>
         {% else %}
         <p class="govuk-body govuk-!-margin-bottom-0">
@@ -134,13 +134,10 @@
         {% endif %}
       </div>
 
-      {{ govukButton({
-        text: "Save and continue"
-      }) }}
+      {% include "includes/save-continue-and-task-list.njk" %}
 
-      <p class="govuk-body govuk-!-margin-top-4">
-        <a href="{{ (basePath or '/v1-experimental') }}/create/address-prefill" class="govuk-link govuk-link--secondary govuk-!-font-size-14">Quick fill and continue (internal use)</a>
-      </p>
+      {% set quickFillHref = (basePath or '/v1-experimental') + '/create/address-prefill' %}
+      {% include "includes/quick-fill-internal-link.njk" %}
 
     </form>
 

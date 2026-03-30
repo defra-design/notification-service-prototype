@@ -1,0 +1,28 @@
+
+{% extends "layouts/v1-experimental.html" %}
+{% from "govuk/components/task-list/macro.njk" import govukTaskList %}
+
+{% set title = "Your notification tasks" %}
+{% set backLinkHref = (basePath or '/v1-experimental') + "/dashboard" %}
+
+{% block content %}
+
+{% from "includes/page-header.njk" import pageHeader %}
+
+{% call pageHeader(title, null, "full") %}
+    <p class="govuk-body govuk-!-margin-bottom-6">
+      You must complete every task before you can send your notification.
+    </p>
+
+    {% for section in taskSections %}
+    <h2 class="govuk-heading-m {% if not loop.first %}govuk-!-margin-top-8{% endif %}">{{ section.heading }}</h2>
+    {{ govukTaskList({
+      idPrefix: section.idPrefix,
+      classes: "govuk-!-margin-top-2",
+      items: section.items
+    }) }}
+    {% endfor %}
+
+{% endcall %}
+
+{% endblock %}

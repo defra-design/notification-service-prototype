@@ -14,7 +14,7 @@
     {# Country of origin - from origin page #}
     <div id="origin">{{ govukSummaryList({
       card: {
-        title: { text: "Country of origin" },
+        title: { text: "Where is this consignment coming from?" },
         actions: { items: [{ href: (basePath or '/v1-experimental') + "/create/origin?returnTo=check-your-answers&anchor=origin", text: "Change" }] }
       },
       rows: originRows
@@ -60,6 +60,17 @@
             { text: "Animal" },
             { text: "Microchip" },
             { text: "Passport" }
+          ],
+          rows: species.idTableRows
+        }) }}
+        {% elif species.isPetIdentification %}
+        {{ govukTable({
+          classes: "commodity-details-table",
+          head: [
+            { text: "Animal" },
+            { text: "Microchip" },
+            { text: "Passport" },
+            { text: "Tattoo" }
           ],
           rows: species.idTableRows
         }) }}
@@ -114,35 +125,11 @@
     {# Import reasons - from import-reason page #}
     <div id="import-reasons">{{ govukSummaryList({
       card: {
-        title: { text: "Import reasons" },
+        title: { text: "Main reason for importing the animals" },
         actions: { items: [{ href: (basePath or '/v1-experimental') + "/create/import-reason?returnTo=check-your-answers&anchor=import-reasons", text: "Change" }] }
       },
       rows: importReasonRows
     }) }}</div>
-
-    <div class="check-answers-spacer"></div>
-
-    {# Accompanying documents - from accompanying-documents page #}
-    <div id="accompanying-documents" class="govuk-summary-card govuk-!-margin-bottom-0">
-      <div class="govuk-summary-card__title-wrapper">
-        <h2 class="govuk-summary-card__title">Accompanying documents</h2>
-        <div class="govuk-summary-card__actions">
-          <a class="govuk-link" href="{{ (basePath or '/v1-experimental') }}/create/accompanying-documents?returnTo=check-your-answers&anchor=accompanying-documents">Change<span class="govuk-visually-hidden"> (Accompanying documents)</span></a>
-        </div>
-      </div>
-      <div class="govuk-summary-card__content">
-        {{ govukTable({
-          classes: "commodity-details-table",
-          head: [
-            { text: "Document type" },
-            { text: "Document reference" },
-            { text: "Valid until" },
-            { text: "Attachments" }
-          ],
-          rows: documentsTableRows
-        }) }}
-      </div>
-    </div>
 
     <div class="check-answers-spacer"></div>
 
@@ -192,19 +179,38 @@
       rows: transportAndArrivalRows
     }) }}</div>
 
+    <div class="check-answers-spacer"></div>
+
+    <div id="accompanying-documents" class="govuk-summary-card govuk-!-margin-bottom-0">
+      <div class="govuk-summary-card__title-wrapper">
+        <h2 class="govuk-summary-card__title">Accompanying documents</h2>
+        <div class="govuk-summary-card__actions">
+          <a class="govuk-link" href="{{ (basePath or '/v1-experimental') }}/create/accompanying-documents?returnTo=check-your-answers&anchor=accompanying-documents">Change<span class="govuk-visually-hidden"> (Accompanying documents)</span></a>
+        </div>
+      </div>
+      <div class="govuk-summary-card__content">
+        {{ govukTable({
+          classes: "commodity-details-table",
+          head: [
+            { text: "Document type" },
+            { text: "Document reference" },
+            { text: "Valid until" },
+            { text: "Attachments" }
+          ],
+          rows: documentsTableRows
+        }) }}
+      </div>
+    </div>
+
     <form method="post" novalidate class="govuk-!-margin-top-6">
       {{ govukButton({
         text: "Confirm and submit"
       }) }}
     </form>
 
-    <p class="govuk-body govuk-!-margin-top-4">
-      <a href="{{ (basePath or '/v1-experimental') }}/dashboard" class="govuk-link">Save and continue later</a>
-    </p>
-
-    <p class="govuk-body govuk-!-margin-top-4">
-      <a href="{{ (basePath or '/v1-experimental') }}/create/check-your-answers-prefill" class="govuk-link govuk-link--secondary govuk-!-font-size-14">Quick fill (internal use)</a>
-    </p>
+    {% set quickFillHref = (basePath or '/v1-experimental') + '/create/check-your-answers-prefill' %}
+    {% set quickFillText = "Quick fill (internal use)" %}
+    {% include "includes/quick-fill-internal-link.njk" %}
 
 {% endcall %}
 

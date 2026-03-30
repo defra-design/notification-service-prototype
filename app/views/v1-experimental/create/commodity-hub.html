@@ -1,6 +1,5 @@
 
 {% extends "layouts/v1-baseline.html" %}
-{% from "govuk/components/button/macro.njk" import govukButton %}
 
 {% set title = "Your commodities" %}
 {% set backLinkHref = backHref | default((basePath or '/v1-experimental') + "/create/commodity-quantities") %}
@@ -8,7 +7,7 @@
 {% block content %}
 
 {% from "includes/page-header.njk" import pageHeader %}
-{% call pageHeader(title, "Description of the goods", "full") %}
+{% call pageHeader(title, null, "full") %}
     {% if totalAnimals is defined and totalAnimals > 0 %}
     <div class="govuk-inset-text govuk-!-margin-top-0 govuk-!-margin-bottom-4">
       <p class="govuk-body govuk-!-margin-bottom-0">
@@ -78,6 +77,9 @@
         Continue
       </a>
     </div>
+    <p class="govuk-body govuk-!-margin-top-2 govuk-!-margin-bottom-0">
+      <a class="govuk-link" href="{{ (basePath or '/v1-experimental') }}/create/task-list">Back to task list</a>
+    </p>
 
     <dialog class="ns-dialog" id="commodity-remove-dialog" aria-labelledby="commodity-remove-dialog-title" aria-describedby="commodity-remove-dialog-body">
       <div class="govuk-!-padding-4">
@@ -91,9 +93,8 @@
     </dialog>
     {% endif %}
 
-    <p class="govuk-body govuk-!-margin-top-6">
-      <a href="/" class="govuk-link">Back to index</a>
-    </p>
+    {% set quickFillHref = (basePath or '/v1-experimental') + '/create/commodity-hub-prefill' %}
+    {% include "includes/quick-fill-internal-link.njk" %}
 
 {% endcall %}
 

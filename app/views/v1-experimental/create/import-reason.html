@@ -6,7 +6,7 @@
 {% block formContent %}
 
 {% from "includes/page-header.njk" import pageHeader %}
-{% call pageHeader(title, "About the consignment", "two-thirds") %}
+{% call pageHeader(title, null, "two-thirds") %}
     <form method="post" novalidate>
       {{ govukRadios({
         name: "importReason",
@@ -23,13 +23,10 @@
         errorMessage: data.errors and data.errors["importReason"]
       }) }}
 
-      {{ govukButton({
-        text: "Save and continue"
-      }) }}
+      {% include "includes/save-continue-and-task-list.njk" %}
 
-      <p class="govuk-body govuk-!-margin-top-4">
-        <a href="{{ (basePath or '/v1-experimental') }}/create/import-reason-prefill" class="govuk-link govuk-link--secondary govuk-!-font-size-14">Quick fill and continue (internal use)</a>
-      </p>
+      {% set quickFillHref = (basePath or '/v1-experimental') + '/create/import-reason-prefill' %}
+      {% include "includes/quick-fill-internal-link.njk" %}
     </form>
 
 {% endcall %}

@@ -224,9 +224,8 @@
       </div>
     </form>
 
-    <p class="govuk-body govuk-!-margin-top-4">
-      <a href="{{ prefillHref or (basePath or '/v1-baseline') + '/create/animal-identification-prefill' }}" class="govuk-link govuk-link--secondary govuk-!-font-size-14">Quick fill and continue (internal use)</a>
-    </p>
+    {% set quickFillHref = prefillHref or (basePath or '/v1-baseline') + '/create/animal-identification-prefill' %}
+    {% include "includes/quick-fill-internal-link.njk" %}
 
 {% endcall %}
 

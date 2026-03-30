@@ -6,6 +6,35 @@ const FILTER_KEYS = ['filterKeyword', 'filterCommodity', 'filterOrigin', 'filter
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
 
+function pad2 (n) {
+  return String(n).padStart(2, '0')
+}
+
+function toYyyyMmDd (d) {
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`
+}
+
+function getDateRangeForFilterPeriod (period, now = new Date()) {
+  if (!period || typeof period !== 'string') return null
+  const end = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  const start = new Date(end)
+  switch (period) {
+    case 'last-1-hour':
+      return { filterStartDate: toYyyyMmDd(end), filterEndDate: toYyyyMmDd(end) }
+    case 'last-24-hours':
+      start.setDate(start.getDate() - 1)
+      return { filterStartDate: toYyyyMmDd(start), filterEndDate: toYyyyMmDd(end) }
+    case 'last-7-days':
+      start.setDate(start.getDate() - 6)
+      return { filterStartDate: toYyyyMmDd(start), filterEndDate: toYyyyMmDd(end) }
+    case 'last-30-days':
+      start.setDate(start.getDate() - 29)
+      return { filterStartDate: toYyyyMmDd(start), filterEndDate: toYyyyMmDd(end) }
+    default:
+      return null
+  }
+}
+
 function parseArrivalDate (str) {
   if (!str || typeof str !== 'string') return null
   const match = str.match(/^(\d{1,2})\s+(\w+)\s+(\d{4})$/)
@@ -15,23 +44,41 @@ function parseArrivalDate (str) {
   return new Date(parseInt(match[3], 10), monthIndex, parseInt(match[1], 10)).getTime()
 }
 
-function getSpeciesToCodeMap () {
-  const commoditiesData = require('../data/commodities.js')
-  const map = {}
-  for (const [key, details] of Object.entries(commoditiesData)) {
-    if (details.code && details.species) {
-      details.species.forEach(s => { map[s] = details.code })
-    }
-  }
-  return map
+function parseIsoDateStartOfDay (iso) {
+  const m = String(iso).trim().match(/^(\d{4})-(\d{2})-(\d{2})$/)
+  if (!m) return null
+  return new Date(parseInt(m[1], 10), parseInt(m[2], 10) - 1, parseInt(m[3], 10)).getTime()
 }
 
-function normaliseCommodityDisplay (commodity, speciesToCode) {
-  if (!commodity || typeof commodity !== 'string') return commodity || ''
-  if (/\(\d+\)$/.test(commodity.trim())) return commodity
-  const code = speciesToCode[commodity.trim()]
-  return code ? `${commodity} (${code})` : commodity
+function arrivalMatchesFilterRange (arrivalStr, startDateStr, endDateStr) {
+  const s = (startDateStr || '').trim()
+  const e = (endDateStr || '').trim()
+  if (!s && !e) return true
+  const arrivalTs = parseArrivalDate(arrivalStr)
+  if (arrivalTs == null) return false
+  const minTs = s ? parseIsoDateStartOfDay(s) : null
+  const maxTs = e ? parseIsoDateStartOfDay(e) : null
+  if (minTs == null && maxTs == null) return true
+  if (minTs != null && arrivalTs < minTs) return false
+  if (maxTs != null && arrivalTs > maxTs) return false
+  return true
 }
+
+function formatLongUkDate (ts) {
+  const d = new Date(ts)
+  return `${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`
+}
+
+function ensureDateCreated (n) {
+  if (n.dateCreated) return n.dateCreated
+  const arrivalTs = parseArrivalDate(n.arrival)
+  if (arrivalTs == null) return ''
+  const created = new Date(arrivalTs)
+  created.setDate(created.getDate() - 5)
+  return formatLongUkDate(created.getTime())
+}
+
+const { getSpeciesCommodityMaps, normaliseCommodityDisplay } = require('./commodity-display.js')
 
 function sortNotifications (list, sortOption) {
   const sorted = [...list]
@@ -75,6 +122,17 @@ function filterNotifications (filterData, sourceList, notifications) {
     const status = (filterData.status || '').trim().toLowerCase()
     if (status && n.status !== status) return false
 
+    const startD = filterData.startDate
+    const endD = filterData.endDate
+    const hasDateBounds = ((startD || '').trim() !== '' || (endD || '').trim() !== '')
+    const quickCreatedMode = !!(filterData.filterPeriod && String(filterData.filterPeriod).trim())
+    if (quickCreatedMode && hasDateBounds) {
+      const createdLabel = ensureDateCreated(n)
+      if (!arrivalMatchesFilterRange(createdLabel, startD, endD)) return false
+    } else if (!quickCreatedMode && hasDateBounds) {
+      if (!arrivalMatchesFilterRange(n.arrival, startD, endD)) return false
+    }
+
     return true
   })
 }
@@ -88,32 +146,17 @@ function registerDashboardRoutes (router, basePath, options) {
     FILTER_KEYS.forEach(key => {
       if (req.query[key] !== undefined) data[key] = req.query[key]
     })
-    if (req.query.sort !== undefined) data.sort = req.query.sort
-    const toYYYYMMDD = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-    const today = new Date()
-    const defaultStart = toYYYYMMDD(new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000))
-    const defaultEnd = toYYYYMMDD(today)
-    if (data.filterPeriod) {
-      const d = new Date(today)
-      if (data.filterPeriod === 'last-1-hour') {
-        data.filterStartDate = defaultEnd
-        data.filterEndDate = defaultEnd
-      } else if (data.filterPeriod === 'last-24-hours') {
-        d.setDate(d.getDate() - 1)
-        data.filterStartDate = toYYYYMMDD(d)
-        data.filterEndDate = defaultEnd
-      } else if (data.filterPeriod === 'last-7-days') {
-        d.setDate(d.getDate() - 7)
-        data.filterStartDate = toYYYYMMDD(d)
-        data.filterEndDate = defaultEnd
-      } else if (data.filterPeriod === 'last-30-days') {
-        d.setDate(d.getDate() - 30)
-        data.filterStartDate = toYYYYMMDD(d)
-        data.filterEndDate = defaultEnd
+    if (Object.prototype.hasOwnProperty.call(req.query, 'filterPeriod')) {
+      const range = getDateRangeForFilterPeriod(data.filterPeriod)
+      if (range) {
+        data.filterStartDate = range.filterStartDate
+        data.filterEndDate = range.filterEndDate
+      } else {
+        data.filterStartDate = ''
+        data.filterEndDate = ''
       }
     }
-    if (!data.filterStartDate) data.filterStartDate = defaultStart
-    if (!data.filterEndDate) data.filterEndDate = defaultEnd
+    if (req.query.sort !== undefined) data.sort = req.query.sort
     const filterData = {
       keyword: data.filterKeyword,
       commodity: data.filterCommodity,
@@ -122,17 +165,19 @@ function registerDashboardRoutes (router, basePath, options) {
       destination: data.filterDestination,
       status: data.filterStatus,
       startDate: data.filterStartDate,
-      endDate: data.filterEndDate
+      endDate: data.filterEndDate,
+      filterPeriod: data.filterPeriod
     }
     const submitted = data.submittedNotifications || []
     const allNotifications = [...notifications, ...submitted]
     const filtered = filterNotifications(filterData, allNotifications, notifications)
     const sortOption = data.sort || 'arrival-desc'
     const sorted = sortNotifications(filtered, sortOption)
-    const speciesToCode = getSpeciesToCodeMap()
+    const speciesMaps = getSpeciesCommodityMaps()
     const normalised = sorted.map(n => ({
       ...n,
-      commodity: normaliseCommodityDisplay(n.commodity, speciesToCode)
+      commodity: normaliseCommodityDisplay(n.commodity, speciesMaps),
+      dateCreated: ensureDateCreated(n)
     }))
 
     const perPage = 20
@@ -163,7 +208,8 @@ function registerDashboardRoutes (router, basePath, options) {
     const baseOriginCountries = [...euCountries, ...euuCountries]
     res.locals.originCountries = [...new Set([...baseOriginCountries, ...originsFromData])].sort()
 
-    const isDefaultDateRange = (data.filterStartDate === defaultStart && data.filterEndDate === defaultEnd) || (!data.filterPeriod && !data.filterStartDate && !data.filterEndDate)
+    const hasCustomDates = (data.filterStartDate || '').trim() !== '' || (data.filterEndDate || '').trim() !== ''
+    const isDefaultDateRange = !data.filterPeriod && !hasCustomDates
     const activeFilters = []
     const buildClearUrl = (...excludeKeys) => {
       const excludeSet = new Set(excludeKeys)
@@ -192,8 +238,12 @@ function registerDashboardRoutes (router, basePath, options) {
     }
     if (!isDefaultDateRange && (data.filterPeriod || data.filterStartDate || data.filterEndDate)) {
       const periodLabels = { 'last-1-hour': 'Last 1 hour', 'last-24-hours': 'Last 24 hours', 'last-7-days': 'Last 7 days', 'last-30-days': 'Last 30 days' }
-      const dateLabel = data.filterPeriod ? (periodLabels[data.filterPeriod] || 'Custom date range') : 'Custom date range'
-      activeFilters.push({ label: 'Date range: ' + dateLabel, clearHref: buildClearUrl('filterPeriod', 'filterStartDate', 'filterEndDate') })
+      if (data.filterPeriod) {
+        const dateLabel = periodLabels[data.filterPeriod] || 'Custom range'
+        activeFilters.push({ label: 'Date created: ' + dateLabel, clearHref: buildClearUrl('filterPeriod', 'filterStartDate', 'filterEndDate') })
+      } else {
+        activeFilters.push({ label: 'Arrival date: Custom range', clearHref: buildClearUrl('filterPeriod', 'filterStartDate', 'filterEndDate') })
+      }
     }
     res.locals.activeFilters = activeFilters
     res.locals.dashboardBasePath = basePath
@@ -208,4 +258,4 @@ function registerDashboardRoutes (router, basePath, options) {
   })
 }
 
-module.exports = { registerDashboardRoutes }
+module.exports = { registerDashboardRoutes, getDateRangeForFilterPeriod, ensureDateCreated, arrivalMatchesFilterRange }

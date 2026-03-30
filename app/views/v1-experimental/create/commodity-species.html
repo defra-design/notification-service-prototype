@@ -56,13 +56,10 @@
         items: speciesItems
       }) }}
 
-      {{ govukButton({
-        text: "Save and continue"
-      }) }}
+      {% include "includes/save-continue-and-task-list.njk" %}
 
-      <p class="govuk-body govuk-!-margin-top-4">
-        <a href="{{ (basePath or '/v1-experimental') }}/create/commodity-species-prefill" class="govuk-link govuk-link--secondary govuk-!-font-size-14">Quick fill and continue (internal use)</a>
-      </p>
+      {% set quickFillHref = (basePath or '/v1-experimental') + '/create/commodity-species-prefill' %}
+      {% include "includes/quick-fill-internal-link.njk" %}
     </form>
 
 {% endcall %}

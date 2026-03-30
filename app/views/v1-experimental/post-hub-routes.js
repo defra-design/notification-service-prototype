@@ -170,16 +170,20 @@ function buildCheckYourAnswersData (data, base) {
       const type = item.commodityType === 'game' ? 'Game' : 'Domestic'
       const quantities = item.quantities || {}
       const details = item.commodity ? (commoditiesEu[item.commodity] || commoditiesData[item.commodity]) : null
+      const codeNorm = details && details.code ? String(details.code).replace(/\s/g, '') : ''
       const isEarTagOnly = details && ['010410', '0103'].includes(details.code)
       const isHorseIdentification = details && details.code === '0101' && item.commodity === 'Horse'
+      const isPetIdentification = codeNorm === '01061900' && (item.commodity === 'Cat' || item.commodity === 'Dog')
       ;(item.commoditySpecies || []).forEach((s) => {
-        allSpeciesForId.push({ speciesName: s, speciesAndType: `${s}, ${type}`, key: toKey(s), quantities, isEarTagOnly, isHorseIdentification })
+        allSpeciesForId.push({ speciesName: s, speciesAndType: `${s}, ${type}`, key: toKey(s), quantities, isEarTagOnly, isHorseIdentification, isPetIdentification })
       })
     })
   } else {
     const details = commodityDetails
+    const codeNorm = details && details.code ? String(details.code).replace(/\s/g, '') : ''
     const isEarTagOnly = details && ['010410', '0103'].includes(details.code)
     const isHorseIdentification = details && details.code === '0101' && data.commodity === 'Horse'
+    const isPetIdentification = codeNorm === '01061900' && (data.commodity === 'Cat' || data.commodity === 'Dog')
     commoditySpecies.forEach((s) => {
       allSpeciesForId.push({
         speciesName: s,
@@ -187,7 +191,8 @@ function buildCheckYourAnswersData (data, base) {
         key: toKey(s),
         quantities: {},
         isEarTagOnly,
-        isHorseIdentification
+        isHorseIdentification,
+        isPetIdentification
       })
     })
   }
@@ -227,7 +232,46 @@ function buildCheckYourAnswersData (data, base) {
         summaryRows,
         useTable,
         isEarTagOnly: false,
-        isHorseIdentification: true
+        isHorseIdentification: true,
+        isPetIdentification: false
+      })
+      continue
+    }
+    if (spec.isPetIdentification) {
+      for (let i = 1; i <= animalCount; i++) {
+        const microchip = data[`microchip_${key}_${i}`] || '-'
+        const passport = data[`passport_${key}_${i}`] || '-'
+        const tattoo = data[`tattoo_${key}_${i}`] || '-'
+        if (i === 1 && microchip === '-' && passport === '-' && tattoo === '-') break
+        if (microchip === '-' && passport === '-' && tattoo === '-') break
+        identificationRows.push({ microchip, passport, tattoo })
+      }
+      const useTable = identificationRows.length > 0
+      const tableRows = identificationRows.map((r, i) => [
+        { text: `${spec.speciesName} ${i + 1}` },
+        { text: r.microchip },
+        { text: r.passport },
+        { text: r.tattoo }
+      ])
+      const summaryRows = []
+      if (!identificationRows.length) {
+        summaryRows.push(row('Details', 'Not yet provided'))
+      } else if (!useTable) {
+        summaryRows.push(rowHtml('Method of identification', 'Microchip<br>Passport<br>Tattoo'))
+        identificationRows.forEach((r, i) => {
+          summaryRows.push(row(`Animal ${i + 1} – Microchip`, r.microchip))
+          summaryRows.push(row(`Animal ${i + 1} – Passport`, r.passport))
+          summaryRows.push(row(`Animal ${i + 1} – Tattoo`, r.tattoo))
+        })
+      }
+      animalIdentificationGroups.push({
+        speciesLabel: spec.speciesAndType,
+        tableRows,
+        summaryRows,
+        useTable,
+        isEarTagOnly: false,
+        isHorseIdentification: false,
+        isPetIdentification: true
       })
       continue
     }
@@ -264,7 +308,8 @@ function buildCheckYourAnswersData (data, base) {
       summaryRows,
       useTable,
       isEarTagOnly: spec.isEarTagOnly,
-      isHorseIdentification: false
+      isHorseIdentification: false,
+      isPetIdentification: false
     })
   }
 
@@ -275,7 +320,8 @@ function buildCheckYourAnswersData (data, base) {
       summaryRows: [row('Details', 'Not yet provided')],
       useTable: false,
       isEarTagOnly: false,
-      isHorseIdentification: false
+      isHorseIdentification: false,
+      isPetIdentification: false
     })
   }
 
@@ -304,7 +350,8 @@ function buildCheckYourAnswersData (data, base) {
           ],
           idTableRows: group.tableRows || [],
           isEarTagOnly: group.isEarTagOnly,
-          isHorseIdentification: !!group.isHorseIdentification
+          isHorseIdentification: !!group.isHorseIdentification,
+          isPetIdentification: !!group.isPetIdentification
         })
       })
       if (species.length > 0) {
@@ -336,7 +383,8 @@ function buildCheckYourAnswersData (data, base) {
         ],
         idTableRows: group.tableRows || [],
         isEarTagOnly: group.isEarTagOnly,
-        isHorseIdentification: !!group.isHorseIdentification
+        isHorseIdentification: !!group.isHorseIdentification,
+        isPetIdentification: !!group.isPetIdentification
       })
     })
     if (species.length > 0) {
@@ -498,6 +546,45 @@ function registerPostHubRoutes (router, base) {
     return create(defaultPath)
   }
 
+  function completeDeclarationAndGoToConfirmation (req, res) {
+    delete req.session.data.errors
+    delete req.session.data.errorList
+    const data = req.session.data || {}
+    req.session.data.declarationDate = new Date().toISOString().split('T')[0]
+    const year = new Date().getFullYear()
+    const suffix = String(Math.floor(1000000 + Math.random() * 9000000))
+    const referenceNumber = `IMP.GB.${year}.${suffix}`
+    req.session.data.lastReferenceNumber = referenceNumber
+
+    const commoditiesEu = require('../../data/commodities-eu.js')
+    const commoditiesData = require('../../data/commodities.js')
+    let commodityKey = data.commodity
+    if (!commodityKey && Array.isArray(data.commodities) && data.commodities.length > 0) {
+      commodityKey = data.commodities[0].commodity
+    }
+    const commodityDetails = commodityKey ? (commoditiesEu[commodityKey] || commoditiesData[commodityKey]) : null
+    const commodityCode = commodityDetails ? commodityDetails.code : (data.commodityCode || '')
+    const commodityName = commodityDetails?.commonName || commodityKey || 'Live animals'
+    const commodityDisplay = commodityCode ? `${commodityName} (${commodityCode})` : commodityName
+
+    const now = new Date()
+    const todayIso = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+    const submitted = {
+      reference: referenceNumber,
+      commodity: commodityDisplay,
+      origin: data.countryOfOrigin || 'Not provided',
+      consignee: data.consigneeName || (data.consignee && data.consignee.name) || 'Not provided',
+      consignor: data.consignorName || (data.consignor && data.consignor.name) || 'Not provided',
+      arrival: formatDate(data.arrivalDate) || 'Not provided',
+      dateCreated: formatDate(todayIso),
+      status: 'submitted'
+    }
+    if (!Array.isArray(data.submittedNotifications)) data.submittedNotifications = []
+    data.submittedNotifications.push(submitted)
+
+    res.redirect(create('/confirmation'))
+  }
+
   function postTransportAndArrival (req, res) {
     const data = req.session.data || {}
     const hasTransporter = !!(data.transporterName && (data.transporterId || data.transporterAddressLine1))
@@ -524,7 +611,7 @@ function registerPostHubRoutes (router, base) {
     }
     delete data.errors
     delete data.errorList
-    res.redirect(getRedirectPath(data, '/check-your-answers'))
+    res.redirect(getRedirectPath(data, '/accompanying-documents'))
   }
 
   function getTransportAndArrivalView (req, res) {
@@ -561,47 +648,17 @@ function registerPostHubRoutes (router, base) {
     const typeDisplay = data.transporterType === 'Commercial transporter' ? 'Commercial' : data.transporterType === 'Private transporter' ? 'Private' : ''
     const approvalDisplay = data.transporterType === 'Private transporter' ? 'Not required' : (data.transporterApprovalNumber || '')
     const escapeHtmlT = (s) => typeof s !== 'string' ? '' : String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
-    const changeTransporterHref = create('/address-consignee-search?returnTo=transport-and-arrival')
-    const rightAlignChangeLink =
-      (String(req.query.returnTo || '') === 'check-your-answers' &&
-        String(req.query.anchor || '') === 'transport-and-arrival') ||
-      (data.returnTo === 'check-your-answers' && data.returnToAnchor === 'transport-and-arrival')
-    const noRowActions = { items: [] }
-    const transporterRows = []
-    if (rightAlignChangeLink) {
-      transporterRows.push(
-        {
-          key: { text: 'Transporter name' },
-          value: { text: data.transporterName || '—' },
-          actions: {
-            items: [{ href: changeTransporterHref, text: 'Change', visuallyHiddenText: ' transporter' }]
-          }
-        },
-        {
-          key: { text: 'Transporter address' },
-          value: { html: escapeHtmlT(data.transporterAddress || '') + (data.transporterAddress && data.transporterCountry ? '<br>' : '') + escapeHtmlT(data.transporterCountry || '') },
-          actions: noRowActions
-        },
-        {
-          key: { text: 'Type' },
-          value: { text: typeDisplay || '—' },
-          actions: noRowActions
-        }
-      )
-      if (typeDisplay !== 'Private') {
-        transporterRows.push({ key: { text: 'Approval number' }, value: { text: approvalDisplay || '—' }, actions: noRowActions })
-      }
-    } else {
-      const nameEscaped = escapeHtmlT(data.transporterName || '—')
-      const nameWithChange = `${nameEscaped}<span class="govuk-visually-hidden">. </span> <a class="govuk-link govuk-!-margin-left-2" href="${changeTransporterHref}">Change<span class="govuk-visually-hidden"> transporter</span></a>`
-      transporterRows.push(
-        { key: { text: 'Transporter name' }, value: { html: nameWithChange } },
-        { key: { text: 'Transporter address' }, value: { html: escapeHtmlT(data.transporterAddress || '') + (data.transporterAddress && data.transporterCountry ? '<br>' : '') + escapeHtmlT(data.transporterCountry || '') } },
-        { key: { text: 'Type' }, value: { text: typeDisplay || '—' } }
-      )
-      if (typeDisplay !== 'Private') {
-        transporterRows.push({ key: { text: 'Approval number' }, value: { text: approvalDisplay || '—' } })
-      }
+    const transporterChangeHref = create('/address-consignee-search?returnTo=transport-and-arrival')
+    const transporterRows = [
+      { key: { text: 'Transporter name' }, value: { text: data.transporterName || '—' } },
+      {
+        key: { text: 'Transporter address' },
+        value: { html: escapeHtmlT(data.transporterAddress || '') + (data.transporterAddress && data.transporterCountry ? '<br>' : '') + escapeHtmlT(data.transporterCountry || '') }
+      },
+      { key: { text: 'Type' }, value: { text: typeDisplay || '—' } }
+    ]
+    if (typeDisplay !== 'Private') {
+      transporterRows.push({ key: { text: 'Approval number' }, value: { text: approvalDisplay || '—' } })
     }
     const d = new Date()
     d.setDate(d.getDate() + 3)
@@ -613,6 +670,7 @@ function registerPostHubRoutes (router, base) {
     res.render('v1-experimental/create/transport-and-arrival', {
       hasTransporter,
       transporterRows,
+      transporterChangeHref,
       minArrivalDate,
       borderPortItems,
       backHref
@@ -1244,7 +1302,7 @@ function registerPostHubRoutes (router, base) {
     data.internalMarketPurpose = 'breeding'
     delete data.errors
     delete data.errorList
-    res.redirect(create('/accompanying-documents'))
+    res.redirect(create('/addresses'))
   })
 
   // --- import-reason ---
@@ -1392,7 +1450,7 @@ function registerPostHubRoutes (router, base) {
     }
     delete req.session.data.errors
     delete req.session.data.errorList
-    res.redirect(getRedirectPath(req.session.data, '/accompanying-documents'))
+    res.redirect(getRedirectPath(req.session.data, '/addresses'))
   })
 
   // --- accompanying-documents ---
@@ -1406,7 +1464,7 @@ function registerPostHubRoutes (router, base) {
     }]
     delete data.errors
     delete data.errorList
-    res.redirect(create('/addresses'))
+    res.redirect(getRedirectPath(data, '/check-your-answers'))
   })
 
   router.get(create('/accompanying-documents'), (req, res) => {
@@ -1481,7 +1539,7 @@ function registerPostHubRoutes (router, base) {
 
     delete data.errors
     delete data.errorList
-    res.redirect(getRedirectPath(data, '/addresses'))
+    res.redirect(getRedirectPath(data, '/check-your-answers'))
   })
 
   // --- addresses ---
@@ -2056,7 +2114,7 @@ function registerPostHubRoutes (router, base) {
     data.ukBorderPort = 'dover'
     delete data.errors
     delete data.errorList
-    res.redirect(getRedirectPath(data, '/check-your-answers'))
+    res.redirect(getRedirectPath(data, '/accompanying-documents'))
   })
 
   router.get(create('/transport-and-arrival-prefill'), (req, res) => {
@@ -2079,7 +2137,7 @@ function registerPostHubRoutes (router, base) {
     d.setDate(d.getDate() + 3)
     data.arrivalDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
     data.ukBorderPort = 'dover'
-    res.redirect(getRedirectPath(data, '/check-your-answers'))
+    res.redirect(getRedirectPath(data, '/accompanying-documents'))
   })
 
   router.get(create('/transport-transporter-prefill'), (req, res) => {
@@ -2257,6 +2315,12 @@ function registerPostHubRoutes (router, base) {
   })
 
   // --- declaration ---
+  router.get(create('/declaration-prefill'), (req, res) => {
+    req.session.data = req.session.data || {}
+    req.session.data.declarationAccepted = 'yes'
+    completeDeclarationAndGoToConfirmation(req, res)
+  })
+
   router.get(create('/declaration'), (req, res) => {
     delete req.session.data.errors
     delete req.session.data.errorList
@@ -2273,34 +2337,7 @@ function registerPostHubRoutes (router, base) {
       req.session.data.errorList = [{ href: '#declaration-accepted-1', text: 'You must confirm the declaration to submit' }]
       return res.redirect(create('/declaration'))
     }
-    delete req.session.data.errors
-    delete req.session.data.errorList
-    const data = req.session.data || {}
-    req.session.data.declarationDate = new Date().toISOString().split('T')[0]
-    const year = new Date().getFullYear()
-    const suffix = String(Math.floor(1000000 + Math.random() * 9000000))
-    const referenceNumber = `IMP.GB.${year}.${suffix}`
-    req.session.data.lastReferenceNumber = referenceNumber
-
-    const commoditiesData = require('../../data/commodities.js')
-    const commodityDetails = data.commodity ? commoditiesData[data.commodity] : null
-    const commodityCode = commodityDetails ? commodityDetails.code : (data.commodityCode || '')
-    const commodityName = (data.commoditySpecies && data.commoditySpecies[0]) || 'Live animals'
-    const commodityDisplay = commodityCode ? `${commodityName} (${commodityCode})` : commodityName
-
-    const submitted = {
-      reference: referenceNumber,
-      commodity: commodityDisplay,
-      origin: data.countryOfOrigin || 'Not provided',
-      consignee: data.consigneeName || (data.consignee && data.consignee.name) || 'Not provided',
-      consignor: data.consignorName || (data.consignor && data.consignor.name) || 'Not provided',
-      arrival: formatDate(data.arrivalDate) || 'Not provided',
-      status: 'submitted'
-    }
-    if (!Array.isArray(data.submittedNotifications)) data.submittedNotifications = []
-    data.submittedNotifications.push(submitted)
-
-    res.redirect(create('/confirmation'))
+    completeDeclarationAndGoToConfirmation(req, res)
   })
 
   // --- confirmation ---

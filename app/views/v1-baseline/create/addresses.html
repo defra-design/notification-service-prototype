@@ -27,7 +27,7 @@
           <p class="govuk-body govuk-!-margin-bottom-0">{{ consignorCountry }}</p>
         </div>
         <p class="govuk-body govuk-!-margin-bottom-0">
-          <a href="{{ (basePath or '/v1-baseline') }}/create/address-consignor-search" class="govuk-link govuk-!-font-size-16">Change</a>
+          <a href="{{ (basePath or '/v1-baseline') }}/create/address-consignor-search" class="govuk-link govuk-!-font-size-16">Change consignor or exporter</a>
         </p>
         {% else %}
         <a href="{{ (basePath or '/v1-baseline') }}/create/address-consignor-search" class="govuk-link govuk-link--secondary govuk-!-font-size-16">Add a consignor or exporter</a>
@@ -44,7 +44,7 @@
           {% endfor %}
         </div>
         <p class="govuk-body govuk-!-margin-bottom-0">
-          <a href="{{ (basePath or '/v1-baseline') }}/create/address-consignee-search" class="govuk-link govuk-!-font-size-16">Change</a>
+          <a href="{{ (basePath or '/v1-baseline') }}/create/address-consignee-search" class="govuk-link govuk-!-font-size-16">Change consignee</a>
         </p>
         {% else %}
         <a href="{{ (basePath or '/v1-baseline') }}/create/address-consignee-search" class="govuk-link govuk-link--secondary govuk-!-font-size-16">Add a consignee</a>
@@ -61,7 +61,7 @@
           {% endfor %}
         </div>
         <p class="govuk-body govuk-!-margin-bottom-0">
-          <a href="{{ (basePath or '/v1-baseline') }}/create/address-consignee-search?for=importer" class="govuk-link govuk-!-font-size-16">Change</a>
+          <a href="{{ (basePath or '/v1-baseline') }}/create/address-consignee-search?for=importer" class="govuk-link govuk-!-font-size-16">Change importer</a>
           {% if showSameAsConsignee %}
           <span aria-hidden="true"> | </span>
           <a href="{{ (basePath or '/v1-baseline') }}/create/addresses?importerSameAsConsignee=1#importer" class="govuk-link govuk-!-font-size-16">Same as consignee</a>
@@ -88,7 +88,7 @@
           {% endfor %}
         </div>
         <p class="govuk-body govuk-!-margin-bottom-0">
-          <a href="{{ (basePath or '/v1-baseline') }}/create/address-place-of-destination-search" class="govuk-link govuk-!-font-size-16">Change</a>
+          <a href="{{ (basePath or '/v1-baseline') }}/create/address-place-of-destination-search" class="govuk-link govuk-!-font-size-16">Change place of destination</a>
           {% if showSameAsConsigneeForDestination %}
           <span aria-hidden="true"> | </span>
           <a href="{{ (basePath or '/v1-baseline') }}/create/addresses?placeOfDestinationSameAsConsignee=1#place-of-destination" class="govuk-link govuk-!-font-size-16">Same as consignee</a>
@@ -109,9 +109,8 @@
         text: "Save and continue"
       }) }}
 
-      <p class="govuk-body govuk-!-margin-top-4">
-        <a href="{{ (basePath or '/v1-baseline') }}/create/address-prefill" class="govuk-link govuk-link--secondary govuk-!-font-size-14">Quick fill and continue (internal use)</a>
-      </p>
+      {% set quickFillHref = (basePath or '/v1-baseline') + '/create/address-prefill' %}
+      {% include "includes/quick-fill-internal-link.njk" %}
 
     </form>
 

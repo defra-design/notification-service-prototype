@@ -24,6 +24,7 @@
   <div class="govuk-grid-column-one-third filter-panel">
     <h2 class="govuk-heading-m">Filter notifications</h2>
     <form method="get" novalidate id="filter-form" class="filter-labels-16">
+      <input type="hidden" name="filterPeriod" value="{{ data.filterPeriod or '' }}">
       {{ govukInput({
         label: { text: "Keyword or reference", classes: "govuk-!-font-size-16" },
         id: "filterKeyword",
@@ -71,37 +72,24 @@
         ]
       }) }}
       <div class="govuk-form-group">
-        <label class="govuk-label govuk-!-font-size-16" id="filter-period-label">Date range</label>
-        <nav class="govuk-!-margin-top-2" aria-labelledby="filter-period-label">
-          <ul class="govuk-list govuk-list--spaced dashboard-filter-list">
-            <li><a href="/v1-baseline/dashboard?filterPeriod=last-1-hour{% if filterQueryBase %}&{{ filterQueryBase }}{% endif %}" class="govuk-link govuk-link--no-visited-state govuk-!-font-size-16{% if data.filterPeriod == 'last-1-hour' %} govuk-!-font-weight-bold{% endif %}">Last 1 hour</a></li>
-            <li><a href="/v1-baseline/dashboard?filterPeriod=last-24-hours{% if filterQueryBase %}&{{ filterQueryBase }}{% endif %}" class="govuk-link govuk-link--no-visited-state govuk-!-font-size-16{% if data.filterPeriod == 'last-24-hours' %} govuk-!-font-weight-bold{% endif %}">Last 24 hours</a></li>
-            <li><a href="/v1-baseline/dashboard?filterPeriod=last-7-days{% if filterQueryBase %}&{{ filterQueryBase }}{% endif %}" class="govuk-link govuk-link--no-visited-state govuk-!-font-size-16{% if data.filterPeriod == 'last-7-days' %} govuk-!-font-weight-bold{% endif %}">Last 7 days</a></li>
-            <li><a href="/v1-baseline/dashboard?filterPeriod=last-30-days{% if filterQueryBase %}&{{ filterQueryBase }}{% endif %}" class="govuk-link govuk-link--no-visited-state govuk-!-font-size-16{% if data.filterPeriod == 'last-30-days' or not data.filterPeriod %} govuk-!-font-weight-bold{% endif %}">Last 30 days</a></li>
-          </ul>
-        </nav>
-        <p class="govuk-body govuk-!-font-size-16 govuk-!-margin-top-2 govuk-!-margin-bottom-1">Or choose specific dates</p>
-        <div class="govuk-grid-row">
-          <div class="govuk-grid-column-one-half">
-            {{ govukInput({
-              label: { text: "Start date", classes: "govuk-!-font-size-16" },
-              id: "filterStartDate",
-              name: "filterStartDate",
-              type: "date",
-              classes: "govuk-input--width-10",
-              value: data.filterStartDate or ""
-            }) }}
-          </div>
-          <div class="govuk-grid-column-one-half">
-            {{ govukInput({
-              label: { text: "End date", classes: "govuk-!-font-size-16" },
-              id: "filterEndDate",
-              name: "filterEndDate",
-              type: "date",
-              classes: "govuk-input--width-10",
-              value: data.filterEndDate or ""
-            }) }}
-          </div>
+        <label class="govuk-label govuk-!-font-size-16" id="filter-date-range-label" for="filterStartDate">Arrival date</label>
+        <div class="govuk-!-margin-top-2">
+          {{ govukInput({
+            label: { text: "Start date", classes: "govuk-!-font-size-16" },
+            id: "filterStartDate",
+            name: "filterStartDate",
+            type: "date",
+            classes: "govuk-input--width-10",
+            value: data.filterStartDate or ""
+          }) }}
+          {{ govukInput({
+            label: { text: "End date", classes: "govuk-!-font-size-16" },
+            id: "filterEndDate",
+            name: "filterEndDate",
+            type: "date",
+            classes: "govuk-input--width-10",
+            value: data.filterEndDate or ""
+          }) }}
         </div>
       </div>
       {{ govukButton({
@@ -112,6 +100,19 @@
         <a href="/v1-baseline/clear-filters" class="govuk-link govuk-link--no-visited-state">Clear filters</a>
       </p>
     </form>
+    <hr class="govuk-section-break govuk-section-break--l govuk-section-break--visible govuk-!-margin-top-6 govuk-!-margin-bottom-4">
+    <section class="govuk-!-margin-bottom-0" aria-labelledby="notification-created-filters-label">
+      <h3 class="govuk-heading-s" id="notification-created-filters-label">Date created</h3>
+      <p id="notification-created-presets-label" class="govuk-body-s govuk-!-margin-bottom-1 govuk-!-margin-top-1">Quick presets</p>
+      <nav class="govuk-!-margin-top-1" aria-labelledby="notification-created-filters-label notification-created-presets-label">
+        <ul class="govuk-list govuk-list--spaced dashboard-filter-list">
+          <li><a href="/v1-baseline/dashboard?filterPeriod=last-1-hour{% if filterQueryBase %}&{{ filterQueryBase }}{% endif %}" class="govuk-link govuk-link--no-visited-state govuk-!-font-size-16{% if data.filterPeriod == 'last-1-hour' %} govuk-!-font-weight-bold{% endif %}"{% if data.filterPeriod == 'last-1-hour' %} aria-current="true"{% endif %}>Last 1 hour</a></li>
+          <li><a href="/v1-baseline/dashboard?filterPeriod=last-24-hours{% if filterQueryBase %}&{{ filterQueryBase }}{% endif %}" class="govuk-link govuk-link--no-visited-state govuk-!-font-size-16{% if data.filterPeriod == 'last-24-hours' %} govuk-!-font-weight-bold{% endif %}"{% if data.filterPeriod == 'last-24-hours' %} aria-current="true"{% endif %}>Last 24 hours</a></li>
+          <li><a href="/v1-baseline/dashboard?filterPeriod=last-7-days{% if filterQueryBase %}&{{ filterQueryBase }}{% endif %}" class="govuk-link govuk-link--no-visited-state govuk-!-font-size-16{% if data.filterPeriod == 'last-7-days' %} govuk-!-font-weight-bold{% endif %}"{% if data.filterPeriod == 'last-7-days' %} aria-current="true"{% endif %}>Last 7 days</a></li>
+          <li><a href="/v1-baseline/dashboard?filterPeriod=last-30-days{% if filterQueryBase %}&{{ filterQueryBase }}{% endif %}" class="govuk-link govuk-link--no-visited-state govuk-!-font-size-16{% if data.filterPeriod == 'last-30-days' or not data.filterPeriod %} govuk-!-font-weight-bold{% endif %}"{% if data.filterPeriod == 'last-30-days' or not data.filterPeriod %} aria-current="true"{% endif %}>Last 30 days</a></li>
+        </ul>
+      </nav>
+    </section>
   </div>
 
   <div class="govuk-grid-column-two-thirds">
@@ -187,6 +188,9 @@
               </p>
             </div>
           </div>
+          {% if n.dateCreated %}
+          <p class="govuk-body govuk-!-margin-top-4 govuk-!-margin-bottom-0">Date created · {{ n.dateCreated }}</p>
+          {% endif %}
         </div>
       </div>
       {% else %}
@@ -240,6 +244,15 @@
           selectElement: originSelect
         })
       }
+      var filterPeriodHidden = document.querySelector('#filter-form input[name="filterPeriod"]')
+      ;['#filterStartDate', '#filterEndDate'].forEach(function (sel) {
+        var el = document.querySelector(sel)
+        if (el && filterPeriodHidden) {
+          el.addEventListener('input', function () {
+            filterPeriodHidden.value = ''
+          })
+        }
+      })
     })()
   </script>
 {% endblock %}

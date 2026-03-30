@@ -7,9 +7,9 @@
 
 {% from "includes/page-header.njk" import pageHeader %}
 {% call pageHeader(title, null, "two-thirds") %}
-    <p class="govuk-body">I confirm I am responsible for this notification.</p>
+    <p class="govuk-body"><strong>I confirm I am responsible for this notification.</strong></p>
     <p class="govuk-body">I am responsible from the submission of this notification to when it enters Great Britain.</p>
-    <p class="govuk-body">I am authorised as being accountable for these things if raising notifications on behalf of a third party.</p>
+    <p class="govuk-body">I am authorised as being accountable for these things if raising notifications on behalf of a third party and others.</p>
     <p class="govuk-body">I can legally act on behalf of a third party in relation to the conditions of this declaration.</p>
 
     <form method="post" novalidate>
@@ -39,11 +39,10 @@
       {{ govukButton({
         text: "Submit notification"
       }) }}
-
-      <p class="govuk-body govuk-!-margin-top-4">
-        <a href="{{ (basePath or '/v1-experimental') }}/create/declaration-prefill" class="govuk-link govuk-link--secondary govuk-!-font-size-14">Quick fill and continue (internal use)</a>
-      </p>
     </form>
+
+    {% set quickFillHref = (basePath or '/v1-experimental') + '/create/declaration-prefill' %}
+    {% include "includes/quick-fill-internal-link.njk" %}
 
 {% endcall %}
 

@@ -1,0 +1,7 @@
+{# Set quickFillHref before including. Optional: quickFillText (defaults to Quick fill and continue (internal use)) #}
+<div class="govuk-!-static-padding-top-6">
+  <hr class="govuk-section-break govuk-section-break--visible govuk-section-break--l" aria-hidden="true">
+  <p class="govuk-body govuk-!-margin-top-4 govuk-!-margin-bottom-0">
+    <a href="{{ quickFillHref }}" class="govuk-link govuk-link--secondary govuk-!-font-size-14">{% if quickFillText %}{{ quickFillText }}{% else %}Quick fill and continue (internal use){% endif %}</a>
+  </p>
+</div>

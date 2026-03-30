@@ -81,9 +81,7 @@
         errorMessage: data.errors and data.errors.transporterCountry and { text: data.errors.transporterCountry } or null
       }) }}
 
-      {{ govukButton({
-        text: "Save and continue"
-      }) }}
+      {% include "includes/save-continue-and-task-list.njk" %}
     </form>
 
     <p class="govuk-body govuk-!-margin-top-4">

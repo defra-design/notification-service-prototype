@@ -3,6 +3,7 @@
 //
 
 const BASE = '/v1-experimental'
+const { isPetConsignment, isLivestockConsignment } = require('../../lib/create-helpers.js')
 
 // For code 0102 (bovine), use the definition with speciesByType (Domestic/Game)
 function getCommodityDetailsForSpecies (commoditiesData, commodityKey) {
@@ -98,6 +99,152 @@ function clearCommoditySession (data) {
   Object.keys(data).filter(k => k.startsWith('quantity_') || k.startsWith('packages_')).forEach(k => delete data[k])
 }
 
+function strOk (v) {
+  return v != null && String(v).trim() !== ''
+}
+
+function buildExperimentalTaskListSections (data, basePath) {
+  const bp = `${basePath}/create`
+  const commodities = data.commodities || []
+  const commoditiesDone = commodities.length > 0
+  const originDone = strOk(data.countryOfOrigin)
+  const additionalAnimalDone = strOk(data.animalsCertifiedFor)
+  const ir = data.importReason
+  const importReasonDone = strOk(ir) &&
+    (ir !== 'internal-market' || strOk(data.internalMarketPurpose))
+  const docs = data.documents || []
+  const documentsDone = docs.some(d => d && strOk(d.reference) && strOk(d.type))
+  const hasConsignee = !!(data.consigneeId || (strOk(data.consigneeName) &&
+    (strOk(data.consigneeAddress) || strOk(data.consigneeAddressLine1))))
+  const podAddr = data.placeOfDestinationAddress
+  const hasPodLines = strOk(data.placeOfDestinationAddressLine1) ||
+    (podAddr && (Array.isArray(podAddr) ? podAddr.some(l => strOk(l)) : strOk(podAddr)))
+  const hasDestination = !!(data.placeOfDestinationId || hasPodLines)
+  const addressesDone = hasConsignee && hasDestination
+  const sameAsPod = data.permanentAddressSameAsPOD === 'yes'
+  const permanentAddressesForPetsDone = !isPetConsignment(data) || sameAsPod ||
+    (strOk(data.permanentAddressName) && strOk(data.permanentAddressLine1) &&
+      strOk(data.permanentAddressTown) && strOk(data.permanentAddressPostcode))
+  const cphDone = !isLivestockConsignment(data) || strOk(data.cphNumber)
+  const transportDone = strOk(data.transporterName) && strOk(data.arrivalDate)
+
+  // GOV.UK Design System: Complete multiple tasks pattern (task list statuses)
+  const statusCompleted = { text: 'Completed' }
+  const statusIncomplete = { tag: { text: 'Incomplete', classes: 'govuk-tag--blue' } }
+  const statusCannotStartYet = {
+    text: 'Cannot start yet',
+    classes: 'govuk-task-list__status--cannot-start-yet'
+  }
+
+  function taskItem (titleText, href, status) {
+    const o = {
+      title: { text: titleText },
+      status
+    }
+    if (href) o.href = href
+    return o
+  }
+
+  return [
+    {
+      idPrefix: 'notification-origin',
+      heading: 'Origin of the notification',
+      items: [
+        taskItem(
+          'Where is this consignment coming from?',
+          `${bp}/origin`,
+          originDone ? statusCompleted : statusIncomplete
+        )
+      ]
+    },
+    {
+      idPrefix: 'notification-commodities',
+      heading: 'Your commodities',
+      items: [
+        taskItem(
+          'Your commodities',
+          `${bp}/commodity-hub`,
+          commoditiesDone ? statusCompleted : statusIncomplete
+        ),
+        taskItem(
+          'Additional animal details',
+          `${bp}/additional-animal-details`,
+          additionalAnimalDone ? statusCompleted : statusIncomplete
+        )
+      ]
+    },
+    {
+      idPrefix: 'notification-import-reason',
+      heading: 'Reason for import',
+      items: [
+        taskItem(
+          'Main reason for importing the animals',
+          `${bp}/import-reason`,
+          importReasonDone ? statusCompleted : statusIncomplete
+        )
+      ]
+    },
+    {
+      idPrefix: 'notification-consignment-addresses',
+      heading: 'Consignment addresses',
+      items: [
+        taskItem(
+          'Addresses',
+          `${bp}/addresses`,
+          addressesDone ? statusCompleted : statusIncomplete
+        ),
+        ...(isLivestockConsignment(data)
+          ? [taskItem(
+            'County Parish Holding number (CPH)',
+            `${bp}/address-cph`,
+            cphDone ? statusCompleted : statusIncomplete
+          )]
+          : []),
+        ...(isPetConsignment(data)
+          ? [taskItem(
+            'Permanent addresses for these animals',
+            `${bp}/permanent-addresses-for-animals`,
+            permanentAddressesForPetsDone ? statusCompleted : statusIncomplete
+          )]
+          : [])
+      ]
+    },
+    {
+      idPrefix: 'notification-transport',
+      heading: 'Transport and arrival',
+      items: [
+        taskItem(
+          'Transport details',
+          `${bp}/transport-and-arrival`,
+          transportDone ? statusCompleted : statusIncomplete
+        )
+      ]
+    },
+    {
+      idPrefix: 'notification-documents',
+      heading: 'Documents',
+      items: [
+        taskItem(
+          'Accompanying documents',
+          `${bp}/accompanying-documents`,
+          documentsDone ? statusCompleted : statusIncomplete
+        )
+      ]
+    },
+    {
+      idPrefix: 'notification-check-send',
+      heading: 'Check and send',
+      items: [
+        taskItem(
+          'Review and submit',
+          transportDone && documentsDone ? `${bp}/check-your-answers` : undefined,
+          !(transportDone && documentsDone) ? statusCannotStartYet : statusIncomplete
+        )
+      ]
+    }
+  ]
+}
+
 module.exports = (router) => {
   router.use(BASE, (req, res, next) => {
     res.locals.basePath = BASE
@@ -113,6 +260,13 @@ module.exports = (router) => {
   registerDashboardRoutes(router, BASE, {
     templatePath: 'v1-experimental/dashboard',
     notifications
+  })
+
+  router.get(`${BASE}/create/task-list`, (req, res) => {
+    const data = req.session.data || {}
+    res.render('v1-experimental/create/task-list', {
+      taskSections: buildExperimentalTaskListSections(data, BASE)
+    })
   })
 
   // === 1. Commodity + species (typeahead includes both) ===
@@ -478,14 +632,31 @@ module.exports = (router) => {
     res.redirect(`${BASE}/create/commodity-hub`)
   })
 
+  router.get(`${BASE}/create/commodity-hub-prefill`, (req, res) => {
+    req.session.data = req.session.data || {}
+    req.session.data.commodities = [{
+      commodity: 'Cow',
+      commoditySpecies: ['Bos taurus'],
+      commodityType: 'domestic',
+      quantities: { quantity_bos_taurus: 1, packages_bos_taurus: 1 }
+    }]
+    delete req.session.data.commodity
+    delete req.session.data.commoditySpecies
+    delete req.session.data.commodityType
+    delete req.session.data.commodityFromHub
+    delete req.session.data.commodityEditIndex
+    delete req.session.data.animalIdCommodityIndex
+    delete req.session.data.errors
+    delete req.session.data.errorList
+    res.redirect(`${BASE}/create/commodity-hub-continue`)
+  })
+
   router.get(`${BASE}/create/commodity-hub-continue`, (req, res) => {
     const data = req.session.data || {}
     if (!syncFirstCommodityToSession(data)) {
       return res.redirect(`${BASE}/create/commodity-hub`)
     }
     if (!data.importType) data.importType = 'live-animals'
-    if (!data.importReason) data.importReason = 'internal-market'
-    if (!data.internalMarketPurpose) data.internalMarketPurpose = 'breeding'
     if (data.returnTo === 'check-your-answers') {
       delete data.returnTo
       const anchor = data.returnToAnchor
@@ -493,7 +664,7 @@ module.exports = (router) => {
       const url = `${BASE}/create/check-your-answers`
       return res.redirect(anchor ? `${url}#${anchor}` : url)
     }
-    res.redirect(`${BASE}/create/additional-animal-details`)
+    res.redirect(`${BASE}/create/task-list`)
   })
 
   router.get(`${BASE}/create/import-type`, (req, res) => {
@@ -509,9 +680,11 @@ module.exports = (router) => {
     req.session.data.commodity = 'Cow'
     req.session.data.commoditySpecies = ['Bos taurus']
     req.session.data.commodityType = 'domestic'
+    delete req.session.data.commodityFromHub
+    delete req.session.data.commodityEditIndex
     delete req.session.data.errors
     delete req.session.data.errorList
-    res.redirect(`${BASE}/create/commodity`)
+    res.redirect(`${BASE}/create/animal-identification`)
   })
 
   router.get(`${BASE}/create/commodity-species-prefill`, (req, res) => {

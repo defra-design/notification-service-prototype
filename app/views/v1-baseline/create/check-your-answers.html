@@ -193,9 +193,9 @@
       }) }}
     </form>
 
-    <p class="govuk-body govuk-!-margin-top-4">
-      <a href="{{ (basePath or '/v1-baseline') }}/create/check-your-answers-prefill" class="govuk-link govuk-link--secondary govuk-!-font-size-14">Quick fill (internal use)</a>
-    </p>
+    {% set quickFillHref = (basePath or '/v1-baseline') + '/create/check-your-answers-prefill' %}
+    {% set quickFillText = "Quick fill (internal use)" %}
+    {% include "includes/quick-fill-internal-link.njk" %}
 
 {% endcall %}
 

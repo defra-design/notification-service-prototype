@@ -1,6 +1,5 @@
 
 {% extends "layouts/v1-baseline.html" %}
-{% from "govuk/components/button/macro.njk" import govukButton %}
 {% from "govuk/components/summary-list/macro.njk" import govukSummaryList %}
 {% from "govuk/components/error-summary/macro.njk" import govukErrorSummary %}
 {% set title = "Add a transporter" %}
@@ -69,14 +68,11 @@
         {% endif %}
       </div>
 
-      {{ govukButton({
-        text: "Save and continue"
-      }) }}
+      {% include "includes/save-continue-and-task-list.njk" %}
     </form>
 
-    <p class="govuk-body govuk-!-margin-top-4">
-      <a href="{{ (basePath or '/v1-experimental') }}/create/transport-transporter-prefill" class="govuk-link govuk-link--secondary govuk-!-font-size-14">Quick fill and continue (internal use)</a>
-    </p>
+    {% set quickFillHref = (basePath or '/v1-experimental') + '/create/transport-transporter-prefill' %}
+    {% include "includes/quick-fill-internal-link.njk" %}
 
 {% endcall %}
 

@@ -18,24 +18,8 @@ function parseArrivalDate (str) {
   return new Date(parseInt(match[3], 10), monthIndex, parseInt(match[1], 10)).getTime()
 }
 
-// Build species-to-code map for normalising commodity display
-function getSpeciesToCodeMap () {
-  const commoditiesData = require('../../data/commodities.js')
-  const map = {}
-  for (const [key, details] of Object.entries(commoditiesData)) {
-    if (details.code && details.species) {
-      details.species.forEach(s => { map[s] = details.code })
-    }
-  }
-  return map
-}
-
-function normaliseCommodityDisplay (commodity, speciesToCode) {
-  if (!commodity || typeof commodity !== 'string') return commodity || ''
-  if (/\(\d+\)$/.test(commodity.trim())) return commodity
-  const code = speciesToCode[commodity.trim()]
-  return code ? `${commodity} (${code})` : commodity
-}
+const { getSpeciesCommodityMaps, normaliseCommodityDisplay } = require('../../lib/commodity-display.js')
+const { getDateRangeForFilterPeriod, ensureDateCreated, arrivalMatchesFilterRange } = require('../../lib/dashboard.js')
 
 // CPH (County Parish Holding) required per official rules – matches v2 logic
 const { PET_COMMODITIES, getCommoditySpeciesArray, isPetConsignment, isLivestockConsignment } = require('../../lib/create-helpers.js')
@@ -82,6 +66,17 @@ function filterNotifications (filterData, sourceList) {
     const status = (filterData.status || '').trim().toLowerCase()
     if (status && n.status !== status) return false
 
+    const startD = filterData.startDate
+    const endD = filterData.endDate
+    const hasDateBounds = ((startD || '').trim() !== '' || (endD || '').trim() !== '')
+    const quickCreatedMode = !!(filterData.filterPeriod && String(filterData.filterPeriod).trim())
+    if (quickCreatedMode && hasDateBounds) {
+      const createdLabel = ensureDateCreated(n)
+      if (!arrivalMatchesFilterRange(createdLabel, startD, endD)) return false
+    } else if (!quickCreatedMode && hasDateBounds) {
+      if (!arrivalMatchesFilterRange(n.arrival, startD, endD)) return false
+    }
+
     return true
   })
 }
@@ -101,32 +96,17 @@ module.exports = (router) => {
     FILTER_KEYS.forEach(key => {
       if (req.query[key] !== undefined) data[key] = req.query[key]
     })
-    if (req.query.sort !== undefined) data.sort = req.query.sort
-    const toYYYYMMDD = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-    const today = new Date()
-    const defaultStart = toYYYYMMDD(new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000))
-    const defaultEnd = toYYYYMMDD(today)
-    if (data.filterPeriod) {
-      const d = new Date(today)
-      if (data.filterPeriod === 'last-1-hour') {
-        data.filterStartDate = defaultEnd
-        data.filterEndDate = defaultEnd
-      } else if (data.filterPeriod === 'last-24-hours') {
-        d.setDate(d.getDate() - 1)
-        data.filterStartDate = toYYYYMMDD(d)
-        data.filterEndDate = defaultEnd
-      } else if (data.filterPeriod === 'last-7-days') {
-        d.setDate(d.getDate() - 7)
-        data.filterStartDate = toYYYYMMDD(d)
-        data.filterEndDate = defaultEnd
-      } else if (data.filterPeriod === 'last-30-days') {
-        d.setDate(d.getDate() - 30)
-        data.filterStartDate = toYYYYMMDD(d)
-        data.filterEndDate = defaultEnd
+    if (Object.prototype.hasOwnProperty.call(req.query, 'filterPeriod')) {
+      const range = getDateRangeForFilterPeriod(data.filterPeriod)
+      if (range) {
+        data.filterStartDate = range.filterStartDate
+        data.filterEndDate = range.filterEndDate
+      } else {
+        data.filterStartDate = ''
+        data.filterEndDate = ''
       }
     }
-    if (!data.filterStartDate) data.filterStartDate = defaultStart
-    if (!data.filterEndDate) data.filterEndDate = defaultEnd
+    if (req.query.sort !== undefined) data.sort = req.query.sort
     const filterData = {
       keyword: data.filterKeyword,
       commodity: data.filterCommodity,
@@ -135,17 +115,19 @@ module.exports = (router) => {
       destination: data.filterDestination,
       status: data.filterStatus,
       startDate: data.filterStartDate,
-      endDate: data.filterEndDate
+      endDate: data.filterEndDate,
+      filterPeriod: data.filterPeriod
     }
     const submitted = data.submittedNotifications || []
     const allNotifications = [...notifications, ...submitted]
     const filtered = filterNotifications(filterData, allNotifications)
     const sortOption = data.sort || 'arrival-desc'
     const sorted = sortNotifications(filtered, sortOption)
-    const speciesToCode = getSpeciesToCodeMap()
+    const speciesMaps = getSpeciesCommodityMaps()
     const normalised = sorted.map(n => ({
       ...n,
-      commodity: normaliseCommodityDisplay(n.commodity, speciesToCode)
+      commodity: normaliseCommodityDisplay(n.commodity, speciesMaps),
+      dateCreated: ensureDateCreated(n)
     }))
 
     const perPage = 20
@@ -176,7 +158,8 @@ module.exports = (router) => {
     const baseOriginCountries = [...euCountries, ...euuCountries]
     res.locals.originCountries = [...new Set([...baseOriginCountries, ...originsFromData])].sort()
 
-    const isDefaultDateRange = (data.filterStartDate === defaultStart && data.filterEndDate === defaultEnd) || (!data.filterPeriod && !data.filterStartDate && !data.filterEndDate)
+    const hasCustomDates = (data.filterStartDate || '').trim() !== '' || (data.filterEndDate || '').trim() !== ''
+    const isDefaultDateRange = !data.filterPeriod && !hasCustomDates
     const activeFilters = []
     const buildClearUrl = (...excludeKeys) => {
       const excludeSet = new Set(excludeKeys)
@@ -205,8 +188,12 @@ module.exports = (router) => {
     }
     if (!isDefaultDateRange && (data.filterPeriod || data.filterStartDate || data.filterEndDate)) {
       const periodLabels = { 'last-1-hour': 'Last 1 hour', 'last-24-hours': 'Last 24 hours', 'last-7-days': 'Last 7 days', 'last-30-days': 'Last 30 days' }
-      const dateLabel = data.filterPeriod ? (periodLabels[data.filterPeriod] || 'Custom date range') : 'Custom date range'
-      activeFilters.push({ label: 'Date range: ' + dateLabel, clearHref: buildClearUrl('filterPeriod', 'filterStartDate', 'filterEndDate') })
+      if (data.filterPeriod) {
+        const dateLabel = periodLabels[data.filterPeriod] || 'Custom range'
+        activeFilters.push({ label: 'Date created: ' + dateLabel, clearHref: buildClearUrl('filterPeriod', 'filterStartDate', 'filterEndDate') })
+      } else {
+        activeFilters.push({ label: 'Arrival date: Custom range', clearHref: buildClearUrl('filterPeriod', 'filterStartDate', 'filterEndDate') })
+      }
     }
     res.locals.activeFilters = activeFilters
 
@@ -2224,6 +2211,8 @@ module.exports = (router) => {
     const commodityName = (data.commoditySpecies && data.commoditySpecies[0]) || 'Live animals'
     const commodityDisplay = commodityCode ? `${commodityName} (${commodityCode})` : commodityName
 
+    const now = new Date()
+    const todayIso = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
     const submitted = {
       reference: referenceNumber,
       commodity: commodityDisplay,
@@ -2231,6 +2220,7 @@ module.exports = (router) => {
       consignee: data.consigneeName || (data.consignee && data.consignee.name) || 'Not provided',
       consignor: data.consignorName || (data.consignor && data.consignor.name) || 'Not provided',
       arrival: formatDate(data.arrivalDate) || 'Not provided',
+      dateCreated: formatDate(todayIso),
       status: 'submitted'
     }
     if (!Array.isArray(data.submittedNotifications)) data.submittedNotifications = []

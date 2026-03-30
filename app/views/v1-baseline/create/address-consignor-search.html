@@ -19,19 +19,19 @@
           <div class="govuk-grid-column-one-third">
             <div class="govuk-form-group">
               <label class="govuk-label" for="searchName">Name</label>
-              <input class="govuk-input" id="searchName" name="searchName" type="text" value="{{ data.searchName or '' }}">
+              <input class="govuk-input" id="searchName" name="searchName" type="text" value="{{ data.searchName or '' }}" autocomplete="organization">
             </div>
           </div>
           <div class="govuk-grid-column-one-third">
             <div class="govuk-form-group">
               <label class="govuk-label" for="searchAddress">Address</label>
-              <input class="govuk-input" id="searchAddress" name="searchAddress" type="text" value="{{ data.searchAddress or '' }}">
+              <input class="govuk-input" id="searchAddress" name="searchAddress" type="text" value="{{ data.searchAddress or '' }}" autocomplete="street-address">
             </div>
           </div>
           <div class="govuk-grid-column-one-third">
             <div class="govuk-form-group">
               <label class="govuk-label" for="searchCountry">Country</label>
-              <div class="autocomplete-wrapper autocomplete-wrapper--full">
+              <div class="autocomplete-wrapper autocomplete-wrapper--30em">
                 <select class="govuk-select" id="searchCountry" name="searchCountry">
                   <option value="">Type country name</option>
                   {% for country in countries %}
@@ -51,37 +51,37 @@
       </form>
     </div>
 
-    {% if results %}
-    <table class="govuk-table govuk-!-margin-top-8 address-table">
+    {% if total > 0 %}
+    <p class="govuk-body govuk-!-margin-top-8 govuk-!-margin-bottom-3" role="status">
+      {{ total }} result{% if total != 1 %}s{% endif %}
+    </p>
+    <table class="govuk-table govuk-!-margin-top-0 address-table">
+      <caption class="govuk-table__caption govuk-table__caption--m">Consignors and exporters matching your search</caption>
       <thead class="govuk-table__head">
         <tr class="govuk-table__row">
           <th scope="col" class="govuk-table__header">Name</th>
           <th scope="col" class="govuk-table__header">Address</th>
-          <th scope="col" class="govuk-table__header"><span class="govuk-visually-hidden">Actions</span></th>
+          <th scope="col" class="govuk-table__header govuk-table__header--numeric">Actions</th>
         </tr>
       </thead>
       <tbody class="govuk-table__body">
         {% for row in results %}
         <tr class="govuk-table__row">
-          <td class="govuk-table__cell">{{ row.name }}</td>
+          <th scope="row" class="govuk-table__cell">{{ row.name }}</th>
           <td class="govuk-table__cell">
             <span>{{ row.address }}</span>
             <br>
             <span class="govuk-body-s govuk-!-display-block govuk-!-margin-top-1 address-country">{{ row.country }}</span>
           </td>
-          <td class="govuk-table__cell">
-            <a href="#" class="govuk-link govuk-!-font-size-16">View</a>
+          <td class="govuk-table__cell govuk-table__cell--numeric">
+            <a href="#" class="govuk-link govuk-!-font-size-16">View<span class="govuk-visually-hidden"> details for {{ row.name }}</span></a>
             <span aria-hidden="true"> | </span>
-            <a href="{{ (basePath or '/v1-baseline') }}/create/addresses?consignor={{ row.id }}" class="govuk-link govuk-!-font-size-16">Select</a>
+            <a href="{{ (basePath or '/v1-baseline') }}/create/addresses?consignor={{ row.id }}" class="govuk-link govuk-!-font-size-16">Select<span class="govuk-visually-hidden"> {{ row.name }} as consignor or exporter</span></a>
           </td>
         </tr>
         {% endfor %}
       </tbody>
     </table>
-
-    <p class="govuk-body govuk-!-margin-top-4">
-      <a href="#" class="govuk-link govuk-!-font-size-16">Create a new consignor or exporter</a>
-    </p>
 
     {% if totalPages > 1 %}
     <div class="govuk-!-margin-top-6">
@@ -104,6 +104,10 @@
     </div>
     {% endif %}
     {% endif %}
+
+    <p class="govuk-body {% if total > 0 %}govuk-!-margin-top-4{% else %}govuk-!-margin-top-8{% endif %}">
+      <a href="#" class="govuk-link govuk-!-font-size-16">Create a new consignor or exporter</a>
+    </p>
 
 {% endcall %}
 
