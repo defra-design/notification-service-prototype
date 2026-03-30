@@ -505,6 +505,10 @@ function buildCheckYourAnswersData (data, base) {
   ]
   const transportAndArrivalRows = transporterRows.concat(arrivalRows)
 
+  const notificationDateCreatedRaw = (data.notificationDateCreated != null && data.notificationDateCreated !== '')
+    ? String(data.notificationDateCreated).trim()
+    : ''
+
   return {
     originRows,
     importReasonRows,
@@ -521,7 +525,8 @@ function buildCheckYourAnswersData (data, base) {
     transporterRows,
     transportAndArrivalRows,
     isPetConsignment: isPetConsignment(data),
-    isLivestockConsignment: isLivestockConsignment(data)
+    isLivestockConsignment: isLivestockConsignment(data),
+    notificationDateCreatedDisplay: notificationDateCreatedRaw
   }
 }
 

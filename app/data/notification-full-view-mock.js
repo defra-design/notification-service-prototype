@@ -4,6 +4,7 @@
 
 module.exports = {
   importType: 'live-animals',
+  notificationDateCreated: '15 April 2026',
   countryOfOrigin: 'Finland',
   regionOfOriginRequired: 'no',
   consignmentReference: 'FIN-EXP-2026-4418',

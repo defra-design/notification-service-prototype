@@ -239,7 +239,12 @@ module.exports = (router) => {
     res.render('v1-experimental/start')
   })
 
-  const { registerDashboardRoutes, rebuildSessionPreservingSubmittedAndFilters } = require('../../lib/dashboard.js')
+  const {
+    registerDashboardRoutes,
+    rebuildSessionPreservingSubmittedAndFilters,
+    ensureDateCreated,
+    formatTodayUkDateLabel
+  } = require('../../lib/dashboard.js')
   const notifications = require('../../data/notifications')
   const {
     findNotificationRow,
@@ -264,6 +269,7 @@ module.exports = (router) => {
       viewData.notificationDeleteHref = `${BASE}/notification/${encodeURIComponent(ref)}/delete`
       viewData.viewNotificationReference = ref
       viewData.readOnlyShowCopyAsNew = false
+      viewData.notificationDateCreatedDisplay = formatTodayUkDateLabel()
       return viewData
     }
     const row = found.row
@@ -283,6 +289,8 @@ module.exports = (router) => {
       found.kind === 'submitted' || (found.kind === 'static' && row.status === 'submitted')
     viewData.readOnlyShowCopyAsNew = isSubmitted
     viewData.copyAsNewHref = isSubmitted ? '#' : null
+    const createdLabel = ensureDateCreated(row)
+    viewData.notificationDateCreatedDisplay = createdLabel || 'Not provided'
     return viewData
   }
 
@@ -307,6 +315,8 @@ module.exports = (router) => {
     const next = preserveForNotificationListMutation(data)
     req.session.data = next
     const fullSession = buildFullViewSessionMockFromNotificationRow(found.row)
+    const createdForRow = ensureDateCreated(found.row)
+    if (createdForRow) fullSession.notificationDateCreated = createdForRow
     Object.assign(req.session.data, fullSession)
     req.session.data.taskListUnlocked = true
     req.session.data.draftNotificationReference = ref
@@ -356,7 +366,7 @@ module.exports = (router) => {
     viewData.readOnly = true
     viewData.readOnlyPageTitle = 'Notification details'
     viewData.viewPageCaption = 'IMP.GB.2026.1003455'
-    viewData.readOnlyIntro = 'Fictional full record for the same reference as the dashboard example IMP.GB.2026.1003455. Date created 15 April 2026. Arrival at destination 20 April 2026.'
+    viewData.readOnlyIntro = 'Fictional full record for the same reference as the dashboard example IMP.GB.2026.1003455. Arrival at destination 20 April 2026.'
     viewData.viewBackLinkHref = `${BASE}/dashboard`
     viewData.amendHref = `${BASE}/notification/IMP.GB.2026.1003455/amend`
     viewData.readOnlyPrimaryButtonText = 'Amend this notification'
@@ -373,7 +383,7 @@ module.exports = (router) => {
     snapshot.readOnly = true
     snapshot.readOnlyPageTitle = 'Notification details'
     snapshot.viewPageCaption = 'IMP.GB.2026.1003455'
-    snapshot.readOnlyIntro = 'Fictional full record for the same reference as the dashboard example IMP.GB.2026.1003455. Date created 15 April 2026. Arrival at destination 20 April 2026.'
+    snapshot.readOnlyIntro = 'Fictional full record for the same reference as the dashboard example IMP.GB.2026.1003455. Arrival at destination 20 April 2026.'
     snapshot.viewBackLinkHref = `${BASE}/dashboard`
     snapshot.amendHref = `${BASE}/notification/IMP.GB.2026.1003455/amend`
     snapshot.readOnlyPrimaryButtonText = 'Amend this notification'

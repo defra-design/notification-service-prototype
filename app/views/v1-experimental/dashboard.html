@@ -154,7 +154,7 @@
           <h3 class="govuk-summary-card__title dashboard-card-title">{{ n.reference }}</h3>
           <ul class="govuk-summary-card__actions dashboard-card-actions">
             <li>
-              {% if n.isSessionDraft %}
+              {% if n.isSessionDraft or n.status != "submitted" %}
               <a class="govuk-link govuk-!-font-weight-regular" href="{{ n.viewHref }}">View</a>
               {% else %}
               <a class="govuk-link govuk-!-font-weight-regular" href="#">Copy as new</a> <span class="dashboard-card-separator" aria-hidden="true">|</span> <a class="govuk-link govuk-!-font-weight-regular" href="{{ n.viewHref }}">View</a>

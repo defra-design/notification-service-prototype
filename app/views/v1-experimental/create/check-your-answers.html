@@ -77,6 +77,9 @@
       </div>
     </dialog>
     {% endif %}
+    {% if readOnly and notificationDateCreatedDisplay %}
+    <p class="govuk-body govuk-!-margin-bottom-4" id="notification-date-created"><span class="govuk-!-font-weight-bold">Date created:</span> {{ notificationDateCreatedDisplay }}</p>
+    {% endif %}
     {% if readOnlyIntro %}
     <p class="govuk-body govuk-!-margin-bottom-6">{{ readOnlyIntro }}</p>
     {% endif %}

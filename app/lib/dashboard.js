@@ -78,6 +78,11 @@ function ensureDateCreated (n) {
   return formatLongUkDate(created.getTime())
 }
 
+function formatTodayUkDateLabel () {
+  const now = new Date()
+  return `${now.getDate()} ${MONTHS[now.getMonth()]} ${now.getFullYear()}`
+}
+
 const { getSpeciesCommodityMaps, normaliseCommodityDisplay } = require('./commodity-display.js')
 const { getRemovedRefSet } = require('./notification-view-helpers.js')
 
@@ -107,8 +112,7 @@ function buildSessionDraftNotificationRow (data, basePath, speciesMaps) {
   const commodityDisplayRaw = commodityCode ? `${commodityName} (${commodityCode})` : commodityName
   const commodityDisplay = normaliseCommodityDisplay(commodityDisplayRaw, speciesMaps)
 
-  const now = new Date()
-  const dateCreatedLabel = `${now.getDate()} ${MONTHS[now.getMonth()]} ${now.getFullYear()}`
+  const dateCreatedLabel = formatTodayUkDateLabel()
 
   return {
     reference: ref,
@@ -335,6 +339,7 @@ module.exports = {
   registerDashboardRoutes,
   getDateRangeForFilterPeriod,
   ensureDateCreated,
+  formatTodayUkDateLabel,
   arrivalMatchesFilterRange,
   rebuildSessionPreservingSubmittedAndFilters
 }
