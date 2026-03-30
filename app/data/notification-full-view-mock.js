@@ -1,0 +1,69 @@
+//
+// Fictional session data aligned with dashboard notification IMP.GB.2026.1003455
+//
+
+module.exports = {
+  importType: 'live-animals',
+  countryOfOrigin: 'Finland',
+  regionOfOriginRequired: 'no',
+  consignmentReference: 'FIN-EXP-2026-4418',
+  commodities: [{
+    commodity: 'Cow',
+    commoditySpecies: ['Bos taurus'],
+    commodityType: 'domestic',
+    quantities: {
+      quantity_bos_taurus: 4,
+      packages_bos_taurus: 2
+    }
+  }],
+  animalCount_bos_taurus: 4,
+  earTag_bos_taurus_1: 'FI-LT-902214',
+  passport_bos_taurus_1: 'EU-BOV-441209',
+  earTag_bos_taurus_2: 'FI-LT-902215',
+  passport_bos_taurus_2: 'EU-BOV-441210',
+  earTag_bos_taurus_3: 'FI-LT-902216',
+  passport_bos_taurus_3: 'EU-BOV-441211',
+  earTag_bos_taurus_4: 'FI-LT-902217',
+  passport_bos_taurus_4: 'EU-BOV-441212',
+  animalsCertifiedFor: 'breeding-production',
+  unweanedAnimals: 'no',
+  importReason: 'internal-market',
+  internalMarketPurpose: 'breeding',
+  consignorName: 'Tampere Horse Transport',
+  consignorAddress: ['Kuormatie 14', '33100 Tampere'],
+  consignorCountry: 'Finland',
+  consigneeName: 'Leicester Cattle Ltd',
+  consigneeAddressLine1: 'Hill Farm Units 2 to 4',
+  consigneeAddressLine2: 'Syston Road',
+  consigneeTown: 'Cossington',
+  consigneePostcode: 'LE7 4UZ',
+  importerName: 'Leicester Cattle Ltd',
+  importerAddressLine1: 'Hill Farm Units 2 to 4',
+  importerAddressLine2: 'Syston Road',
+  importerTown: 'Cossington',
+  importerPostcode: 'LE7 4UZ',
+  importerCountry: 'United Kingdom',
+  placeOfDestinationName: 'Leicester finishing unit',
+  placeOfDestinationAddressLine1: 'Hill Farm Units 2 to 4',
+  placeOfDestinationAddressLine2: 'Syston Road',
+  placeOfDestinationTown: 'Cossington',
+  placeOfDestinationPostcode: 'LE7 4UZ',
+  placeOfDestinationCountry: 'United Kingdom',
+  contactAddressId: '1',
+  cphNumber: '12/345/6789',
+  transporterName: 'Nordic Livestock Haulage Oy',
+  transporterAddressLine1: 'Rendi 3',
+  transporterTown: 'Helsinki',
+  transporterPostcode: '00240',
+  transporterAddress: 'Rendi 3, 00240 Helsinki',
+  transporterCountry: 'Finland',
+  transporterType: 'Commercial transporter',
+  transporterApprovalNumber: 'FI-TR-2019-7781',
+  ukBorderPort: 'dover',
+  arrivalDate: '2026-04-20',
+  documents: [
+    { type: 'veterinary-health-certificate', reference: 'VHC-FI-2026-11042', date: '2026-04-12', attachments: ['veterinary-health-certificate.pdf'] },
+    { type: 'commercial-invoice', reference: 'INV-NLH-88921', date: '2026-04-12', attachments: ['commercial-invoice.pdf'] },
+    { type: 'import-permit', reference: 'GB-IP-2026-55612', date: '2026-05-30', attachments: ['import-permit.pdf', 'import-permit-annex.pdf'] }
+  ]
+}

@@ -3,6 +3,7 @@
 //
 
 const { PET_COMMODITIES, getCommoditySpeciesArray, isPetConsignment, isLivestockConsignment } = require('../../lib/create-helpers.js')
+const { assignDraftNotificationReferenceIfNeeded } = require('../../lib/draft-notification-reference.js')
 
 function formatDate (isoDate) {
   if (!isoDate || typeof isoDate !== 'string') return isoDate || 'Not provided'
@@ -549,6 +550,7 @@ function registerPostHubRoutes (router, base) {
   function completeDeclarationAndGoToConfirmation (req, res) {
     delete req.session.data.errors
     delete req.session.data.errorList
+    delete req.session.data.draftNotificationReference
     const data = req.session.data || {}
     req.session.data.declarationDate = new Date().toISOString().split('T')[0]
     const year = new Date().getFullYear()
@@ -649,11 +651,14 @@ function registerPostHubRoutes (router, base) {
     const approvalDisplay = data.transporterType === 'Private transporter' ? 'Not required' : (data.transporterApprovalNumber || '')
     const escapeHtmlT = (s) => typeof s !== 'string' ? '' : String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
     const transporterChangeHref = create('/address-consignee-search?returnTo=transport-and-arrival')
+    const transporterAddressText = Array.isArray(data.transporterAddress)
+      ? data.transporterAddress.filter(Boolean).join(', ')
+      : (data.transporterAddress || '')
     const transporterRows = [
       { key: { text: 'Transporter name' }, value: { text: data.transporterName || '—' } },
       {
         key: { text: 'Transporter address' },
-        value: { html: escapeHtmlT(data.transporterAddress || '') + (data.transporterAddress && data.transporterCountry ? '<br>' : '') + escapeHtmlT(data.transporterCountry || '') }
+        value: { html: escapeHtmlT(transporterAddressText) + (transporterAddressText && data.transporterCountry ? '<br>' : '') + escapeHtmlT(data.transporterCountry || '') }
       },
       { key: { text: 'Type' }, value: { text: typeDisplay || '—' } }
     ]
@@ -2296,6 +2301,8 @@ function registerPostHubRoutes (router, base) {
     d.transporterApprovalNumber = 'GB-AP-2024-123'
     delete d.errors
     delete d.errorList
+    d.taskListUnlocked = true
+    assignDraftNotificationReferenceIfNeeded(d)
     res.redirect(create('/check-your-answers'))
   })
 
@@ -2522,4 +2529,4 @@ function registerPostHubRoutes (router, base) {
   })
 }
 
-module.exports = { registerPostHubRoutes }
+module.exports = { registerPostHubRoutes, buildCheckYourAnswersData }

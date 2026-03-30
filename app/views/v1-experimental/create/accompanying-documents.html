@@ -67,7 +67,7 @@
           <div class="govuk-form-group govuk-!-margin-bottom-4 attachment-control" data-index="{{ loop.index0 }}">
             <label class="govuk-label">Attachment</label>
             <input class="govuk-file-upload attachment-input-hidden" id="document-attachment-{{ loop.index0 }}" name="documentAttachment_{{ loop.index0 }}" type="file" aria-describedby="document-attachment-{{ loop.index0 }}-hint">
-            <input type="hidden" name="documentAttachmentFilenames_{{ loop.index0 }}" value="{{ doc.attachments | join(',') if doc and doc.attachments else '' }}">
+            <input type="hidden" name="documentAttachmentFilenames_{{ loop.index0 }}" value="{% if doc and doc.attachments %}{% for att in doc.attachments %}{{ att if att is string else (att.filename or att.name or '') }}{% if not loop.last %},{% endif %}{% endfor %}{% endif %}">
             <div id="document-attachment-{{ loop.index0 }}-hint" class="govuk-hint govuk-!-margin-top-2 attachment-add-area{% if doc and doc.attachments and (doc.attachments | length) > 0 %} attachment-hidden{% endif %}">
               <p class="govuk-hint govuk-!-margin-bottom-1 govuk-!-font-weight-bold">Your file must be:</p>
               <ul class="govuk-list govuk-list--bullet govuk-hint govuk-!-margin-bottom-2">
@@ -79,8 +79,11 @@
             </div>
             {% if doc and doc.attachments and (doc.attachments | length) > 0 %}
             <div class="govuk-!-margin-top-3 attachment-list attachment-list-server" id="attachment-list-server-{{ loop.index0 }}">
-              {% for filename in doc.attachments %}
-              <div class="govuk-body attachment-item"><span>{{ filename }}</span><div class="govuk-!-margin-top-3 govuk-!-font-size-16"><a href="#" class="govuk-link govuk-link--secondary govuk-!-font-size-16 remove-attachment" data-index="{{ loop.index0 }}">Remove attachment</a></div></div>
+              {% for att in doc.attachments %}
+              {% set attachmentLabel = att if att is string else (att.filename or att.name or '') %}
+              {% if attachmentLabel %}
+              <div class="govuk-body attachment-item"><span>{{ attachmentLabel }}</span><div class="govuk-!-margin-top-3 govuk-!-font-size-16"><a href="#" class="govuk-link govuk-link--secondary govuk-!-font-size-16 remove-attachment" data-index="{{ loop.index0 }}">Remove attachment</a></div></div>
+              {% endif %}
               {% endfor %}
             </div>
             {% endif %}

@@ -79,6 +79,50 @@ function ensureDateCreated (n) {
 }
 
 const { getSpeciesCommodityMaps, normaliseCommodityDisplay } = require('./commodity-display.js')
+const { getRemovedRefSet } = require('./notification-view-helpers.js')
+
+function formatIsoDateUkLong (iso) {
+  if (!iso || typeof iso !== 'string') return 'Not provided'
+  const m = iso.trim().match(/^(\d{4})-(\d{2})-(\d{2})$/)
+  if (!m) return 'Not provided'
+  const y = m[1]
+  const mo = parseInt(m[2], 10)
+  const d = parseInt(m[3], 10)
+  return `${d} ${MONTHS[mo - 1]} ${y}`
+}
+
+function buildSessionDraftNotificationRow (data, basePath, speciesMaps) {
+  const ref = data.draftNotificationReference && String(data.draftNotificationReference).trim()
+  if (!ref || !data.taskListUnlocked) return null
+
+  const commoditiesEu = require('../data/commodities-eu.js')
+  const commoditiesData = require('../data/commodities.js')
+  let commodityKey = data.commodity
+  if (!commodityKey && Array.isArray(data.commodities) && data.commodities.length > 0) {
+    commodityKey = data.commodities[0].commodity
+  }
+  const commodityDetails = commodityKey ? (commoditiesEu[commodityKey] || commoditiesData[commodityKey]) : null
+  const commodityCode = commodityDetails ? commodityDetails.code : (data.commodityCode || '')
+  const commodityName = commodityDetails?.commonName || commodityKey || 'Live animals'
+  const commodityDisplayRaw = commodityCode ? `${commodityName} (${commodityCode})` : commodityName
+  const commodityDisplay = normaliseCommodityDisplay(commodityDisplayRaw, speciesMaps)
+
+  const now = new Date()
+  const dateCreatedLabel = `${now.getDate()} ${MONTHS[now.getMonth()]} ${now.getFullYear()}`
+
+  return {
+    reference: ref,
+    commodity: commodityDisplay,
+    origin: data.countryOfOrigin || 'Not provided',
+    consignee: data.consigneeName || (data.consignee && data.consignee.name) || 'Not provided',
+    consignor: data.consignorName || (data.consignor && data.consignor.name) || 'Not provided',
+    arrival: formatIsoDateUkLong(data.arrivalDate),
+    dateCreated: dateCreatedLabel,
+    status: 'draft',
+    isSessionDraft: true,
+    continueHref: `${basePath}/create/task-list`
+  }
+}
 
 function sortNotifications (list, sortOption) {
   const sorted = [...list]
@@ -95,6 +139,26 @@ function sortNotifications (list, sortOption) {
     sorted.sort((a, b) => String(a.reference || '').localeCompare(b.reference || ''))
   }
   return sorted
+}
+
+function rebuildSessionPreservingSubmittedAndFilters (data) {
+  const preserved = {}
+  if (Array.isArray(data.submittedNotifications)) {
+    preserved.submittedNotifications = data.submittedNotifications
+  }
+  if (Array.isArray(data.removedNotificationReferences)) {
+    preserved.removedNotificationReferences = [...data.removedNotificationReferences]
+  }
+  FILTER_KEYS.forEach(k => {
+    const v = data[k]
+    if (v !== undefined && v !== null && String(v).trim() !== '') {
+      preserved[k] = v
+    }
+  })
+  if (data.sort !== undefined && data.sort !== null && String(data.sort).trim() !== '') {
+    preserved.sort = data.sort
+  }
+  return preserved
 }
 
 function filterNotifications (filterData, sourceList, notifications) {
@@ -169,11 +233,17 @@ function registerDashboardRoutes (router, basePath, options) {
       filterPeriod: data.filterPeriod
     }
     const submitted = data.submittedNotifications || []
-    const allNotifications = [...notifications, ...submitted]
+    const speciesMaps = getSpeciesCommodityMaps()
+    const sessionDraft = buildSessionDraftNotificationRow(data, basePath, speciesMaps)
+    const removed = getRemovedRefSet(data)
+    const notificationsVisible = notifications.filter(n => !removed.has(n.reference))
+    let allNotifications = [...notificationsVisible, ...submitted]
+    if (sessionDraft) {
+      allNotifications = [sessionDraft, ...allNotifications]
+    }
     const filtered = filterNotifications(filterData, allNotifications, notifications)
     const sortOption = data.sort || 'arrival-desc'
     const sorted = sortNotifications(filtered, sortOption)
-    const speciesMaps = getSpeciesCommodityMaps()
     const normalised = sorted.map(n => ({
       ...n,
       commodity: normaliseCommodityDisplay(n.commodity, speciesMaps),
@@ -186,7 +256,10 @@ function registerDashboardRoutes (router, basePath, options) {
     const totalPages = Math.max(1, Math.ceil(total / perPage))
     const pageNum = Math.min(page, totalPages)
     const start = (pageNum - 1) * perPage
-    const paginated = normalised.slice(start, start + perPage)
+    const paginated = normalised.slice(start, start + perPage).map(n => ({
+      ...n,
+      viewHref: `${basePath}/notification/${encodeURIComponent(n.reference)}`
+    }))
 
     req.session.data.resultsCount = total
     res.locals.notifications = paginated
@@ -258,4 +331,10 @@ function registerDashboardRoutes (router, basePath, options) {
   })
 }
 
-module.exports = { registerDashboardRoutes, getDateRangeForFilterPeriod, ensureDateCreated, arrivalMatchesFilterRange }
+module.exports = {
+  registerDashboardRoutes,
+  getDateRangeForFilterPeriod,
+  ensureDateCreated,
+  arrivalMatchesFilterRange,
+  rebuildSessionPreservingSubmittedAndFilters
+}

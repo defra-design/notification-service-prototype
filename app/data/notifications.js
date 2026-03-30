@@ -125,5 +125,5 @@ module.exports = [
   { reference: 'IMP.GB.2026.1003302', commodity: 'Bos taurus (0102)', origin: 'Romania', consignee: 'Dudley Farm Ltd', consignor: 'Cluj Livestock SRL', arrival: '17 April 2026', status: 'draft' },
   { reference: 'IMP.GB.2026.1003355', commodity: 'Equus caballus (0101)', origin: 'Hungary', consignee: 'West Bromwich Cattle', consignor: 'Debrecen Animal Trans', arrival: '18 April 2026', status: 'submitted' },
   { reference: 'IMP.GB.2026.1003408', commodity: 'Bos taurus (0102)', origin: 'Greece', consignee: 'Coventry Livestock Co', consignor: 'Thessaloniki Farm Ltd', arrival: '19 April 2026', status: 'draft' },
-  { reference: 'IMP.GB.2026.1003455', commodity: 'Bos taurus (0102)', origin: 'Finland', consignee: 'Leicester Cattle Ltd', consignor: 'Tampere Horse Transport', arrival: '20 April 2026', status: 'submitted' }
+  { reference: 'IMP.GB.2026.1003455', commodity: 'Bos taurus (0102)', origin: 'Finland', consignee: 'Leicester Cattle Ltd', consignor: 'Tampere Horse Transport', arrival: '20 April 2026', dateCreated: '15 April 2026', status: 'submitted' }
 ]

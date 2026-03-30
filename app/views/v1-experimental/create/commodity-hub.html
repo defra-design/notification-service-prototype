@@ -77,9 +77,11 @@
         Continue
       </a>
     </div>
+    {% if taskListAccessible %}
     <p class="govuk-body govuk-!-margin-top-2 govuk-!-margin-bottom-0">
-      <a class="govuk-link" href="{{ (basePath or '/v1-experimental') }}/create/task-list">Back to task list</a>
+      <a class="govuk-link" href="{{ (basePath or '/v1-experimental') }}/create/task-list">Back to notification tasklist</a>
     </p>
+    {% endif %}
 
     <dialog class="ns-dialog" id="commodity-remove-dialog" aria-labelledby="commodity-remove-dialog-title" aria-describedby="commodity-remove-dialog-body">
       <div class="govuk-!-padding-4">

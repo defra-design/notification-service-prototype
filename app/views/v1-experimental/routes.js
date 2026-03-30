@@ -4,6 +4,7 @@
 
 const BASE = '/v1-experimental'
 const { isPetConsignment, isLivestockConsignment } = require('../../lib/create-helpers.js')
+const { assignDraftNotificationReferenceIfNeeded } = require('../../lib/draft-notification-reference.js')
 
 // For code 0102 (bovine), use the definition with speciesByType (Domestic/Game)
 function getCommodityDetailsForSpecies (commoditiesData, commodityKey) {
@@ -147,20 +148,14 @@ function buildExperimentalTaskListSections (data, basePath) {
 
   return [
     {
-      idPrefix: 'notification-origin',
-      heading: 'Origin of the notification',
+      idPrefix: 'notification-consignment',
+      heading: '1. The consignment',
       items: [
         taskItem(
           'Where is this consignment coming from?',
           `${bp}/origin`,
           originDone ? statusCompleted : statusIncomplete
-        )
-      ]
-    },
-    {
-      idPrefix: 'notification-commodities',
-      heading: 'Your commodities',
-      items: [
+        ),
         taskItem(
           'Your commodities',
           `${bp}/commodity-hub`,
@@ -170,13 +165,7 @@ function buildExperimentalTaskListSections (data, basePath) {
           'Additional animal details',
           `${bp}/additional-animal-details`,
           additionalAnimalDone ? statusCompleted : statusIncomplete
-        )
-      ]
-    },
-    {
-      idPrefix: 'notification-import-reason',
-      heading: 'Reason for import',
-      items: [
+        ),
         taskItem(
           'Main reason for importing the animals',
           `${bp}/import-reason`,
@@ -185,8 +174,8 @@ function buildExperimentalTaskListSections (data, basePath) {
       ]
     },
     {
-      idPrefix: 'notification-consignment-addresses',
-      heading: 'Consignment addresses',
+      idPrefix: 'notification-addresses',
+      heading: '2. Addresses',
       items: [
         taskItem(
           'Addresses',
@@ -210,20 +199,14 @@ function buildExperimentalTaskListSections (data, basePath) {
       ]
     },
     {
-      idPrefix: 'notification-transport',
-      heading: 'Transport and arrival',
+      idPrefix: 'notification-movement',
+      heading: '3. Movement',
       items: [
         taskItem(
           'Transport details',
           `${bp}/transport-and-arrival`,
           transportDone ? statusCompleted : statusIncomplete
-        )
-      ]
-    },
-    {
-      idPrefix: 'notification-documents',
-      heading: 'Documents',
-      items: [
+        ),
         taskItem(
           'Accompanying documents',
           `${bp}/accompanying-documents`,
@@ -233,12 +216,12 @@ function buildExperimentalTaskListSections (data, basePath) {
     },
     {
       idPrefix: 'notification-check-send',
-      heading: 'Check and send',
+      heading: '4. Check and send',
       items: [
         taskItem(
           'Review and submit',
           transportDone && documentsDone ? `${bp}/check-your-answers` : undefined,
-          !(transportDone && documentsDone) ? statusCannotStartYet : statusIncomplete
+          !(transportDone && documentsDone) ? statusCannotStartYet : statusCompleted
         )
       ]
     }
@@ -248,6 +231,7 @@ function buildExperimentalTaskListSections (data, basePath) {
 module.exports = (router) => {
   router.use(BASE, (req, res, next) => {
     res.locals.basePath = BASE
+    res.locals.taskListAccessible = !!(req.session.data && req.session.data.taskListUnlocked)
     next()
   })
 
@@ -255,17 +239,173 @@ module.exports = (router) => {
     res.render('v1-experimental/start')
   })
 
-  const { registerDashboardRoutes } = require('../../lib/dashboard.js')
+  const { registerDashboardRoutes, rebuildSessionPreservingSubmittedAndFilters } = require('../../lib/dashboard.js')
   const notifications = require('../../data/notifications')
+  const {
+    findNotificationRow,
+    deleteNotificationByReference,
+    preserveForNotificationListMutation,
+    buildFullViewSessionMockFromNotificationRow
+  } = require('../../lib/notification-view-helpers.js')
+  const { buildCheckYourAnswersData, registerPostHubRoutes } = require('./post-hub-routes.js')
+
+  function buildNotificationDetailsSnapshot (ref, data) {
+    const found = findNotificationRow(ref, data, notifications)
+    if (!found) return null
+    if (found.kind === 'session-draft') {
+      const viewData = buildCheckYourAnswersData(data, `${BASE}/create`)
+      viewData.basePath = BASE
+      viewData.readOnly = true
+      viewData.readOnlyPageTitle = 'Notification details'
+      viewData.viewPageCaption = `${ref} (Draft)`
+      viewData.viewBackLinkHref = `${BASE}/dashboard`
+      viewData.amendHref = `${BASE}/notification/${encodeURIComponent(ref)}/amend`
+      viewData.readOnlyPrimaryButtonText = 'Continue notification'
+      viewData.notificationDeleteHref = `${BASE}/notification/${encodeURIComponent(ref)}/delete`
+      viewData.viewNotificationReference = ref
+      viewData.readOnlyShowCopyAsNew = false
+      return viewData
+    }
+    const row = found.row
+    const sessionLike = buildFullViewSessionMockFromNotificationRow(row)
+    const viewData = buildCheckYourAnswersData(sessionLike, `${BASE}/create`)
+    viewData.basePath = BASE
+    viewData.readOnly = true
+    viewData.readOnlyPageTitle = 'Notification details'
+    viewData.viewPageCaption = row.status === 'draft' ? `${ref} (Draft)` : ref
+    viewData.viewBackLinkHref = `${BASE}/dashboard`
+    viewData.amendHref = `${BASE}/notification/${encodeURIComponent(ref)}/amend`
+    viewData.readOnlyPrimaryButtonText =
+      row.status === 'draft' ? 'Continue notification' : 'Amend this notification'
+    viewData.notificationDeleteHref = `${BASE}/notification/${encodeURIComponent(ref)}/delete`
+    viewData.viewNotificationReference = ref
+    const isSubmitted =
+      found.kind === 'submitted' || (found.kind === 'static' && row.status === 'submitted')
+    viewData.readOnlyShowCopyAsNew = isSubmitted
+    viewData.copyAsNewHref = isSubmitted ? '#' : null
+    return viewData
+  }
+
   registerDashboardRoutes(router, BASE, {
     templatePath: 'v1-experimental/dashboard',
     notifications
   })
 
+  router.get(`${BASE}/notification/:reference/amend`, (req, res) => {
+    const ref = String(req.params.reference || '').trim()
+    const data = req.session.data || {}
+    const found = findNotificationRow(ref, data, notifications)
+    if (!found) {
+      return res.redirect(`${BASE}/dashboard`)
+    }
+    if (found.kind === 'session-draft') {
+      return res.redirect(`${BASE}/create/task-list`)
+    }
+    if (!found.row) {
+      return res.redirect(`${BASE}/dashboard`)
+    }
+    const next = preserveForNotificationListMutation(data)
+    req.session.data = next
+    const fullSession = buildFullViewSessionMockFromNotificationRow(found.row)
+    Object.assign(req.session.data, fullSession)
+    req.session.data.taskListUnlocked = true
+    req.session.data.draftNotificationReference = ref
+    syncFirstCommodityToSession(req.session.data)
+    res.redirect(`${BASE}/create/task-list`)
+  })
+
+  router.post(`${BASE}/notification/:reference/delete`, (req, res) => {
+    const ref = String(req.params.reference || '').trim()
+    const data = req.session.data || {}
+    const snapshot = buildNotificationDetailsSnapshot(ref, data)
+    if (!snapshot) {
+      return res.redirect(`${BASE}/dashboard`)
+    }
+    const result = deleteNotificationByReference(ref, data, notifications)
+    if (!result.ok) {
+      return res.redirect(`${BASE}/dashboard`)
+    }
+    if (result.mode === 'session-draft') {
+      req.session.data = rebuildSessionPreservingSubmittedAndFilters(data)
+    }
+    if (!req.session.data) req.session.data = {}
+    req.session.data.deletedNotificationSnapshot = snapshot
+    res.redirect(`${BASE}/notification/deleted`)
+  })
+
+  router.get(`${BASE}/notification/deleted`, (req, res) => {
+    const data = req.session.data || {}
+    const snapshot = data.deletedNotificationSnapshot
+    if (!snapshot) {
+      return res.redirect(`${BASE}/dashboard`)
+    }
+    delete data.deletedNotificationSnapshot
+    res.render('v1-experimental/create/check-your-answers', {
+      ...snapshot,
+      showDeletionSuccessBanner: true,
+      readOnlyHideActions: true,
+      pageTitleOnly: 'Notification deleted',
+      readOnlyIntro: ''
+    })
+  })
+
+  router.get(`${BASE}/notification/demo/full-view`, (req, res) => {
+    const notificationFullViewMock = require('../../data/notification-full-view-mock.js')
+    const viewData = buildCheckYourAnswersData(notificationFullViewMock, `${BASE}/create`)
+    viewData.basePath = BASE
+    viewData.readOnly = true
+    viewData.readOnlyPageTitle = 'Notification details'
+    viewData.viewPageCaption = 'IMP.GB.2026.1003455'
+    viewData.readOnlyIntro = 'Fictional full record for the same reference as the dashboard example IMP.GB.2026.1003455. Date created 15 April 2026. Arrival at destination 20 April 2026.'
+    viewData.viewBackLinkHref = `${BASE}/dashboard`
+    viewData.amendHref = `${BASE}/notification/IMP.GB.2026.1003455/amend`
+    viewData.readOnlyPrimaryButtonText = 'Amend this notification'
+    viewData.notificationDeleteHref = `${BASE}/notification/demo/full-view/delete`
+    viewData.readOnlyShowCopyAsNew = true
+    viewData.copyAsNewHref = '#'
+    res.render('v1-experimental/create/check-your-answers', viewData)
+  })
+
+  router.post(`${BASE}/notification/demo/full-view/delete`, (req, res) => {
+    const notificationFullViewMock = require('../../data/notification-full-view-mock.js')
+    const snapshot = buildCheckYourAnswersData(notificationFullViewMock, `${BASE}/create`)
+    snapshot.basePath = BASE
+    snapshot.readOnly = true
+    snapshot.readOnlyPageTitle = 'Notification details'
+    snapshot.viewPageCaption = 'IMP.GB.2026.1003455'
+    snapshot.readOnlyIntro = 'Fictional full record for the same reference as the dashboard example IMP.GB.2026.1003455. Date created 15 April 2026. Arrival at destination 20 April 2026.'
+    snapshot.viewBackLinkHref = `${BASE}/dashboard`
+    snapshot.amendHref = `${BASE}/notification/IMP.GB.2026.1003455/amend`
+    snapshot.readOnlyPrimaryButtonText = 'Amend this notification'
+    snapshot.notificationDeleteHref = `${BASE}/notification/demo/full-view/delete`
+    snapshot.readOnlyShowCopyAsNew = true
+    snapshot.copyAsNewHref = '#'
+    if (!req.session.data) req.session.data = {}
+    req.session.data.deletedNotificationSnapshot = snapshot
+    res.redirect(`${BASE}/notification/deleted`)
+  })
+
+  router.get(`${BASE}/notification/:reference`, (req, res) => {
+    const ref = String(req.params.reference || '').trim()
+    const data = req.session.data || {}
+    const viewData = buildNotificationDetailsSnapshot(ref, data)
+    if (!viewData) {
+      return res.redirect(`${BASE}/dashboard`)
+    }
+    res.render('v1-experimental/create/check-your-answers', viewData)
+  })
+
   router.get(`${BASE}/create/task-list`, (req, res) => {
     const data = req.session.data || {}
+    if (!data.taskListUnlocked) {
+      return res.redirect(`${BASE}/create/commodity-hub`)
+    }
+    assignDraftNotificationReferenceIfNeeded(data)
+    const ref = (data.draftNotificationReference || '').trim()
+    const taskListCaption = ref ? `${ref} (Draft)` : null
     res.render('v1-experimental/create/task-list', {
-      taskSections: buildExperimentalTaskListSections(data, BASE)
+      taskSections: buildExperimentalTaskListSections(data, BASE),
+      taskListCaption
     })
   })
 
@@ -553,6 +693,8 @@ module.exports = (router) => {
       req.session.data = req.session.data || {}
       req.session.data.returnTo = 'check-your-answers'
       if (req.query.anchor) req.session.data.returnToAnchor = req.query.anchor
+      req.session.data.taskListUnlocked = true
+      assignDraftNotificationReferenceIfNeeded(req.session.data)
     }
     const { items, totalAnimals, totalPackages } = buildCommoditiesForHub(req)
     if (items.length === 0) {
@@ -625,6 +767,8 @@ module.exports = (router) => {
     if (remaining.length === 0) {
       clearCommoditySession(req.session.data)
       req.session.data.commodityFromHub = false
+      delete req.session.data.taskListUnlocked
+      delete req.session.data.draftNotificationReference
       delete req.session.data.errors
       delete req.session.data.errorList
       return res.redirect(`${BASE}/create/commodity`)
@@ -657,6 +801,8 @@ module.exports = (router) => {
       return res.redirect(`${BASE}/create/commodity-hub`)
     }
     if (!data.importType) data.importType = 'live-animals'
+    data.taskListUnlocked = true
+    assignDraftNotificationReferenceIfNeeded(data)
     if (data.returnTo === 'check-your-answers') {
       delete data.returnTo
       const anchor = data.returnToAnchor
@@ -672,7 +818,6 @@ module.exports = (router) => {
   })
 
   // Post-hub routes (animal-identification through confirmation)
-  const { registerPostHubRoutes } = require('./post-hub-routes.js')
   registerPostHubRoutes(router, BASE)
 
   // Prefill for quick testing
