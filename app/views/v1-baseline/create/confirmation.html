@@ -30,11 +30,11 @@
     <div class="govuk-!-margin-top-6">
       {{ govukButton({
         text: "Add another notification",
-        href: "/v1-baseline/create/import-type"
+        href: (basePath or '/v1-baseline') + '/create/import-type'
       }) }}
     </div>
     <p class="govuk-body govuk-!-margin-top-4">
-      <a href="/v1-baseline/dashboard" class="govuk-link govuk-link--no-visited-state">Back to dashboard</a>
+      <a href="{{ (basePath or '/v1-baseline') }}/dashboard" class="govuk-link govuk-link--no-visited-state">Back to dashboard</a>
     </p>
 
   </div>

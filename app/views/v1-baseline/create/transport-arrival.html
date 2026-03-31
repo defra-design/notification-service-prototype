@@ -1,23 +1,53 @@
 
 {% extends "layouts/v1-baseline-forms.html" %}
-{% set title = "When will the animals arrive at the place of destination?" %}
-{% set backLinkHref = "/v1-baseline/create/contact-address-for-consignment" %}
+{% from "govuk/components/input/macro.njk" import govukInput %}
+{% set title = "Arrival in Great Britain and at the destination" %}
+{% set backLinkHref = backHref or (basePath or '/v1-baseline') + '/create/transport-transporter' %}
 
 {% block formContent %}
 
 {% from "includes/page-header.njk" import pageHeader %}
-{% call pageHeader(title, "Transport", "two-thirds") %}
+{% call pageHeader(title, null, "two-thirds") %}
+    <p class="govuk-body govuk-!-margin-bottom-6">
+      Tell us where the consignment will enter Great Britain and when the animals are expected to arrive at their final destination.
+    </p>
     <form method="post" novalidate>
+      <div class="govuk-form-group {% if data.errors and data.errors.ukBorderPort %}govuk-form-group--error{% endif %}">
+        <label class="govuk-label govuk-label--m" for="ukBorderPort">
+          Port of entry
+        </label>
+        {% if data.errors and data.errors.ukBorderPort %}
+          <p id="ukBorderPort-error" class="govuk-error-message">
+            <span class="govuk-visually-hidden">Error:</span> {{ data.errors.ukBorderPort }}
+          </p>
+        {% endif %}
+        <div id="ukBorderPort-hint" class="govuk-hint">
+          Start typing to search by port or airport name or code.
+        </div>
+        <div class="autocomplete-wrapper autocomplete-wrapper--30em">
+          <input type="hidden" name="ukBorderPort" id="ukBorderPort-value" value="{{ data.ukBorderPort or '' }}">
+          <select class="govuk-select" id="ukBorderPort" aria-describedby="ukBorderPort-hint{% if data.errors and data.errors.ukBorderPort %} ukBorderPort-error{% endif %}"{% if data.errors and data.errors.ukBorderPort %} aria-invalid="true"{% endif %}>
+            <option value="">Start typing to search</option>
+            {% for opt in borderPortItems %}
+              {% if opt.value %}
+              <option value="{{ opt.value }}" {% if data.ukBorderPort == opt.value %}selected{% endif %}>{{ opt.text }}</option>
+              {% endif %}
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+
       {{ govukInput({
         id: "arrivalDate",
         name: "arrivalDate",
         type: "date",
         label: {
-          text: "Arrival date"
+          text: "Arrival date at destination",
+          classes: "govuk-label--m"
         },
-        value: data.arrivalDate or defaultArrivalDate,
+        value: data.arrivalDate,
         hint: {
-          text: "For example, 27 3 2023"
+          text: "Enter the date the animals are expected to arrive at their destination. For example, 27 March 2026."
         },
         classes: "govuk-input--width-10",
         attributes: {
@@ -26,15 +56,60 @@
         errorMessage: data.errors and data.errors.arrivalDate and { text: data.errors.arrivalDate } or null
       }) }}
 
-      {{ govukButton({
-        text: "Save and continue"
-      }) }}
+      {% include "includes/save-continue-and-task-list.njk" %}
     </form>
 
     {% set quickFillHref = (basePath or '/v1-baseline') + '/create/transport-arrival-prefill' %}
     {% include "includes/quick-fill-internal-link.njk" %}
 
-  </div>
-</div>
+{% endcall %}
 
+{% endblock %}
+
+{% block pageScripts %}
+  <script src="https://cdn.jsdelivr.net/npm/accessible-autocomplete@2.0.4/dist/accessible-autocomplete.min.js"></script>
+  <script>
+    (function () {
+      var selectEl = document.querySelector('#ukBorderPort')
+
+      function syncUkBorderPortHidden () {
+        var hid = document.getElementById('ukBorderPort-value')
+        var sel = document.getElementById('ukBorderPort-select') || selectEl
+        if (hid && sel && sel.tagName === 'SELECT') {
+          hid.value = sel.value || ''
+        }
+      }
+
+      var form = document.querySelector('form')
+      if (form) {
+        form.addEventListener('submit', syncUkBorderPortHidden)
+      }
+
+      if (selectEl && typeof accessibleAutocomplete !== 'undefined') {
+        accessibleAutocomplete.enhanceSelectElement({
+          autoselect: true,
+          showAllValues: false,
+          placeholder: 'Type to search',
+          defaultValue: (function () {
+            var opt = selectEl.options[selectEl.options.selectedIndex]
+            if (!opt || !opt.value) return ''
+            return opt.textContent || opt.innerText
+          })(),
+          minLength: 1,
+          selectElement: selectEl,
+          onConfirm: function (query) {
+            var opt = [].filter.call(selectEl.options, function (o) {
+              return (o.textContent || o.innerText) === query
+            })[0]
+            if (opt) opt.selected = true
+            var val = opt ? opt.value : ''
+            var hid = document.getElementById('ukBorderPort-value')
+            if (hid) hid.value = val || ''
+            syncUkBorderPortHidden()
+          }
+        })
+        selectEl.addEventListener('change', syncUkBorderPortHidden)
+      }
+    })()
+  </script>
 {% endblock %}

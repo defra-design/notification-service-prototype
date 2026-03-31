@@ -1,13 +1,12 @@
 
 {% extends "layouts/v1-baseline-forms.html" %}
 {% set title = "Permanent addresses for these animals" %}
-
-{% set backLinkHref = backHref or "/v1-baseline/create/addresses" %}
+{% set backLinkHref = backHref or (basePath or '/v1-baseline') + '/create/addresses' %}
 
 {% block formContent %}
 
 {% from "includes/page-header.njk" import pageHeader %}
-{% call pageHeader(title, "Addresses", "two-thirds") %}
+{% call pageHeader(title, null, "two-thirds") %}
     {{ govukInsetText({
       html: "You must provide accurate information."
     }) }}
@@ -140,9 +139,7 @@
         value: data.permanentAddressSameAsPOD
       }) }}
 
-      {{ govukButton({
-        text: "Save and continue"
-      }) }}
+      {% include "includes/save-continue-and-task-list.njk" %}
     </form>
 
     {% set quickFillHref = (basePath or '/v1-baseline') + '/create/permanent-addresses-for-animals-prefill' %}

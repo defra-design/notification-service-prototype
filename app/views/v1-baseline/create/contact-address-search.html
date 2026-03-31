@@ -1,10 +1,12 @@
 
 {% extends "layouts/v1-baseline.html" %}
+{% from "govuk/components/input/macro.njk" import govukInput %}
+{% from "govuk/components/select/macro.njk" import govukSelect %}
 {% from "govuk/components/button/macro.njk" import govukButton %}
 {% from "govuk/components/pagination/macro.njk" import govukPagination %}
 
-{% set title = "Search for an existing place of destination" %}
-{% set backLinkHref = (basePath or '/v1-experimental') + '/create/addresses' %}
+{% set title = "Search for a contact address for consignment" %}
+{% set backLinkHref = (basePath or '/v1-baseline') + '/create/addresses#contact-address' %}
 
 {% block content %}
 
@@ -17,28 +19,15 @@
           <div class="govuk-grid-column-one-third">
             <div class="govuk-form-group">
               <label class="govuk-label" for="searchName">Name</label>
-              <input class="govuk-input" id="searchName" name="searchName" type="text" value="{{ data.searchPlaceOfDestinationName or '' }}">
+              <input class="govuk-input" id="searchName" name="searchName" type="text" value="{{ data.contactSearchName or searchName or '' }}">
             </div>
           </div>
           <div class="govuk-grid-column-one-third">
             <div class="govuk-form-group">
               <label class="govuk-label" for="searchAddress">Address</label>
-              <input class="govuk-input" id="searchAddress" name="searchAddress" type="text" value="{{ data.searchPlaceOfDestinationAddress or '' }}">
+              <input class="govuk-input" id="searchAddress" name="searchAddress" type="text" value="{{ data.contactSearchAddress or searchAddress or '' }}">
             </div>
           </div>
-          <div class="govuk-grid-column-one-third">
-            <div class="govuk-form-group">
-              <label class="govuk-label" for="searchType">Type</label>
-              <select class="govuk-select" id="searchType" name="searchType">
-                <option value="">Select type</option>
-                {% for type in types %}
-                  <option value="{{ type }}" {% if data.searchPlaceOfDestinationType == type %}selected{% endif %}>{{ type }}</option>
-                {% endfor %}
-              </select>
-            </div>
-          </div>
-        </div>
-        <div class="govuk-grid-row">
           <div class="govuk-grid-column-one-third">
             <div class="govuk-form-group">
               <label class="govuk-label" for="searchCountry">Country</label>
@@ -46,7 +35,7 @@
                 <select class="govuk-select" id="searchCountry" name="searchCountry">
                   <option value="">Type country name</option>
                   {% for country in countries %}
-                    <option value="{{ country }}" {% if data.searchPlaceOfDestinationCountry == country %}selected{% endif %}>{{ country }}</option>
+                    <option value="{{ country }}" {% if (data.contactSearchCountry or searchCountry) == country %}selected{% endif %}>{{ country }}</option>
                   {% endfor %}
                 </select>
               </div>
@@ -57,7 +46,7 @@
           {{ govukButton({
             text: "Search"
           }) }}
-          <a href="{{ (basePath or '/v1-experimental') }}/create/address-place-of-destination-search?searchName=&searchAddress=&searchType=&searchCountry=" class="govuk-link govuk-link--no-visited-state">Clear search</a>
+          <a href="{{ (basePath or '/v1-baseline') }}/create/contact-address-search?searchName=&searchAddress=&searchCountry=" class="govuk-link govuk-link--no-visited-state">Clear search</a>
         </div>
       </form>
     </div>
@@ -68,7 +57,6 @@
         <tr class="govuk-table__row">
           <th scope="col" class="govuk-table__header">Name</th>
           <th scope="col" class="govuk-table__header">Address</th>
-          <th scope="col" class="govuk-table__header">Type</th>
           <th scope="col" class="govuk-table__header"><span class="govuk-visually-hidden">Actions</span></th>
         </tr>
       </thead>
@@ -81,25 +69,18 @@
             <br>
             <span class="govuk-body-s govuk-!-display-block govuk-!-margin-top-1 address-country">{{ row.country }}</span>
           </td>
-          <td class="govuk-table__cell">{{ row.type or '—' }}</td>
           <td class="govuk-table__cell">
-            <a href="#" class="govuk-link govuk-!-font-size-16">View</a>
-            <span aria-hidden="true"> | </span>
-            <a href="{{ (basePath or '/v1-experimental') }}/create/addresses?placeOfDestination={{ row.id }}#place-of-destination" class="govuk-link govuk-!-font-size-16">Select</a>
+            <a href="{{ (basePath or '/v1-baseline') }}/create/addresses?contactAddress={{ row.id }}#contact-address" class="govuk-link govuk-!-font-size-16">Select</a>
           </td>
         </tr>
         {% endfor %}
       </tbody>
     </table>
 
-    <p class="govuk-body govuk-!-margin-top-4">
-      <a href="#" class="govuk-link govuk-!-font-size-16">Create a new place of destination</a>
-    </p>
-
     {% if totalPages > 1 %}
     <div class="govuk-!-margin-top-6">
-      {% set prevHref = "?page=" + (page - 1) + "&searchName=" + (data.searchPlaceOfDestinationName or '') + "&searchAddress=" + (data.searchPlaceOfDestinationAddress or '') + "&searchType=" + (data.searchPlaceOfDestinationType or '') + "&searchCountry=" + (data.searchPlaceOfDestinationCountry or '') %}
-      {% set nextHref = "?page=" + (page + 1) + "&searchName=" + (data.searchPlaceOfDestinationName or '') + "&searchAddress=" + (data.searchPlaceOfDestinationAddress or '') + "&searchType=" + (data.searchPlaceOfDestinationType or '') + "&searchCountry=" + (data.searchPlaceOfDestinationCountry or '') %}
+      {% set prevHref = "?page=" + (page - 1) + "&searchName=" + (searchName or '') + "&searchAddress=" + (searchAddress or '') + "&searchCountry=" + (searchCountry or '') %}
+      {% set nextHref = "?page=" + (page + 1) + "&searchName=" + (searchName or '') + "&searchAddress=" + (searchAddress or '') + "&searchCountry=" + (searchCountry or '') %}
       {{ govukPagination({
         landmarkLabel: "Results pagination",
         classes: "govuk-!-margin-top-0",
@@ -117,6 +98,10 @@
     </div>
     {% endif %}
     {% endif %}
+
+    <p class="govuk-body govuk-!-margin-top-4">
+      <a href="{{ (basePath or '/v1-baseline') }}/create/contact-address-add-branch" class="govuk-link govuk-!-font-size-16">Create a new contact address for consignment</a>
+    </p>
 
 {% endcall %}
 

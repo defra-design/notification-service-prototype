@@ -1,0 +1,58 @@
+
+{% extends "layouts/v1-baseline.html" %}
+{% from "govuk/components/task-list/macro.njk" import govukTaskList %}
+{% from "govuk/components/error-summary/macro.njk" import govukErrorSummary %}
+{% from "govuk/components/button/macro.njk" import govukButton %}
+
+{% set title = "Notification tasklist" %}
+{% set showBackLink = false %}
+
+{% block content %}
+
+{% from "includes/page-header.njk" import pageHeader %}
+
+{% call pageHeader(title, taskListCaption, "full") %}
+    {% if errorList %}
+    {{ govukErrorSummary({
+      titleText: "There is a problem",
+      errorList: errorList
+    }) }}
+    {% endif %}
+    <p class="govuk-body govuk-!-margin-bottom-6">
+      {% if errorList %}
+      You must complete every required task before you can check your answers and submit your notification.
+      {% else %}
+      Complete the tasks below. Use the button at the end of the page to check your answers and submit your notification when you are ready.
+      {% endif %}
+    </p>
+
+    {% for section in taskSections %}
+    <div id="{{ section.sectionId }}" class="govuk-!-margin-bottom-0">
+      <h2 class="govuk-heading-m {% if not loop.first %}govuk-!-margin-top-8{% endif %}">{{ section.heading }}</h2>
+      {{ govukTaskList({
+        idPrefix: section.idPrefix,
+        classes: "govuk-!-margin-top-2",
+        items: section.items
+      }) }}
+    </div>
+    {% endfor %}
+
+{% endcall %}
+
+<form method="post" action="{{ (basePath or '/v1-baseline') }}/create/task-list" novalidate class="govuk-!-margin-top-8">
+  <div class="govuk-button-group">
+    {{ govukButton({
+      text: "Return to your dashboard",
+      name: "taskListNext",
+      value: "dashboard",
+      classes: "govuk-button--secondary"
+    }) }}
+    {{ govukButton({
+      text: "Check your answers and submit",
+      name: "taskListNext",
+      value: "check"
+    }) }}
+  </div>
+</form>
+
+{% endblock %}

@@ -1,14 +1,20 @@
 
 {% extends "layouts/v1-baseline.html" %}
-{% from "govuk/components/button/macro.njk" import govukButton %}
 {% from "govuk/components/summary-list/macro.njk" import govukSummaryList %}
+{% from "govuk/components/error-summary/macro.njk" import govukErrorSummary %}
 {% set title = "Add a transporter" %}
-{% set backLinkHref = "/v1-baseline/create/transport-arrival" %}
+{% set backLinkHref = backHref or (basePath or '/v1-baseline') + '/create/addresses' %}
 
 {% block content %}
 
 {% from "includes/page-header.njk" import pageHeader %}
-{% call pageHeader(title, "Transport", "two-thirds") %}
+{% call pageHeader(title, null, "two-thirds") %}
+    {% if data.errors %}
+    {{ govukErrorSummary({
+      titleText: "There is a problem",
+      errorList: data.errorList
+    }) }}
+    {% endif %}
     <p class="govuk-body govuk-!-margin-bottom-4">
       Your transporter must hold a valid transporter authorisation, issued by DAERA or APHA in the UK if they are:
     </p>
@@ -32,14 +38,13 @@
 
     <form method="post" novalidate>
       <div class="govuk-!-margin-top-6 govuk-!-margin-bottom-6">
-        <h2 class="govuk-heading-m govuk-!-margin-bottom-2">Transporter details</h2>
         {% if hasTransporter %}
         <p class="govuk-hint govuk-!-margin-bottom-3">The organisation who will transport the animals to the place of destination.</p>
         {{ govukSummaryList({
           card: {
             title: { text: "Transporter details" },
             actions: { items: [
-              { href: "/v1-baseline/create/address-consignee-search?returnTo=transport-transporter", text: "Change" }
+              { href: (basePath or '/v1-baseline') + '/create/address-consignee-search?returnTo=transport-transporter', text: "Change" }
             ] }
           },
           rows: [
@@ -50,15 +55,20 @@
           ]
         }) }}
         {% else %}
-        <p class="govuk-body govuk-!-margin-bottom-0">
-          <a href="/v1-baseline/create/address-consignee-search?returnTo=transport-transporter" class="govuk-link govuk-!-font-size-16">Add a transporter</a>
-        </p>
+        <div class="govuk-summary-card" id="transporter-details">
+          <div class="govuk-summary-card__title-wrapper">
+            <h2 class="govuk-summary-card__title govuk-summary-card__title--no-actions">Transporter details</h2>
+          </div>
+          <div class="govuk-summary-card__content">
+            <p class="govuk-body govuk-!-margin-bottom-0">
+              <a href="{{ (basePath or '/v1-baseline') }}/create/address-consignee-search?returnTo=transport-transporter" class="govuk-link">Add a transporter</a>
+            </p>
+          </div>
+        </div>
         {% endif %}
       </div>
 
-      {{ govukButton({
-        text: "Save and continue"
-      }) }}
+      {% include "includes/save-continue-and-task-list.njk" %}
     </form>
 
     {% set quickFillHref = (basePath or '/v1-baseline') + '/create/transport-transporter-prefill' %}

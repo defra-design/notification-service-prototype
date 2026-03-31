@@ -1,12 +1,12 @@
 
 {% extends "layouts/v1-baseline-forms.html" %}
 {% set title = "Add the County Parish Holding number (CPH)" %}
-{% set backLinkHref = "/v1-baseline/create/addresses" %}
+{% set backLinkHref = (basePath or '/v1-baseline') + '/create/addresses' %}
 
 {% block formContent %}
 
 {% from "includes/page-header.njk" import pageHeader %}
-{% call pageHeader(title, "Addresses", "two-thirds") %}
+{% call pageHeader(title, null, "two-thirds") %}
     <p class="govuk-body">
       The County Parish Holding (CPH) number identifies the holding where the animals will be kept. You can find it on your movement documents or in your holding registration.
     </p>
@@ -32,9 +32,7 @@
         errorMessage: data.errors and data.errors.cphNumber and { text: data.errors.cphNumber } or null
       }) }}
 
-      {{ govukButton({
-        text: "Save and continue"
-      }) }}
+      {% include "includes/save-continue-and-task-list.njk" %}
 
       {% set quickFillHref = (basePath or '/v1-baseline') + '/create/address-cph-prefill' %}
       {% include "includes/quick-fill-internal-link.njk" %}

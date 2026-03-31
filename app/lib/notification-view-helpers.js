@@ -132,10 +132,102 @@ function seedSessionFromDashboardRow (data, row, reference) {
   data[`numberOfPackages_${spKey}`] = 1
 }
 
+function toSpeciesKey (s) {
+  return String(s || '').replace(/\s+/g, '_').toLowerCase().replace(/[^a-z0-9_]/g, '')
+}
+
+function stripLivestockIdentificationFields (session) {
+  Object.keys(session).forEach((k) => {
+    if (/^(animalCount_|earTag_|passport_|numberOfPackages_)/.test(k)) delete session[k]
+  })
+}
+
+function resolveEuCommodityKeyForDashboardRow (parsed, commoditiesEu) {
+  let key = parsed.commodityKey
+  const codeNorm = String(parsed.code || '').replace(/\s/g, '')
+  if (key === 'Cattle' && parsed.speciesName === 'Bos taurus' && commoditiesEu.Cow) {
+    key = 'Cow'
+  }
+  if (!key || !commoditiesEu[key]) {
+    if (codeNorm) {
+      const matches = Object.keys(commoditiesEu).filter((k) => {
+        const d = commoditiesEu[k]
+        return d && String(d.code).replace(/\s/g, '') === codeNorm
+      })
+      if (matches.length === 1) {
+        key = matches[0]
+      } else if (matches.length > 1) {
+        if (codeNorm === '0102' && parsed.speciesName === 'Bos taurus' && matches.includes('Cow')) {
+          key = 'Cow'
+        } else if (parsed.speciesName) {
+          const withSpecies = matches.filter((k) => {
+            const d = commoditiesEu[k]
+            const list = d.speciesByType
+              ? [...new Set(Object.values(d.speciesByType).flat())]
+              : (d.species || [])
+            return list.includes(parsed.speciesName)
+          })
+          key = (withSpecies.length === 1 ? withSpecies[0] : null) || (matches.includes('Cow') ? 'Cow' : matches[0])
+        } else {
+          key = matches.includes('Cow') ? 'Cow' : matches[0]
+        }
+      }
+    }
+  }
+  return key && commoditiesEu[key] ? key : null
+}
+
+function applyDashboardCommodityToFullViewCopy (copy, row) {
+  if (!row || !row.commodity || typeof row.commodity !== 'string') return
+  const commoditiesEu = require('../data/commodities-eu.js')
+  const parsed = parseCommodityFromDashboardLabel(row.commodity.trim())
+  const key = resolveEuCommodityKeyForDashboardRow(parsed, commoditiesEu)
+  if (!key) return
+  const det = commoditiesEu[key]
+  if (!det) return
+
+  const speciesList = det.speciesByType
+    ? [...new Set(Object.values(det.speciesByType).flat())]
+    : (det.species || [])
+  let species = parsed.speciesName
+  if (speciesList.length) {
+    if (!species || !speciesList.includes(species)) {
+      species = speciesList[0]
+    }
+  } else if (!species) {
+    species = 'Bos taurus'
+  }
+
+  const spKey = toSpeciesKey(species)
+  stripLivestockIdentificationFields(copy)
+
+  const count = 4
+  const packages = 2
+  copy.commodity = key
+  copy.commoditySpecies = [species]
+  copy.commodityType = 'domestic'
+  copy.commodities = [{
+    commodity: key,
+    commoditySpecies: [species],
+    commodityType: 'domestic',
+    quantities: { [`quantity_${spKey}`]: count, [`packages_${spKey}`]: packages }
+  }]
+  copy[`animalCount_${spKey}`] = count
+
+  const passportPrefix = /equus/i.test(species) ? 'EU-EQU' : 'EU-BOV'
+  for (let i = 1; i <= count; i++) {
+    copy[`earTag_${spKey}_${i}`] = `FI-LT-${String(302210 + i).padStart(6, '0')}`
+    copy[`passport_${spKey}_${i}`] = `${passportPrefix}-${String(442200 + i).padStart(5, '0')}`
+  }
+}
+
 function buildFullViewSessionMockFromNotificationRow (row) {
   const base = require('../data/notification-full-view-mock.js')
   const copy = JSON.parse(JSON.stringify(base))
   if (!row || typeof row !== 'object') return copy
+  copy.documents = Array.isArray(row.documents)
+    ? JSON.parse(JSON.stringify(row.documents))
+    : []
   if (row.origin) copy.countryOfOrigin = row.origin
   if (row.consignor) copy.consignorName = row.consignor
   if (row.consignee) {
@@ -146,6 +238,7 @@ function buildFullViewSessionMockFromNotificationRow (row) {
   }
   const iso = row.arrival ? ukLongDateToIso(row.arrival) : ''
   if (iso) copy.arrivalDate = iso
+  applyDashboardCommodityToFullViewCopy(copy, row)
   return copy
 }
 

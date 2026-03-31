@@ -1,12 +1,12 @@
 
 {% extends "layouts/v1-baseline-forms.html" %}
 {% set title = "Additional animal details" %}
-{% set backLinkHref = "/v1-baseline/create/animal-identification" %}
+{% set backLinkHref = (basePath or '/v1-baseline') + '/create/animal-identification' %}
 
 {% block formContent %}
 
 {% from "includes/page-header.njk" import pageHeader %}
-{% call pageHeader(title, "Description of the goods", "two-thirds") %}
+{% call pageHeader(title, null, "two-thirds") %}
     <form method="post" novalidate>
       {{ govukRadios({
         name: "animalsCertifiedFor",
@@ -47,9 +47,7 @@
       }) }}
       {% endif %}
 
-      {{ govukButton({
-        text: "Save and continue"
-      }) }}
+      {% include "includes/save-continue-and-task-list.njk" %}
 
       {% set quickFillHref = (basePath or '/v1-baseline') + '/create/additional-animal-details-prefill' %}
       {% include "includes/quick-fill-internal-link.njk" %}

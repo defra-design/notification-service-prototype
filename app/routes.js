@@ -36,6 +36,6 @@ router.get('/clear-data', (req, res) => {
   res.redirect(returnUrl)
 })
 
-// Version routes – add new versions here
-require('./views/v1-baseline/routes')(router)
+// Version routes – legacy /v1-experimental URLs redirect to v1-baseline (merged journey)
 require('./views/v1-experimental/routes')(router)
+require('./views/v1-baseline/routes')(router)

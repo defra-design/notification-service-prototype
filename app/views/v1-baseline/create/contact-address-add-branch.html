@@ -1,19 +1,19 @@
 
 {% extends "layouts/v1-baseline-forms.html" %}
-{% set title = "Add branch address" %}
-{% set backLinkHref = "/v1-baseline/create/contact-address-for-consignment" %}
+{% set title = "Add a contact address for consignment" %}
+{% set backLinkHref = (basePath or '/v1-baseline') + '/create/contact-address-search' %}
 
 {% block formContent %}
 
 {% from "includes/page-header.njk" import pageHeader %}
-{% call pageHeader(title, "Addresses", "two-thirds") %}
+{% call pageHeader(title, null, "two-thirds") %}
     <p class="govuk-body">
-      <a href="/v1-baseline/create/contact-address-for-consignment" class="govuk-link">Return to notification</a>
+      <a href="{{ (basePath or '/v1-baseline') }}/create/contact-address-search" class="govuk-link">Return to search</a>
     </p>
 
     <form method="post" novalidate>
       {{ govukInput({
-        label: { text: "Branch address name" },
+        label: { text: "Contact address name" },
         id: "branchAddressName",
         name: "branchAddressName",
         value: data.branchAddressName,
@@ -22,7 +22,7 @@
         errorMessage: data.errors and data.errors.branchAddressName and { text: data.errors.branchAddressName } or null
       }) }}
 
-      <h2 class="govuk-heading-s govuk-!-margin-top-6">Branch address</h2>
+      <h2 class="govuk-heading-s govuk-!-margin-top-6">Address</h2>
 
       {{ govukInput({
         label: { text: "Address line 1" },
@@ -115,9 +115,7 @@
         errorMessage: data.errors and data.errors.branchEmail and { text: data.errors.branchEmail } or null
       }) }}
 
-      {{ govukButton({
-        text: "Save and continue"
-      }) }}
+      {% include "includes/save-continue-and-task-list.njk" %}
     </form>
 
     {% set quickFillHref = (basePath or '/v1-baseline') + '/create/contact-address-add-branch-prefill' %}

@@ -1,7 +1,7 @@
 
 {% extends "layouts/v1-baseline-forms.html" %}
-{% set title = "Commodity" %}
-{% set backLinkHref = "/v1-baseline/create/commodity-species" %}
+{% set title = "How many animals are you importing?" %}
+{% set backLinkHref = backHref | default((basePath or '/v1-baseline') + "/create/commodity") %}
 
 {% block formContent %}
 
@@ -49,7 +49,7 @@
                 {% if data.errors and data.errors[species.quantityKey] %}
                   <p class="govuk-error-message" id="quantity-{{ species.key }}-error"><span class="govuk-visually-hidden">Error:</span> {{ data.errors[species.quantityKey] }}</p>
                 {% endif %}
-                <input class="govuk-input govuk-input--width-5" id="quantity-{{ species.key }}" name="{{ species.quantityKey }}" type="number" inputmode="numeric" pattern="[0-9]*" min="1" value="{{ data[species.quantityKey] if data[species.quantityKey] is defined else '' }}" {% if data.errors and data.errors[species.quantityKey] %}aria-describedby="quantity-{{ species.key }}-error" aria-invalid="true"{% endif %}>
+                <input class="govuk-input govuk-input--width-5" id="quantity-{{ species.key }}" name="{{ species.quantityKey }}" type="number" inputmode="numeric" pattern="[0-9]*" min="0" value="{{ data[species.quantityKey] if data[species.quantityKey] is defined else '' }}" {% if data.errors and data.errors[species.quantityKey] %}aria-describedby="quantity-{{ species.key }}-error" aria-invalid="true"{% endif %}>
               </div>
             </td>
             <td class="govuk-table__cell">
@@ -71,9 +71,7 @@
         </tbody>
       </table>
 
-      {{ govukButton({
-        text: "Save and continue"
-      }) }}
+      {% include "includes/save-continue-and-task-list.njk" %}
 
       {% set quickFillHref = (basePath or '/v1-baseline') + '/create/commodity-quantities-prefill' %}
       {% include "includes/quick-fill-internal-link.njk" %}

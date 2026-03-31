@@ -1,19 +1,25 @@
 
 {% extends "layouts/v1-baseline-forms.html" %}
-{% set title = "Origin of the import" %}
-{% set backLinkHref = "/v1-baseline/create/import-type" %}
+{% set title = "Where is this consignment coming from?" %}
+{% set backLinkHref = backHref %}
 
 {% block formContent %}
 
 {% from "includes/page-header.njk" import pageHeader %}
-{% call pageHeader(title, "About the consignment", "two-thirds") %}
+{% call pageHeader(title, null, "two-thirds") %}
     <form method="post" novalidate>
+      <input type="hidden" name="commodity" value="{{ data.commodity or '' }}">
+      <input type="hidden" name="commodityType" value="{{ data.commodityType or 'domestic' }}">
+      {% for s in (data.commoditySpecies or []) %}
+      <input type="hidden" name="commoditySpecies" value="{{ s }}">
+      {% endfor %}
       <div class="govuk-form-group {% if data.errors and data.errors['countryOfOrigin'] %}govuk-form-group--error{% endif %}">
         <label class="govuk-label" for="countryOfOrigin">
           Country of origin
         </label>
         <div id="countryOfOrigin-hint" class="govuk-hint">
-          Search and select a country. Start typing to filter the list.
+          The country where the animals or goods were born, produced or last kept.<br>
+          Includes EU and EEA.
         </div>
         {% if data.errors and data.errors["countryOfOrigin"] %}
           <p id="countryOfOrigin-error" class="govuk-error-message">
@@ -84,9 +90,7 @@
         errorMessage: data.errors and data.errors["consignmentReference"]
       }) }}
 
-      {{ govukButton({
-        text: "Save and continue"
-      }) }}
+      {% include "includes/save-continue-and-task-list.njk" %}
 
       {% set quickFillHref = (basePath or '/v1-baseline') + '/create/origin-prefill' %}
       {% include "includes/quick-fill-internal-link.njk" %}

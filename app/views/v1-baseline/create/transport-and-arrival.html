@@ -1,18 +1,55 @@
 
-{% extends "layouts/v1-experimental-forms.html" %}
+{% extends "layouts/v1-baseline-forms.html" %}
 {% from "govuk/components/input/macro.njk" import govukInput %}
-{% set title = "Arrival in Great Britain and at the destination" %}
-{% set backLinkHref = backHref or (basePath or '/v1-experimental') + '/create/transport-transporter' %}
+{% from "govuk/components/summary-list/macro.njk" import govukSummaryList %}
+{% from "govuk/components/details/macro.njk" import govukDetails %}
+{% set title = "Transport details" %}
+{% set backLinkHref = backHref or (basePath or '/v1-baseline') + '/create/addresses' %}
 
 {% block formContent %}
 
 {% from "includes/page-header.njk" import pageHeader %}
 {% call pageHeader(title, null, "two-thirds") %}
+    <div id="transport-and-arrival" tabindex="-1">
     <p class="govuk-body govuk-!-margin-bottom-6">
-      Tell us where the consignment will enter Great Britain and when the animals are expected to arrive at their final destination.
+      Tell us who will move the animals, where they enter Great Britain, and when the animals should arrive at the destination.
     </p>
-    <form method="post" novalidate>
-      <div class="govuk-form-group {% if data.errors and data.errors.ukBorderPort %}govuk-form-group--error{% endif %}">
+
+    <form method="post" novalidate class="govuk-!-margin-top-6">
+      <h2 class="govuk-heading-m govuk-!-margin-bottom-3">Transporter details</h2>
+      <p class="govuk-hint govuk-!-margin-bottom-3">Their name and address appear after you add or change the transporter.</p>
+      <div class="govuk-!-margin-bottom-6 {% if data.errors and data.errors.transporter %}govuk-form-group--error{% endif %}">
+        {% if data.errors and data.errors.transporter %}
+          <p id="transporter-error" class="govuk-error-message govuk-!-margin-bottom-2">
+            <span class="govuk-visually-hidden">Error:</span> Add a transporter before continuing
+          </p>
+        {% endif %}
+        {% if hasTransporter %}
+        <div id="transporter-details">
+        {{ govukSummaryList({
+          rows: transporterRows
+        }) }}
+        <p class="govuk-body govuk-!-margin-top-4 govuk-!-margin-bottom-0">
+          <a href="{{ transporterChangeHref }}" class="govuk-link">Change transporter details<span class="govuk-visually-hidden"> for this consignment</span></a>
+        </p>
+        </div>
+        {% else %}
+        <div id="transporter-details">
+          <p class="govuk-body govuk-!-margin-bottom-0">
+            <a href="{{ (basePath or '/v1-baseline') }}/create/address-consignee-search?returnTo=transport-and-arrival" class="govuk-link">Add a transporter</a>
+          </p>
+        </div>
+        {% endif %}
+      </div>
+
+      <div class="transport-and-arrival__help-details govuk-!-margin-top-4 govuk-!-margin-bottom-6">
+        {{ govukDetails({
+          summaryText: "Help with transporter authorisation",
+          html: '<p class="govuk-body">Your transporter must hold a valid transporter authorisation, issued by DAERA or APHA in the UK if they are:</p><ul class="govuk-list govuk-list--bullet"><li>transporting any live vertebrate animals in, to, from or through Great Britain (GB)</li><li>travelling on journeys of over 65 km</li><li>transporting as part of an economic (commercial) activity</li></ul><p class="govuk-body govuk-!-margin-top-4 govuk-!-margin-bottom-2"><a href="https://www.gov.uk/guidance/transporting-animals-in-great-britain" class="govuk-link" target="_blank" rel="noopener noreferrer">Find out how to transport animals in connection with an economic activity (opens in a new tab)</a></p><p class="govuk-body-s govuk-!-margin-bottom-2">Documents issued by DAERA are valid for use in GB.</p><p class="govuk-body-s govuk-!-margin-bottom-0">Documents issued in any EU Member State are not valid for use in GB.</p>'
+        }) }}
+      </div>
+
+      <div class="govuk-!-margin-top-6 govuk-form-group {% if data.errors and data.errors.ukBorderPort %}govuk-form-group--error{% endif %}">
         <label class="govuk-label govuk-label--m" for="ukBorderPort">
           Port of entry
         </label>
@@ -22,7 +59,7 @@
           </p>
         {% endif %}
         <div id="ukBorderPort-hint" class="govuk-hint">
-          Start typing to search by port or airport name or code.
+          Choose where the transporter will enter with the consignment. Start typing to search by port or airport name or code.
         </div>
         <div class="autocomplete-wrapper autocomplete-wrapper--30em">
           <input type="hidden" name="ukBorderPort" id="ukBorderPort-value" value="{{ data.ukBorderPort or '' }}">
@@ -47,7 +84,7 @@
         },
         value: data.arrivalDate,
         hint: {
-          text: "Enter the date the animals are expected to arrive at their destination. For example, 27 March 2026."
+          text: "The expected date of arrival at the final destination, not the time of day. For example, 27 March 2026."
         },
         classes: "govuk-input--width-10",
         attributes: {
@@ -58,8 +95,9 @@
 
       {% include "includes/save-continue-and-task-list.njk" %}
     </form>
+    </div>
 
-    {% set quickFillHref = (basePath or '/v1-experimental') + '/create/transport-arrival-prefill' %}
+    {% set quickFillHref = (basePath or '/v1-baseline') + '/create/transport-and-arrival-prefill' %}
     {% include "includes/quick-fill-internal-link.njk" %}
 
 {% endcall %}
@@ -71,6 +109,7 @@
   <script>
     (function () {
       var selectEl = document.querySelector('#ukBorderPort')
+      if (!selectEl) return
 
       function syncUkBorderPortHidden () {
         var hid = document.getElementById('ukBorderPort-value')
@@ -85,7 +124,7 @@
         form.addEventListener('submit', syncUkBorderPortHidden)
       }
 
-      if (selectEl && typeof accessibleAutocomplete !== 'undefined') {
+      if (typeof accessibleAutocomplete !== 'undefined') {
         accessibleAutocomplete.enhanceSelectElement({
           autoselect: true,
           showAllValues: false,

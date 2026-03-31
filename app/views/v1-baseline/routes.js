@@ -1,89 +1,357 @@
 //
-// v1-baseline routes
+// v1-baseline – Option 2 flow: Commodity → Origin → Quantities → Hub (multi-commodity)
 //
 
 const BASE = '/v1-baseline'
-const notifications = require('../../data/notifications')
+const { isPetConsignment, isLivestockConsignment } = require('../../lib/create-helpers.js')
+const { assignDraftNotificationReferenceIfNeeded } = require('../../lib/draft-notification-reference.js')
 
-const FILTER_KEYS = ['filterKeyword', 'filterCommodity', 'filterOrigin', 'filterConsignee', 'filterDestination', 'filterStatus', 'filterStartDate', 'filterEndDate', 'filterPeriod']
-
-const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
-
-function parseArrivalDate (str) {
-  if (!str || typeof str !== 'string') return null
-  const match = str.match(/^(\d{1,2})\s+(\w+)\s+(\d{4})$/)
-  if (!match) return null
-  const monthIndex = MONTHS.findIndex(m => m.toLowerCase() === match[2].toLowerCase())
-  if (monthIndex < 0) return null
-  return new Date(parseInt(match[3], 10), monthIndex, parseInt(match[1], 10)).getTime()
+// For code 0102 (bovine), use the definition with speciesByType (Domestic/Game)
+function getCommodityDetailsForSpecies (commoditiesData, commodityKey) {
+  const details = commoditiesData[commodityKey]
+  if (!details) return null
+  const code = details.code
+  if (code === '0102') {
+    const withCode0102 = Object.entries(commoditiesData).filter(([, d]) => d.code === '0102')
+    const withSpeciesByType = withCode0102.find(([, d]) => d.speciesByType)
+    if (withSpeciesByType) {
+      const [, d] = withSpeciesByType
+      return { ...d, commonName: details.commonName || commodityKey, code: details.code }
+    }
+  }
+  return details
 }
 
-const { getSpeciesCommodityMaps, normaliseCommodityDisplay } = require('../../lib/commodity-display.js')
-const { getDateRangeForFilterPeriod, ensureDateCreated, arrivalMatchesFilterRange } = require('../../lib/dashboard.js')
-
-// CPH (County Parish Holding) required per official rules – matches v2 logic
-const { PET_COMMODITIES, getCommoditySpeciesArray, isPetConsignment, isLivestockConsignment } = require('../../lib/create-helpers.js')
-
-function sortNotifications (list, sortOption) {
-  const sorted = [...list]
-  const byArrival = (a, b) => {
-    const ta = parseArrivalDate(a.arrival) || 0
-    const tb = parseArrivalDate(b.arrival) || 0
-    return ta - tb
-  }
-  if (sortOption === 'arrival-desc') {
-    sorted.sort((a, b) => byArrival(b, a))
-  } else if (sortOption === 'arrival-asc') {
-    sorted.sort(byArrival)
-  } else if (sortOption === 'reference') {
-    sorted.sort((a, b) => String(a.reference || '').localeCompare(b.reference || ''))
-  }
-  return sorted
+function toKey (s) {
+  return String(s || '').replace(/\s+/g, '_').toLowerCase().replace(/[^a-z0-9_]/g, '')
 }
 
-function filterNotifications (filterData, sourceList) {
-  const list = sourceList || notifications
-  const str = (v) => (v == null ? '' : String(v))
-  return list.filter(n => {
-    const keyword = (filterData.keyword || '').trim().toLowerCase()
-    if (keyword) {
-      const search = `${str(n.reference)} ${str(n.commodity)} ${str(n.origin)} ${str(n.consignee)} ${str(n.consignor)}`.toLowerCase()
-      if (!search.includes(keyword)) return false
+function buildCommoditiesForHub (req) {
+  const commodities = req.session.data.commodities || []
+  const commoditiesData = require('../../data/commodities-eu.js')
+  let totalAnimals = 0
+  let totalPackages = 0
+  const items = commodities.map((item, i) => {
+    const d = commoditiesData[item.commodity] || {}
+    let itemAnimals = 0
+    let itemPackages = 0
+    const quantities = item.quantities || {}
+    Object.keys(quantities).forEach(k => {
+      const val = parseInt(quantities[k], 10)
+      if (!isNaN(val)) {
+        if (k.startsWith('quantity_')) itemAnimals += val
+        if (k.startsWith('packages_')) itemPackages += val
+      }
+    })
+    totalAnimals += itemAnimals
+    totalPackages += itemPackages
+    const speciesWithQuantity = (item.commoditySpecies || []).map(s => {
+      const key = toKey(s)
+      const qty = parseInt(quantities[`quantity_${key}`], 10)
+      return { name: s, quantity: isNaN(qty) ? 0 : qty }
+    })
+    return {
+      index: i,
+      commodity: item.commodity,
+      label: d.commonName || item.commodity,
+      code: d.code || '',
+      species: item.commoditySpecies || [],
+      speciesWithQuantity,
+      totalAnimals: itemAnimals,
+      totalPackages: itemPackages
     }
-
-    const commodity = (filterData.commodity || '').trim().toLowerCase()
-    if (commodity && !str(n.commodity).toLowerCase().includes(commodity)) return false
-
-    const origin = (filterData.origin || '').trim().toLowerCase()
-    if (origin && !str(n.origin).toLowerCase().includes(origin)) return false
-
-    const consignee = (filterData.consignee || '').trim().toLowerCase()
-    if (consignee) {
-      const match = str(n.consignee).toLowerCase().includes(consignee) || str(n.consignor).toLowerCase().includes(consignee)
-      if (!match) return false
-    }
-
-    const status = (filterData.status || '').trim().toLowerCase()
-    if (status && n.status !== status) return false
-
-    const startD = filterData.startDate
-    const endD = filterData.endDate
-    const hasDateBounds = ((startD || '').trim() !== '' || (endD || '').trim() !== '')
-    const quickCreatedMode = !!(filterData.filterPeriod && String(filterData.filterPeriod).trim())
-    if (quickCreatedMode && hasDateBounds) {
-      const createdLabel = ensureDateCreated(n)
-      if (!arrivalMatchesFilterRange(createdLabel, startD, endD)) return false
-    } else if (!quickCreatedMode && hasDateBounds) {
-      if (!arrivalMatchesFilterRange(n.arrival, startD, endD)) return false
-    }
-
-    return true
   })
+  items.sort((a, b) => {
+    const labelA = (a.label || '').toLowerCase()
+    const labelB = (b.label || '').toLowerCase()
+    if (labelA !== labelB) return labelA.localeCompare(labelB)
+    const speciesA = (a.species || []).join(', ').toLowerCase()
+    const speciesB = (b.species || []).join(', ').toLowerCase()
+    return speciesA.localeCompare(speciesB)
+  })
+  return { items, totalAnimals, totalPackages }
+}
+
+function syncFirstCommodityToSession (data) {
+  const commodities = data.commodities || []
+  if (commodities.length === 0) return false
+  const first = commodities[0]
+  data.commodity = first.commodity
+  data.commoditySpecies = first.commoditySpecies || []
+  data.commodityType = first.commodityType || 'domestic'
+  if (first.quantities) {
+    Object.assign(data, first.quantities)
+    ;(first.commoditySpecies || []).forEach(s => {
+      const key = s.replace(/\s+/g, '_').toLowerCase().replace(/[^a-z0-9_]/g, '')
+      const qty = first.quantities[`quantity_${key}`]
+      if (qty !== undefined) data[`animalCount_${key}`] = qty
+      const pkg = first.quantities[`packages_${key}`]
+      if (pkg !== undefined) data[`numberOfPackages_${key}`] = pkg
+    })
+  }
+  return true
+}
+
+function clearCommoditySession (data) {
+  delete data.commodity
+  delete data.commoditySpecies
+  delete data.commodityType
+  delete data.commodityEditIndex
+  Object.keys(data).filter(k => k.startsWith('quantity_') || k.startsWith('packages_')).forEach(k => delete data[k])
+}
+
+function strOk (v) {
+  return v != null && String(v).trim() !== ''
+}
+
+function escapeHtmlForTaskList (s) {
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+}
+
+function getNotificationTaskListCompletion (data) {
+  const commodities = data.commodities || []
+  const commoditiesDone = commodities.length > 0
+  const originDone = strOk(data.countryOfOrigin)
+  const additionalAnimalDone = strOk(data.animalsCertifiedFor)
+  const ir = data.importReason
+  const importReasonDone = strOk(ir) &&
+    (ir !== 'internal-market' || strOk(data.internalMarketPurpose))
+  const docs = data.documents || []
+  const documentsDone = docs.some(d => d && strOk(d.reference) && strOk(d.type)) ||
+    !!data.accompanyingDocumentsConfirmed
+  const hasConsignee = !!(data.consigneeId || (strOk(data.consigneeName) &&
+    (strOk(data.consigneeAddress) || strOk(data.consigneeAddressLine1))))
+  const podAddr = data.placeOfDestinationAddress
+  const hasPodLines = strOk(data.placeOfDestinationAddressLine1) ||
+    (podAddr && (Array.isArray(podAddr) ? podAddr.some(l => strOk(l)) : strOk(podAddr)))
+  const hasDestination = !!(data.placeOfDestinationId || hasPodLines)
+  const addressesDone = hasConsignee && hasDestination
+  const sameAsPod = data.permanentAddressSameAsPOD === 'yes'
+  const permanentAddressesForPetsDone = !isPetConsignment(data) || sameAsPod ||
+    (strOk(data.permanentAddressName) && strOk(data.permanentAddressLine1) &&
+      strOk(data.permanentAddressTown) && strOk(data.permanentAddressPostcode))
+  const cphDone = !isLivestockConsignment(data) || strOk(data.cphNumber)
+  const transportDone = strOk(data.transporterName) && strOk(data.arrivalDate)
+  return {
+    commoditiesDone,
+    originDone,
+    additionalAnimalDone,
+    importReasonDone,
+    documentsDone,
+    addressesDone,
+    permanentAddressesForPetsDone,
+    cphDone,
+    transportDone
+  }
+}
+
+function validateNotificationTaskListForSubmission (data) {
+  const t = getNotificationTaskListCompletion(data)
+  const errorList = []
+  const cons = '#task-section-consignment'
+  const addr = '#task-section-addresses'
+  const move = '#task-section-movement'
+  if (!t.originDone) {
+    errorList.push({
+      href: cons,
+      text: 'You must complete the consignment origin section before being able to continue'
+    })
+  }
+  if (!t.commoditiesDone) {
+    errorList.push({
+      href: cons,
+      text: 'You must complete the commodities section before being able to continue'
+    })
+  }
+  if (!t.additionalAnimalDone) {
+    errorList.push({
+      href: cons,
+      text: 'You must complete the additional animal details section before being able to continue'
+    })
+  }
+  if (!t.importReasonDone) {
+    errorList.push({
+      href: cons,
+      text: 'You must complete the reason for import section before being able to continue'
+    })
+  }
+  if (!t.addressesDone) {
+    errorList.push({
+      href: addr,
+      text: 'You must complete the addresses section before being able to continue'
+    })
+  }
+  if (isLivestockConsignment(data) && !t.cphDone) {
+    errorList.push({
+      href: addr,
+      text: 'You must complete the County Parish Holding number (CPH) section before being able to continue'
+    })
+  }
+  if (isPetConsignment(data) && !t.permanentAddressesForPetsDone) {
+    errorList.push({
+      href: addr,
+      text: 'You must complete the permanent addresses for these animals section before being able to continue'
+    })
+  }
+  if (!t.transportDone) {
+    errorList.push({
+      href: move,
+      text: 'You must complete the transport details section before being able to continue'
+    })
+  }
+  return { ok: errorList.length === 0, errorList }
+}
+
+function buildExperimentalTaskListSections (data, basePath, opts) {
+  const bp = `${basePath}/create`
+  const showInlineTaskErrors = !!(opts && opts.showInlineTaskErrors)
+  const {
+    originDone,
+    commoditiesDone,
+    additionalAnimalDone,
+    importReasonDone,
+    documentsDone,
+    addressesDone,
+    permanentAddressesForPetsDone,
+    cphDone,
+    transportDone
+  } = getNotificationTaskListCompletion(data)
+
+  const statusCompleted = { text: 'Completed' }
+  const statusIncomplete = { tag: { text: 'Incomplete', classes: 'govuk-tag--blue' } }
+  const statusOptional = { tag: { text: 'Optional', classes: 'govuk-tag--grey' } }
+
+  function buildRow (key, titleText, href, done, incompleteStatus, inlineErrorText) {
+    const status = done ? statusCompleted : incompleteStatus
+    if (showInlineTaskErrors && !done && inlineErrorText) {
+      const errId = `task-inline-error-${key}`
+      const safeTitle = escapeHtmlForTaskList(titleText)
+      const safeMsg = escapeHtmlForTaskList(inlineErrorText)
+      return {
+        title: {
+          html: `<p class="govuk-body govuk-!-margin-bottom-2 ns-task-list__error-intro"><strong id="${errId}">${safeMsg}</strong></p><a class="govuk-link govuk-task-list__link" href="${href}" aria-describedby="${errId}">${safeTitle}</a>`
+        },
+        status,
+        classes: 'ns-task-list__item--error govuk-task-list__item--with-link'
+      }
+    }
+    const o = {
+      title: { text: titleText },
+      status
+    }
+    if (href) o.href = href
+    return o
+  }
+
+  return [
+    {
+      idPrefix: 'notification-consignment',
+      sectionId: 'task-section-consignment',
+      heading: '1. The consignment',
+      items: [
+        buildRow(
+          'origin',
+          'Where is this consignment coming from?',
+          `${bp}/origin`,
+          originDone,
+          statusIncomplete,
+          'You must complete the consignment origin section before being able to continue'
+        ),
+        buildRow(
+          'commodities',
+          'Your commodities',
+          `${bp}/commodity-hub`,
+          commoditiesDone,
+          statusIncomplete,
+          'You must complete the commodities section before being able to continue'
+        ),
+        buildRow(
+          'additional-animals',
+          'Additional animal details',
+          `${bp}/additional-animal-details`,
+          additionalAnimalDone,
+          statusIncomplete,
+          'You must complete the additional animal details section before being able to continue'
+        ),
+        buildRow(
+          'import-reason',
+          'Main reason for importing the animals',
+          `${bp}/import-reason`,
+          importReasonDone,
+          statusIncomplete,
+          'You must complete the reason for import section before being able to continue'
+        )
+      ]
+    },
+    {
+      idPrefix: 'notification-addresses',
+      sectionId: 'task-section-addresses',
+      heading: '2. Addresses',
+      items: [
+        buildRow(
+          'addresses',
+          'Addresses',
+          `${bp}/addresses`,
+          addressesDone,
+          statusIncomplete,
+          'You must complete the addresses section before being able to continue'
+        ),
+        ...(isLivestockConsignment(data)
+          ? [buildRow(
+            'cph',
+            'County Parish Holding number (CPH)',
+            `${bp}/address-cph`,
+            cphDone,
+            statusIncomplete,
+            'You must complete the County Parish Holding number (CPH) section before being able to continue'
+          )]
+          : []),
+        ...(isPetConsignment(data)
+          ? [buildRow(
+            'permanent-addresses',
+            'Permanent addresses for these animals',
+            `${bp}/permanent-addresses-for-animals`,
+            permanentAddressesForPetsDone,
+            statusIncomplete,
+            'You must complete the permanent addresses for these animals section before being able to continue'
+          )]
+          : [])
+      ]
+    },
+    {
+      idPrefix: 'notification-movement',
+      sectionId: 'task-section-movement',
+      heading: '3. Movement',
+      items: [
+        buildRow(
+          'transport',
+          'Transport details',
+          `${bp}/transport-and-arrival`,
+          transportDone,
+          statusIncomplete,
+          'You must complete the transport details section before being able to continue'
+        ),
+        buildRow(
+          'accompanying-docs',
+          'Accompanying documents (Optional)',
+          `${bp}/accompanying-documents`,
+          documentsDone,
+          statusOptional,
+          null
+        )
+      ]
+    }
+  ]
 }
 
 module.exports = (router) => {
   router.use(BASE, (req, res, next) => {
     res.locals.basePath = BASE
+    res.locals.taskListAccessible = !!(req.session.data && req.session.data.taskListUnlocked)
     next()
   })
 
@@ -91,141 +359,430 @@ module.exports = (router) => {
     res.render('v1-baseline/start')
   })
 
-  router.get(`${BASE}/dashboard`, (req, res) => {
+  const {
+    registerDashboardRoutes,
+    rebuildSessionPreservingSubmittedAndFilters,
+    ensureDateCreated,
+    formatTodayUkDateLabel
+  } = require('../../lib/dashboard.js')
+  const notifications = require('../../data/notifications')
+  const {
+    findNotificationRow,
+    deleteNotificationByReference,
+    preserveForNotificationListMutation,
+    buildFullViewSessionMockFromNotificationRow
+  } = require('../../lib/notification-view-helpers.js')
+  const { buildCheckYourAnswersData, registerPostHubRoutes } = require('./post-hub-routes.js')
+
+  function buildNotificationDetailsSnapshot (ref, data) {
+    const found = findNotificationRow(ref, data, notifications)
+    if (!found) return null
+    if (found.kind === 'session-draft') {
+      const viewData = buildCheckYourAnswersData(data, `${BASE}/create`)
+      viewData.basePath = BASE
+      viewData.readOnly = true
+      viewData.readOnlyPageTitle = 'Notification details'
+      viewData.viewPageCaption = `${ref} (Draft)`
+      viewData.viewBackLinkHref = `${BASE}/dashboard`
+      viewData.amendHref = `${BASE}/notification/${encodeURIComponent(ref)}/amend`
+      viewData.readOnlyPrimaryButtonText = 'Continue notification'
+      viewData.notificationDeleteHref = `${BASE}/notification/${encodeURIComponent(ref)}/delete`
+      viewData.viewNotificationReference = ref
+      viewData.readOnlyShowCopyAsNew = false
+      viewData.notificationDateCreatedDisplay = formatTodayUkDateLabel()
+      return viewData
+    }
+    const row = found.row
+    const sessionLike = buildFullViewSessionMockFromNotificationRow(row)
+    const viewData = buildCheckYourAnswersData(sessionLike, `${BASE}/create`)
+    viewData.basePath = BASE
+    viewData.readOnly = true
+    viewData.readOnlyPageTitle = 'Notification details'
+    viewData.viewPageCaption = row.status === 'draft' ? `${ref} (Draft)` : ref
+    viewData.viewBackLinkHref = `${BASE}/dashboard`
+    viewData.amendHref = `${BASE}/notification/${encodeURIComponent(ref)}/amend`
+    viewData.readOnlyPrimaryButtonText =
+      row.status === 'draft' ? 'Continue notification' : 'Amend this notification'
+    viewData.notificationDeleteHref = `${BASE}/notification/${encodeURIComponent(ref)}/delete`
+    viewData.viewNotificationReference = ref
+    const isSubmitted =
+      found.kind === 'submitted' || (found.kind === 'static' && row.status === 'submitted')
+    viewData.readOnlyShowCopyAsNew = isSubmitted
+    viewData.copyAsNewHref = isSubmitted ? '#' : null
+    const createdLabel = ensureDateCreated(row)
+    viewData.notificationDateCreatedDisplay = createdLabel || 'Not provided'
+    return viewData
+  }
+
+  registerDashboardRoutes(router, BASE, {
+    templatePath: 'v1-baseline/dashboard',
+    notifications
+  })
+
+  router.get(`${BASE}/create/new`, (req, res) => {
     const data = req.session.data || {}
-    FILTER_KEYS.forEach(key => {
-      if (req.query[key] !== undefined) data[key] = req.query[key]
+    req.session.data = rebuildSessionPreservingSubmittedAndFilters(data)
+    res.redirect(`${BASE}/create/origin`)
+  })
+
+  router.get(`${BASE}/notification/:reference/amend`, (req, res) => {
+    const ref = String(req.params.reference || '').trim()
+    const data = req.session.data || {}
+    const found = findNotificationRow(ref, data, notifications)
+    if (!found) {
+      return res.redirect(`${BASE}/dashboard`)
+    }
+    if (found.kind === 'session-draft') {
+      return res.redirect(`${BASE}/create/task-list`)
+    }
+    if (!found.row) {
+      return res.redirect(`${BASE}/dashboard`)
+    }
+    const next = preserveForNotificationListMutation(data)
+    req.session.data = next
+    const fullSession = buildFullViewSessionMockFromNotificationRow(found.row)
+    const createdForRow = ensureDateCreated(found.row)
+    if (createdForRow) fullSession.notificationDateCreated = createdForRow
+    Object.assign(req.session.data, fullSession)
+    req.session.data.taskListUnlocked = true
+    req.session.data.draftNotificationReference = ref
+    syncFirstCommodityToSession(req.session.data)
+    res.redirect(`${BASE}/create/task-list`)
+  })
+
+  router.post(`${BASE}/notification/:reference/delete`, (req, res) => {
+    const ref = String(req.params.reference || '').trim()
+    const data = req.session.data || {}
+    const snapshot = buildNotificationDetailsSnapshot(ref, data)
+    if (!snapshot) {
+      return res.redirect(`${BASE}/dashboard`)
+    }
+    const result = deleteNotificationByReference(ref, data, notifications)
+    if (!result.ok) {
+      return res.redirect(`${BASE}/dashboard`)
+    }
+    if (result.mode === 'session-draft') {
+      req.session.data = rebuildSessionPreservingSubmittedAndFilters(data)
+    }
+    if (!req.session.data) req.session.data = {}
+    req.session.data.deletedNotificationSnapshot = snapshot
+    res.redirect(`${BASE}/notification/deleted`)
+  })
+
+  router.get(`${BASE}/notification/deleted`, (req, res) => {
+    const data = req.session.data || {}
+    const snapshot = data.deletedNotificationSnapshot
+    if (!snapshot) {
+      return res.redirect(`${BASE}/dashboard`)
+    }
+    delete data.deletedNotificationSnapshot
+    res.render('v1-baseline/create/check-your-answers', {
+      ...snapshot,
+      showDeletionSuccessBanner: true,
+      readOnlyHideActions: true,
+      pageTitleOnly: 'Notification deleted',
+      readOnlyIntro: ''
     })
-    if (Object.prototype.hasOwnProperty.call(req.query, 'filterPeriod')) {
-      const range = getDateRangeForFilterPeriod(data.filterPeriod)
-      if (range) {
-        data.filterStartDate = range.filterStartDate
-        data.filterEndDate = range.filterEndDate
-      } else {
-        data.filterStartDate = ''
-        data.filterEndDate = ''
+  })
+
+  router.get(`${BASE}/notification/demo/full-view`, (req, res) => {
+    const notificationFullViewMock = require('../../data/notification-full-view-mock.js')
+    const viewData = buildCheckYourAnswersData(notificationFullViewMock, `${BASE}/create`)
+    viewData.basePath = BASE
+    viewData.readOnly = true
+    viewData.readOnlyPageTitle = 'Notification details'
+    viewData.viewPageCaption = 'IMP.GB.2026.1003455'
+    viewData.viewBackLinkHref = `${BASE}/dashboard`
+    viewData.amendHref = `${BASE}/notification/IMP.GB.2026.1003455/amend`
+    viewData.readOnlyPrimaryButtonText = 'Amend this notification'
+    viewData.notificationDeleteHref = `${BASE}/notification/demo/full-view/delete`
+    viewData.readOnlyShowCopyAsNew = true
+    viewData.copyAsNewHref = '#'
+    res.render('v1-baseline/create/check-your-answers', viewData)
+  })
+
+  router.post(`${BASE}/notification/demo/full-view/delete`, (req, res) => {
+    const notificationFullViewMock = require('../../data/notification-full-view-mock.js')
+    const snapshot = buildCheckYourAnswersData(notificationFullViewMock, `${BASE}/create`)
+    snapshot.basePath = BASE
+    snapshot.readOnly = true
+    snapshot.readOnlyPageTitle = 'Notification details'
+    snapshot.viewPageCaption = 'IMP.GB.2026.1003455'
+    snapshot.viewBackLinkHref = `${BASE}/dashboard`
+    snapshot.amendHref = `${BASE}/notification/IMP.GB.2026.1003455/amend`
+    snapshot.readOnlyPrimaryButtonText = 'Amend this notification'
+    snapshot.notificationDeleteHref = `${BASE}/notification/demo/full-view/delete`
+    snapshot.readOnlyShowCopyAsNew = true
+    snapshot.copyAsNewHref = '#'
+    if (!req.session.data) req.session.data = {}
+    req.session.data.deletedNotificationSnapshot = snapshot
+    res.redirect(`${BASE}/notification/deleted`)
+  })
+
+  router.get(`${BASE}/notification/:reference`, (req, res) => {
+    const ref = String(req.params.reference || '').trim()
+    const data = req.session.data || {}
+    const viewData = buildNotificationDetailsSnapshot(ref, data)
+    if (!viewData) {
+      return res.redirect(`${BASE}/dashboard`)
+    }
+    res.render('v1-baseline/create/check-your-answers', viewData)
+  })
+
+  router.post(`${BASE}/create/task-list`, (req, res) => {
+    const next = (req.body && req.body.taskListNext) || ''
+    if (next === 'dashboard') {
+      const data = req.session.data || {}
+      delete data.taskListErrorList
+      return res.redirect(`${BASE}/dashboard`)
+    }
+    if (next !== 'check') {
+      return res.redirect(`${BASE}/create/task-list`)
+    }
+    const data = req.session.data || {}
+    const validation = validateNotificationTaskListForSubmission(data)
+    if (!validation.ok) {
+      req.session.data = req.session.data || {}
+      req.session.data.taskListErrorList = validation.errorList
+      return res.redirect(`${BASE}/create/task-list`)
+    }
+    delete data.taskListErrorList
+    res.redirect(`${BASE}/create/check-your-answers`)
+  })
+
+  router.get(`${BASE}/create/task-list`, (req, res) => {
+    const data = req.session.data || {}
+    if (data.taskListUnlocked) {
+      assignDraftNotificationReferenceIfNeeded(data)
+    }
+    const ref = (data.draftNotificationReference || '').trim()
+    const taskListCaption = ref ? `${ref} (Draft)` : null
+    const errorList = data.taskListErrorList
+    if (data.taskListErrorList) delete data.taskListErrorList
+    const hasTaskListErrors = !!(errorList && errorList.length)
+    res.render('v1-baseline/create/task-list', {
+      taskSections: buildExperimentalTaskListSections(data, BASE, {
+        showInlineTaskErrors: hasTaskListErrors
+      }),
+      taskListCaption,
+      errorList: hasTaskListErrors ? errorList : null
+    })
+  })
+
+  // === 1. Commodity + species (typeahead includes both) ===
+  router.get(`${BASE}/create/commodity`, (req, res) => {
+    const commoditiesData = require('../../data/commodities-eu.js')
+    const commodities = req.session.data.commodities || []
+    const existingKeys = new Set(commodities.map(c => c.commodity).filter(Boolean))
+    const existingCombos = new Set(
+      commodities.flatMap(c => (c.commoditySpecies || []).map(s => `${c.commodity}|${s}`))
+    )
+    const commodityOptions = []
+    const seenText = new Set()
+    Object.entries(commoditiesData).forEach(([key, d]) => {
+      const commodityText = `${d.commonName || key} (${d.code})`
+      if (!seenText.has(commodityText) && !existingKeys.has(key)) {
+        seenText.add(commodityText)
+        commodityOptions.push({
+          value: key,
+          text: commodityText
+        })
+      }
+      const allSpecies = d.speciesByType ? [...new Set(Object.values(d.speciesByType).flat())] : (d.species || [])
+      allSpecies.forEach(s => {
+        const speciesText = `${d.commonName || key} (${s})`
+        const combo = `${key}|${s}`
+        if (!seenText.has(speciesText) && !existingCombos.has(combo)) {
+          seenText.add(speciesText)
+          commodityOptions.push({
+            value: combo,
+            text: speciesText
+          })
+        }
+      })
+    })
+    commodityOptions.sort((a, b) => a.text.localeCompare(b.text, undefined, { sensitivity: 'base' }))
+    const initialDataJson = JSON.stringify({
+      commodity: req.session.data.commodity || '',
+      commoditySpecies: req.session.data.commoditySpecies || [],
+      commodityType: req.session.data.commodityType || 'domestic'
+    })
+    const fromHub = req.session.data.commodityFromHub
+    const backHref = fromHub ? `${BASE}/create/commodity-hub` : `${BASE}/create/origin`
+    res.render('v1-baseline/create/commodity', {
+      commodityOptions,
+      initialDataJson,
+      backHref
+    })
+  })
+
+  router.post(`${BASE}/create/commodity`, (req, res) => {
+    let commodity = req.session.data.commodity
+    if (commodity && commodity.includes('|')) {
+      const [c, s] = commodity.split('|')
+      commodity = c
+      req.session.data.commodity = c
+      const existing = req.session.data.commoditySpecies || []
+      if (s && !existing.includes(s)) {
+        req.session.data.commoditySpecies = [s, ...existing]
       }
     }
-    if (req.query.sort !== undefined) data.sort = req.query.sort
-    const filterData = {
-      keyword: data.filterKeyword,
-      commodity: data.filterCommodity,
-      origin: data.filterOrigin,
-      consignee: data.filterConsignee,
-      destination: data.filterDestination,
-      status: data.filterStatus,
-      startDate: data.filterStartDate,
-      endDate: data.filterEndDate,
-      filterPeriod: data.filterPeriod
+    const errors = {}
+    const errorList = []
+    if (!commodity || commodity.trim() === '') {
+      errors.commodity = 'Select a commodity, common name or species'
+      errorList.push({ href: '#commodity', text: 'Select a commodity, common name or species' })
     }
-    const submitted = data.submittedNotifications || []
-    const allNotifications = [...notifications, ...submitted]
-    const filtered = filterNotifications(filterData, allNotifications)
-    const sortOption = data.sort || 'arrival-desc'
-    const sorted = sortNotifications(filtered, sortOption)
-    const speciesMaps = getSpeciesCommodityMaps()
-    const normalised = sorted.map(n => ({
-      ...n,
-      commodity: normaliseCommodityDisplay(n.commodity, speciesMaps),
-      dateCreated: ensureDateCreated(n)
-    }))
+    if (Object.keys(errors).length > 0) {
+      req.session.data.errors = errors
+      req.session.data.errorList = errorList
+      return res.redirect(`${BASE}/create/commodity`)
+    }
+    const commoditiesData = require('../../data/commodities-eu.js')
+    const details = commoditiesData[commodity]
+    const speciesList = details && details.speciesByType
+      ? Object.values(details.speciesByType).flat()
+      : ((details && details.species) || [])
+    let commodityType = req.session.data.commodityType || 'domestic'
+    const preSelected = req.session.data.commoditySpecies
+    const firstSpecies = Array.isArray(preSelected) ? preSelected[0] : preSelected
+    if (details && details.speciesByType && firstSpecies) {
+      const match = Object.entries(details.speciesByType).find(([, arr]) => arr && arr.includes(firstSpecies))
+      if (match) commodityType = match[0].toLowerCase()
+    }
+    req.session.data.commodityType = commodityType
+    delete req.session.data.errors
+    delete req.session.data.errorList
+    const fromHub = req.session.data.commodityFromHub
+    const isEditing = req.session.data.commodityEditIndex !== undefined
+    const hasSpeciesSelection = req.session.data.commoditySpecies &&
+      (Array.isArray(req.session.data.commoditySpecies) ? req.session.data.commoditySpecies.length > 0 : !!req.session.data.commoditySpecies)
+    const skipSpeciesPage = hasSpeciesSelection && !isEditing
+    if (speciesList.length > 0 && !skipSpeciesPage) {
+      res.redirect(`${BASE}/create/commodity-species`)
+    } else {
+      res.redirect(`${BASE}/create/animal-identification`)
+    }
+  })
 
-    const perPage = 20
-    const page = Math.max(1, parseInt(req.query.page, 10) || 1)
-    const total = normalised.length
-    const totalPages = Math.max(1, Math.ceil(total / perPage))
-    const pageNum = Math.min(page, totalPages)
-    const start = (pageNum - 1) * perPage
-    const paginated = normalised.slice(start, start + perPage)
+  router.get(`${BASE}/create/add-species`, (req, res) => {
+    const commodity = req.query.commodity
+    const index = req.query.index !== undefined ? parseInt(req.query.index, 10) : -1
+    const commodities = req.session.data.commodities || []
+    const item = index >= 0 && index < commodities.length ? commodities[index] : null
+    if (!commodity) return res.redirect(`${BASE}/create/animal-identification`)
+    req.session.data.commodity = commodity
+    req.session.data.commoditySpecies = item ? [...(item.commoditySpecies || [])] : (req.session.data.commoditySpecies || [])
+    req.session.data.commodityType = (item && item.commodityType) || req.session.data.commodityType || 'domestic'
+    req.session.data.commodityFromHub = true
+    req.session.data.addSpeciesFromAnimalId = true
+    if (index >= 0) req.session.data.addSpeciesHubIndex = index
+    res.redirect(`${BASE}/create/commodity-species`)
+  })
 
-    req.session.data.resultsCount = total
-    res.locals.notifications = paginated
-    res.locals.dashboardPage = pageNum
-    res.locals.dashboardTotalPages = totalPages
-    const allParams = [...FILTER_KEYS, 'sort']
-      .filter(k => data[k] != null && data[k] !== '')
-      .map(k => `${encodeURIComponent(k)}=${encodeURIComponent(data[k])}`)
-    res.locals.dashboardQueryParams = allParams.join('&')
-    const filterParamKeys = ['filterKeyword', 'filterCommodity', 'filterOrigin', 'filterConsignee', 'filterDestination', 'filterStatus']
-    res.locals.filterQueryBase = filterParamKeys
-      .filter(k => data[k])
-      .map(k => `${encodeURIComponent(k)}=${encodeURIComponent(data[k])}`)
-      .join('&')
+  // === 1b. Species (always a separate page) ===
+  router.get(`${BASE}/create/commodity-species`, (req, res) => {
+    const commodity = req.session.data.commodity
+    const commoditiesData = require('../../data/commodities-eu.js')
+    const commodityDetails = commodity ? getCommodityDetailsForSpecies(commoditiesData, commodity) : null
+    if (!commodityDetails) return res.redirect(`${BASE}/create/commodity`)
 
-    const euCountries = require('../../data/eu-countries.js')
-    const originsFromData = [...new Set(allNotifications.map(n => n.origin).filter(Boolean))]
-    const euuCountries = ['Iceland', 'Liechtenstein', 'Norway', 'Switzerland']
-    const baseOriginCountries = [...euCountries, ...euuCountries]
-    res.locals.originCountries = [...new Set([...baseOriginCountries, ...originsFromData])].sort()
+    if (req.query.from === 'animal-id') {
+      req.session.data.addSpeciesFromAnimalId = true
+      req.session.data.commodityFromHub = true
+    }
 
-    const hasCustomDates = (data.filterStartDate || '').trim() !== '' || (data.filterEndDate || '').trim() !== ''
-    const isDefaultDateRange = !data.filterPeriod && !hasCustomDates
-    const activeFilters = []
-    const buildClearUrl = (...excludeKeys) => {
-      const excludeSet = new Set(excludeKeys)
-      const params = [...FILTER_KEYS, 'sort']
-        .filter(k => !excludeSet.has(k) && data[k] != null && data[k] !== '')
-        .map(k => `${encodeURIComponent(k)}=${encodeURIComponent(data[k])}`)
-      return `${BASE}/dashboard${params.length ? '?' + params.join('&') : ''}`
+    // When dropdown changes: update session and redirect
+    const queryType = req.query.commodityType
+    if (queryType && (queryType === 'domestic' || queryType === 'game')) {
+      req.session.data.commodityType = queryType
+      req.session.data.commoditySpecies = []
+      const preserveFrom = req.session.data.addSpeciesFromAnimalId ? '?from=animal-id' : ''
+      return res.redirect(`${BASE}/create/commodity-species${preserveFrom}`)
     }
-    if ((data.filterKeyword || '').trim()) {
-      activeFilters.push({ label: 'Keyword: ' + data.filterKeyword.trim(), clearHref: buildClearUrl('filterKeyword') })
+
+    const commodityType = (req.session.data.commodityType || 'domestic').toLowerCase()
+    const typeKey = commodityType === 'game' ? 'Game' : 'Domestic'
+    const speciesByType = commodityDetails.speciesByType
+    const species = speciesByType
+      ? (speciesByType[typeKey] || [])
+      : (commodityDetails.species || [])
+
+    if (species.length === 0) {
+      return res.redirect(`${BASE}/create/animal-identification`)
     }
-    if ((data.filterCommodity || '').trim()) {
-      activeFilters.push({ label: 'Commodity: ' + data.filterCommodity.trim(), clearHref: buildClearUrl('filterCommodity') })
+    if (species.length === 1 && (!req.session.data.commoditySpecies || req.session.data.commoditySpecies.length === 0)) {
+      req.session.data.commoditySpecies = [species[0]]
     }
-    if ((data.filterOrigin || '').trim()) {
-      activeFilters.push({ label: 'Country of origin: ' + data.filterOrigin.trim(), clearHref: buildClearUrl('filterOrigin') })
-    }
-    if ((data.filterConsignee || '').trim()) {
-      activeFilters.push({ label: 'Consignee / Consignor: ' + data.filterConsignee.trim(), clearHref: buildClearUrl('filterConsignee') })
-    }
-    if ((data.filterDestination || '').trim()) {
-      activeFilters.push({ label: 'Place of destination: ' + data.filterDestination.trim(), clearHref: buildClearUrl('filterDestination') })
-    }
-    if (data.filterStatus && data.filterStatus !== '') {
-      activeFilters.push({ label: 'Status: ' + (data.filterStatus === 'draft' ? 'Draft' : 'Submitted'), clearHref: buildClearUrl('filterStatus') })
-    }
-    if (!isDefaultDateRange && (data.filterPeriod || data.filterStartDate || data.filterEndDate)) {
-      const periodLabels = { 'last-1-hour': 'Last 1 hour', 'last-24-hours': 'Last 24 hours', 'last-7-days': 'Last 7 days', 'last-30-days': 'Last 30 days' }
-      if (data.filterPeriod) {
-        const dateLabel = periodLabels[data.filterPeriod] || 'Custom range'
-        activeFilters.push({ label: 'Date created: ' + dateLabel, clearHref: buildClearUrl('filterPeriod', 'filterStartDate', 'filterEndDate') })
-      } else {
-        activeFilters.push({ label: 'Arrival date: Custom range', clearHref: buildClearUrl('filterPeriod', 'filterStartDate', 'filterEndDate') })
+    const types = commodityDetails.commodityTypes || ['Domestic']
+    const commodityTypeItems = types.map(t => ({ value: t.toLowerCase(), text: t }))
+    const selectedSpecies = req.session.data.commoditySpecies || []
+    const speciesTranslations = require('../../data/species-translations.js')
+    const speciesItems = species.map(s => {
+      const translation = speciesTranslations[s]
+      const label = translation
+        ? `${s} <span class="govuk-!-font-size-16">(${translation})</span>`
+        : s
+      return {
+        value: s,
+        html: label,
+        checked: selectedSpecies.includes(s)
       }
+    })
+    const fromHub = req.session.data.commodityFromHub
+    const backHref = req.session.data.addSpeciesFromAnimalId
+      ? `${BASE}/create/animal-identification`
+      : `${BASE}/create/commodity`
+    res.render('v1-baseline/create/commodity-species', {
+      commodityDetails,
+      commodityTypeItems,
+      speciesItems,
+      backHref
+    })
+  })
+
+  router.post(`${BASE}/create/commodity-species`, (req, res) => {
+    const commodity = req.session.data.commodity
+    let species = req.session.data.commoditySpecies
+    if (species && !Array.isArray(species)) {
+      species = [species]
     }
-    res.locals.activeFilters = activeFilters
-
-    res.render('v1-baseline/dashboard')
-  })
-
-  router.get(`${BASE}/create/import-type`, (req, res) => {
-    delete req.session.data.errors
-    delete req.session.data.errorList
-    res.render('v1-baseline/create/import-type')
-  })
-
-  router.post(`${BASE}/create/import-type`, (req, res) => {
-    const importType = req.session.data.importType
-    if (!importType || importType.trim() === '') {
-      req.session.data.errors = { importType: 'Select what you are importing' }
-      req.session.data.errorList = [{ href: '#import-type-1', text: 'Select what you are importing' }]
-      return res.redirect(`${BASE}/create/import-type`)
+    const errors = {}
+    const errorList = []
+    if (!species || !Array.isArray(species) || species.length === 0) {
+      errors.commoditySpecies = 'Select at least one species'
+      errorList.push({ href: '#commoditySpecies', text: 'Select at least one species' })
     }
+    if (Object.keys(errors).length > 0) {
+      req.session.data.errors = errors
+      req.session.data.errorList = errorList
+      return res.redirect(`${BASE}/create/commodity-species`)
+    }
+    req.session.data.commodityType = req.session.data.commodityType || 'domestic'
     delete req.session.data.errors
     delete req.session.data.errorList
-    res.redirect(`${BASE}/create/origin`)
+    const fromHub = req.session.data.commodityFromHub
+    const hubIdx = req.session.data.addSpeciesHubIndex
+    if (typeof hubIdx === 'number' && hubIdx >= 0) {
+      const commodities = req.session.data.commodities || []
+      if (commodities[hubIdx]) {
+        commodities[hubIdx].commoditySpecies = species
+        commodities[hubIdx].commodityType = req.session.data.commodityType
+      }
+      delete req.session.data.addSpeciesHubIndex
+    }
+    const returnToAnimalId = req.session.data.addSpeciesFromAnimalId
+    delete req.session.data.addSpeciesFromAnimalId
+    res.redirect(`${BASE}/create/animal-identification`)
   })
 
-  router.get(`${BASE}/create/import-type-prefill`, (req, res) => {
-    req.session.data.importType = 'live-animals'
-    delete req.session.data.errors
-    delete req.session.data.errorList
-    res.redirect(`${BASE}/create/origin`)
-  })
-
+  // === 1. Origin (before commodity) ===
   router.get(`${BASE}/create/origin`, (req, res) => {
+    if (req.query.returnTo === 'check-your-answers') {
+      req.session.data = req.session.data || {}
+      req.session.data.returnTo = 'check-your-answers'
+      if (req.query.anchor) req.session.data.returnToAnchor = req.query.anchor
+    }
     delete req.session.data.errors
     delete req.session.data.errorList
     const euCountries = require('../../data/eu-countries.js')
@@ -233,9 +790,14 @@ module.exports = (router) => {
     const euuCountries = ['Iceland', 'Liechtenstein', 'Norway', 'Switzerland']
     const originCountries = [...euCountries, ...euuCountries].sort()
     const originCountryCodes = { ...euCountryCodes, Iceland: 'IS', Liechtenstein: 'LI', Norway: 'NO', Switzerland: 'CH' }
+    const commodity = req.session.data.commodity
+    const commoditySpecies = req.session.data.commoditySpecies
+    const hasSpecies = Array.isArray(commoditySpecies) ? commoditySpecies.length > 0 : !!commoditySpecies
+    const backHref = (commodity && hasSpecies) ? `${BASE}/create/commodity` : null
     res.render('v1-baseline/create/origin', {
       euCountries: originCountries,
-      euCountryCodes: originCountryCodes
+      euCountryCodes: originCountryCodes,
+      backHref
     })
   })
 
@@ -244,7 +806,6 @@ module.exports = (router) => {
     const regionOfOriginRequired = req.session.data.regionOfOriginRequired
     const errors = {}
     const errorList = []
-
     if (!countryOfOrigin || countryOfOrigin.trim() === '') {
       errors.countryOfOrigin = 'Select a country'
       errorList.push({ href: '#countryOfOrigin', text: 'Select a country' })
@@ -253,2468 +814,225 @@ module.exports = (router) => {
       errors.regionOfOriginRequired = 'Select if the consignment requires a region of origin code'
       errorList.push({ href: '#region-of-origin-1', text: 'Select if the consignment requires a region of origin code' })
     }
-
     if (Object.keys(errors).length > 0) {
       req.session.data.errors = errors
       req.session.data.errorList = errorList
       return res.redirect(`${BASE}/create/origin`)
     }
-
     delete req.session.data.errors
     delete req.session.data.errorList
+    const data = req.session.data || {}
+    if (data.returnTo === 'check-your-answers') {
+      delete data.returnTo
+      const anchor = data.returnToAnchor
+      delete data.returnToAnchor
+      const url = `${BASE}/create/check-your-answers`
+      return res.redirect(anchor ? `${url}#${anchor}` : url)
+    }
     res.redirect(`${BASE}/create/commodity`)
   })
 
-  router.get(`${BASE}/create/origin-prefill`, (req, res) => {
-    req.session.data.countryOfOrigin = 'France'
-    req.session.data.regionOfOriginRequired = 'no'
-    req.session.data.consignmentReference = 'REF-2025-001'
-    delete req.session.data.errors
-    delete req.session.data.errorList
-    res.redirect(`${BASE}/create/commodity`)
-  })
-
-  // Experimental: v1 order (import-type → origin → commodity) with v2 multi-commodity hub
-  const EXP = `${BASE}/experimental`
-  const EXP_PICKER = `${EXP}/commodity-picker`
-
-  router.get(EXP, (req, res) => {
-    res.render('v1-baseline/experimental-index')
-  })
-
-  function buildExperimentalCommoditiesForHub (req) {
-    const commodities = req.session.data.commodities || []
-    const commoditiesData = require('../../data/commodities-eu.js')
-    let totalAnimals = 0
-    let totalPackages = 0
-    const items = commodities.map((item, i) => {
-      const d = commoditiesData[item.commodity] || {}
-      let itemAnimals = 0
-      let itemPackages = 0
-      const quantities = item.quantities || {}
-      Object.keys(quantities).forEach(k => {
-        const val = parseInt(quantities[k], 10)
-        if (!isNaN(val)) {
-          if (k.startsWith('quantity_')) itemAnimals += val
-          if (k.startsWith('packages_')) itemPackages += val
-        }
-      })
-      totalAnimals += itemAnimals
-      totalPackages += itemPackages
-      return {
-        index: i,
-        commodity: item.commodity,
-        label: d.commonName || item.commodity,
-        code: d.code || '',
-        species: item.commoditySpecies || [],
-        totalAnimals: itemAnimals,
-        totalPackages: itemPackages
-      }
-    })
-    return { items, totalAnimals, totalPackages }
+  function normalizeCommoditySpecies (val) {
+    if (Array.isArray(val)) return val
+    if (val && typeof val === 'string') return [val]
+    return []
   }
 
-  router.get(`${EXP}/import-type`, (req, res) => {
-    delete req.session.data.errors
-    delete req.session.data.errorList
-    res.render('v1-baseline/experimental/import-type')
+  // === 3. Commodity quantities (replaced by animal-identification) ===
+  router.get(`${BASE}/create/commodity-quantities`, (req, res) => {
+    res.redirect(`${BASE}/create/animal-identification`)
   })
-  router.post(`${EXP}/import-type`, (req, res) => {
-    const importType = req.session.data.importType
-    if (!importType || importType.trim() === '') {
-      req.session.data.errors = { importType: 'Select what you are importing' }
-      req.session.data.errorList = [{ href: '#import-type-1', text: 'Select what you are importing' }]
-      return res.redirect(`${EXP}/import-type`)
+
+  router.post(`${BASE}/create/commodity-quantities`, (req, res) => {
+    res.redirect(`${BASE}/create/animal-identification`)
+  })
+
+  // === 4. Commodity hub ===
+  router.get(`${BASE}/create/commodity-hub`, (req, res) => {
+    if (req.query.returnTo === 'check-your-answers') {
+      req.session.data = req.session.data || {}
+      req.session.data.returnTo = 'check-your-answers'
+      if (req.query.anchor) req.session.data.returnToAnchor = req.query.anchor
+      req.session.data.taskListUnlocked = true
+      assignDraftNotificationReferenceIfNeeded(req.session.data)
     }
-    delete req.session.data.errors
-    delete req.session.data.errorList
-    res.redirect(`${EXP}/origin`)
-  })
-  router.get(`${EXP}/import-type-prefill`, (req, res) => {
-    req.session.data.importType = 'live-animals'
-    delete req.session.data.errors
-    delete req.session.data.errorList
-    res.redirect(`${EXP}/origin`)
-  })
-
-  router.get(`${EXP}/origin`, (req, res) => {
-    delete req.session.data.errors
-    delete req.session.data.errorList
-    const euCountries = require('../../data/eu-countries.js')
-    const euCountryCodes = require('../../data/eu-country-codes.js')
-    const euuCountries = ['Iceland', 'Liechtenstein', 'Norway', 'Switzerland']
-    const expOriginCountries = [...euCountries, ...euuCountries].sort()
-    const expOriginCountryCodes = { ...euCountryCodes, Iceland: 'IS', Liechtenstein: 'LI', Norway: 'NO', Switzerland: 'CH' }
-    res.render('v1-baseline/experimental/origin', { euCountries: expOriginCountries, euCountryCodes: expOriginCountryCodes })
-  })
-  router.post(`${EXP}/origin`, (req, res) => {
-    const countryOfOrigin = req.session.data.countryOfOrigin
-    const regionOfOriginRequired = req.session.data.regionOfOriginRequired
-    const errors = {}
-    const errorList = []
-
-    if (!countryOfOrigin || countryOfOrigin.trim() === '') {
-      errors.countryOfOrigin = 'Select a country'
-      errorList.push({ href: '#countryOfOrigin', text: 'Select a country' })
+    const { items, totalAnimals, totalPackages } = buildCommoditiesForHub(req)
+    if (items.length === 0) {
+      return res.redirect(`${BASE}/create/commodity`)
     }
-    if (!regionOfOriginRequired || regionOfOriginRequired.trim() === '') {
-      errors.regionOfOriginRequired = 'Select if the consignment requires a region of origin code'
-      errorList.push({ href: '#region-of-origin-1', text: 'Select if the consignment requires a region of origin code' })
-    }
-
-    if (Object.keys(errors).length > 0) {
-      req.session.data.errors = errors
-      req.session.data.errorList = errorList
-      return res.redirect(`${EXP}/origin`)
-    }
-
-    delete req.session.data.errors
-    delete req.session.data.errorList
-    req.session.data.commodities = req.session.data.commodities || []
-    res.redirect(`${EXP_PICKER}/hub`)
-  })
-  router.get(`${EXP}/origin-prefill`, (req, res) => {
-    req.session.data.countryOfOrigin = 'France'
-    req.session.data.regionOfOriginRequired = 'no'
-    req.session.data.consignmentReference = 'REF-2025-001'
-    delete req.session.data.errors
-    delete req.session.data.errorList
-    req.session.data.commodities = req.session.data.commodities || []
-    res.redirect(`${EXP_PICKER}/hub`)
-  })
-
-  router.get(`${EXP_PICKER}/hub`, (req, res) => {
-    const { items, totalAnimals, totalPackages } = buildExperimentalCommoditiesForHub(req)
-    const backHref = `${EXP}/origin`
-    const continueHref = `${BASE}/create/animal-identification`
-    res.render('v1-baseline/experimental/commodity-picker/commodity-hub', {
+    res.render('v1-baseline/create/commodity-hub', {
       commodities: items,
       totalAnimals,
       totalPackages,
-      backHref,
-      continueHref
+      backHref: items.length > 0 ? `${BASE}/create/commodity-hub-back` : `${BASE}/create/commodity`
     })
   })
-  router.get(`${EXP_PICKER}/commodity-add`, (req, res) => {
-    delete req.session.data.commodity
-    delete req.session.data.commoditySpecies
-    delete req.session.data.commodityType
+
+  router.get(`${BASE}/create/commodity-hub-back`, (req, res) => {
+    const commodities = req.session.data.commodities || []
+    if (commodities.length === 0) return res.redirect(`${BASE}/create/commodity-hub`)
+    const first = commodities[0]
+    req.session.data.commodity = first.commodity
+    req.session.data.commoditySpecies = [...(first.commoditySpecies || [])]
+    req.session.data.commodityType = first.commodityType || 'domestic'
+    req.session.data.commodityFromHub = false
     req.session.data.commodityEditIndex = undefined
-    req.session.data.commodityPickerFromHub = true
-    const quantityKeys = Object.keys(req.session.data).filter(k => k.startsWith('quantity_') || k.startsWith('packages_'))
-    quantityKeys.forEach(k => delete req.session.data[k])
+    Object.keys(req.session.data).filter(k => k.startsWith('quantity_') || k.startsWith('packages_') || k.startsWith('animalCount_') || k.startsWith('numberOfPackages_')).forEach(k => delete req.session.data[k])
+    if (first.quantities) Object.assign(req.session.data, first.quantities)
+    res.redirect(`${BASE}/create/animal-identification`)
+  })
+
+  router.get(`${BASE}/create/commodity-add`, (req, res) => {
+    clearCommoditySession(req.session.data)
+    req.session.data.commodityFromHub = true
+    req.session.data.commodityEditIndex = undefined
     delete req.session.data.errors
     delete req.session.data.errorList
-    res.redirect(`${EXP_PICKER}/commodity`)
+    res.redirect(`${BASE}/create/commodity`)
   })
-  router.get(`${EXP_PICKER}/commodity-edit/:index`, (req, res) => {
+
+  router.get(`${BASE}/create/commodity-edit/:index`, (req, res) => {
     const idx = parseInt(req.params.index, 10)
     const commodities = req.session.data.commodities || []
     const item = commodities[idx]
-    if (!item) return res.redirect(`${EXP_PICKER}/hub`)
+    if (!item) return res.redirect(`${BASE}/create/commodity-hub`)
     req.session.data.commodity = item.commodity
     req.session.data.commoditySpecies = [...(item.commoditySpecies || [])]
     req.session.data.commodityType = item.commodityType || 'domestic'
     req.session.data.commodityEditIndex = idx
-    req.session.data.commodityPickerFromHub = true
-    const quantityKeys = Object.keys(req.session.data).filter(k => k.startsWith('quantity_') || k.startsWith('packages_'))
-    quantityKeys.forEach(k => delete req.session.data[k])
-    if (item.quantities) Object.assign(req.session.data, item.quantities)
+    req.session.data.commodityFromHub = true
+    Object.keys(req.session.data).filter(k => k.startsWith('quantity_') || k.startsWith('packages_') || k.startsWith('animalCount_') || k.startsWith('numberOfPackages_')).forEach(k => delete req.session.data[k])
+    if (item.quantities) {
+      Object.assign(req.session.data, item.quantities)
+      ;(item.commoditySpecies || []).forEach(s => {
+        const key = s.replace(/\s+/g, '_').toLowerCase().replace(/[^a-z0-9_]/g, '')
+        const qty = item.quantities[`quantity_${key}`]
+        if (qty !== undefined) req.session.data[`animalCount_${key}`] = qty
+        const pkg = item.quantities[`packages_${key}`]
+        if (pkg !== undefined) req.session.data[`numberOfPackages_${key}`] = pkg
+      })
+    }
     delete req.session.data.errors
     delete req.session.data.errorList
-    res.redirect(`${EXP_PICKER}/commodity`)
+    res.redirect(`${BASE}/create/animal-identification`)
   })
-  router.get(`${EXP_PICKER}/commodity-remove/:index`, (req, res) => {
+
+  router.get(`${BASE}/create/commodity-remove/:index`, (req, res) => {
     const idx = parseInt(req.params.index, 10)
     const commodities = req.session.data.commodities || []
     if (idx >= 0 && idx < commodities.length) {
       req.session.data.commodities = commodities.filter((_, i) => i !== idx)
     }
-    res.redirect(`${EXP_PICKER}/hub`)
+    const remaining = req.session.data.commodities || []
+    if (remaining.length === 0) {
+      clearCommoditySession(req.session.data)
+      req.session.data.commodityFromHub = false
+      delete req.session.data.taskListUnlocked
+      delete req.session.data.draftNotificationReference
+      delete req.session.data.accompanyingDocumentsConfirmed
+      delete req.session.data.errors
+      delete req.session.data.errorList
+      return res.redirect(`${BASE}/create/commodity`)
+    }
+    res.redirect(`${BASE}/create/commodity-hub`)
   })
-  router.get(`${EXP_PICKER}/commodity`, (req, res) => {
+
+  router.get(`${BASE}/create/commodity-hub-prefill`, (req, res) => {
+    req.session.data = req.session.data || {}
+    req.session.data.commodities = [{
+      commodity: 'Cow',
+      commoditySpecies: ['Bos taurus'],
+      commodityType: 'domestic',
+      quantities: { quantity_bos_taurus: 1, packages_bos_taurus: 1 }
+    }]
+    delete req.session.data.commodity
+    delete req.session.data.commoditySpecies
+    delete req.session.data.commodityType
+    delete req.session.data.commodityFromHub
+    delete req.session.data.commodityEditIndex
+    delete req.session.data.animalIdCommodityIndex
     delete req.session.data.errors
     delete req.session.data.errorList
+    res.redirect(`${BASE}/create/commodity-hub-continue`)
+  })
+
+  router.get(`${BASE}/create/commodity-hub-continue`, (req, res) => {
+    const data = req.session.data || {}
+    if (!syncFirstCommodityToSession(data)) {
+      return res.redirect(`${BASE}/create/commodity-hub`)
+    }
+    if (!data.importType) data.importType = 'live-animals'
+    data.taskListUnlocked = true
+    assignDraftNotificationReferenceIfNeeded(data)
+    if (data.returnTo === 'check-your-answers') {
+      delete data.returnTo
+      const anchor = data.returnToAnchor
+      delete data.returnToAnchor
+      const url = `${BASE}/create/check-your-answers`
+      return res.redirect(anchor ? `${url}#${anchor}` : url)
+    }
+    res.redirect(`${BASE}/create/task-list`)
+  })
+
+  router.get(`${BASE}/create/import-type`, (req, res) => {
+    res.redirect(`${BASE}/create/commodity-hub`)
+  })
+
+  // Post-hub routes (animal-identification through confirmation)
+  registerPostHubRoutes(router, BASE)
+
+  // Prefill for quick testing
+  router.get(`${BASE}/create/commodity-prefill`, (req, res) => {
+    req.session.data.commodity = 'Cow'
+    req.session.data.commoditySpecies = ['Bos taurus']
+    req.session.data.commodityType = 'domestic'
+    delete req.session.data.commodityFromHub
+    delete req.session.data.commodityEditIndex
+    delete req.session.data.errors
+    delete req.session.data.errorList
+    res.redirect(`${BASE}/create/animal-identification`)
+  })
+
+  router.get(`${BASE}/create/commodity-species-prefill`, (req, res) => {
+    const commodity = req.session.data.commodity || 'Cow'
     const commoditiesData = require('../../data/commodities-eu.js')
-    const commodityOptions = Object.entries(commoditiesData).map(([key, d]) => ({
-      value: key,
-      text: `${d.commonName || key} (${d.code})`
-    }))
-    const commoditiesJson = JSON.stringify(commoditiesData)
-    const initialDataJson = JSON.stringify({
-      commodity: req.session.data.commodity || '',
-      commoditySpecies: req.session.data.commoditySpecies || [],
-      commodityType: req.session.data.commodityType || 'domestic'
-    })
-    const backHref = req.session.data.commodityPickerFromHub ? `${EXP_PICKER}/hub` : `${EXP}/origin`
-    res.render('v1-baseline/experimental/commodity-picker/commodity', {
-      commodityOptions,
-      commoditiesJson,
-      initialDataJson,
-      backHref
-    })
-  })
-  router.post(`${EXP_PICKER}/commodity`, (req, res) => {
-    const commodity = req.session.data.commodity
-    const species = req.session.data.commoditySpecies
-    const errors = {}
-    const errorList = []
-    if (!commodity || commodity.trim() === '') {
-      errors.commodity = 'Select a commodity'
-      errorList.push({ href: '#commodity', text: 'Select a commodity' })
+    const details = commoditiesData[commodity]
+    if (!details || !details.species || details.species.length === 0) {
+      req.session.data.commodity = 'Cow'
     }
-    if (!species || !Array.isArray(species) || species.length === 0) {
-      errors.commoditySpecies = 'Select at least one species'
-      errorList.push({ href: '#species-section', text: 'Select at least one species' })
-    }
-    if (Object.keys(errors).length > 0) {
-      req.session.data.errors = errors
-      req.session.data.errorList = errorList
-      return res.redirect(`${EXP_PICKER}/commodity`)
-    }
-    req.session.data.commodityType = req.session.data.commodityType || 'domestic'
-    delete req.session.data.errors
-    delete req.session.data.errorList
-    res.redirect(`${EXP_PICKER}/commodity-quantities`)
-  })
-  router.get(`${EXP_PICKER}/commodity-prefill`, (req, res) => {
-    req.session.data.commodity = 'Cattle'
+    req.session.data.commodity = req.session.data.commodity || 'Cow'
     req.session.data.commoditySpecies = ['Bos taurus']
     req.session.data.commodityType = 'domestic'
     delete req.session.data.errors
     delete req.session.data.errorList
-    res.redirect(`${EXP_PICKER}/commodity`)
-  })
-  router.get(`${EXP_PICKER}/commodity-quantities`, (req, res) => {
-    delete req.session.data.errors
-    delete req.session.data.errorList
-    const commodity = req.session.data.commodity
-    const commoditySpecies = req.session.data.commoditySpecies || []
-    const commodityType = req.session.data.commodityType || 'domestic'
-    const commoditiesData = require('../../data/commodities-eu.js')
-    const commodityDetails = commodity ? commoditiesData[commodity] : null
-    if (!commodityDetails || commoditySpecies.length === 0) return res.redirect(`${EXP_PICKER}/commodity`)
-    const typeLabel = commodityType === 'game' ? 'Game' : 'Domestic'
-    const speciesRows = commoditySpecies.map(s => {
-      const key = s.replace(/\s+/g, '_').toLowerCase().replace(/[^a-z0-9_]/g, '')
-      return {
-        key,
-        speciesAndType: `${s}, ${typeLabel}`,
-        quantityKey: `quantity_${key}`,
-        packagesKey: `packages_${key}`
-      }
-    })
-    let totalAnimals = 0
-    let totalPackages = 0
-    speciesRows.forEach(s => {
-      const qty = parseInt(req.session.data[s.quantityKey], 10)
-      const pkg = parseInt(req.session.data[s.packagesKey], 10)
-      totalAnimals += (isNaN(qty) ? 0 : qty)
-      totalPackages += (isNaN(pkg) ? 0 : pkg)
-    })
-    res.render('v1-baseline/experimental/commodity-picker/commodity-quantities', {
-      commodityDetails,
-      speciesRows,
-      totalAnimals,
-      totalPackages
-    })
-  })
-  router.post(`${EXP_PICKER}/commodity-quantities`, (req, res) => {
-    const commodity = req.session.data.commodity
-    const commoditySpecies = req.session.data.commoditySpecies || []
-    const commoditiesData = require('../../data/commodities-eu.js')
-    const commodityDetails = commodity ? commoditiesData[commodity] : null
-    const errors = {}
-    const errorList = []
-    if (!commodityDetails || commoditySpecies.length === 0) return res.redirect(`${EXP_PICKER}/commodity`)
-    const typeLabel = req.session.data.commodityType === 'game' ? 'Game' : 'Domestic'
-    const speciesRows = commoditySpecies.map(s => {
-      const key = s.replace(/\s+/g, '_').toLowerCase().replace(/[^a-z0-9_]/g, '')
-      return { key, speciesAndType: `${s}, ${typeLabel}`, quantityKey: `quantity_${key}`, packagesKey: `packages_${key}` }
-    })
-    speciesRows.forEach((s) => {
-      const qtyVal = req.session.data[s.quantityKey]
-      if (!qtyVal || String(qtyVal).trim() === '' || parseInt(qtyVal, 10) < 0) {
-        errors[s.quantityKey] = 'Enter the number of animals'
-        errorList.push({ href: `#quantity-${s.key}`, text: `Enter the number of animals for ${s.speciesAndType}` })
-      }
-      const pkgVal = req.session.data[s.packagesKey]
-      if (pkgVal === undefined || pkgVal === null || String(pkgVal).trim() === '' || parseInt(pkgVal, 10) < 0) {
-        errors[s.packagesKey] = 'Enter the number of packages'
-        errorList.push({ href: `#packages-${s.key}`, text: `Enter the number of packages for ${s.speciesAndType}` })
-      }
-    })
-    if (Object.keys(errors).length > 0) {
-      req.session.data.errors = errors
-      req.session.data.errorList = errorList
-      return res.redirect(`${EXP_PICKER}/commodity-quantities`)
-    }
-    delete req.session.data.errors
-    delete req.session.data.errorList
-
-    const quantities = {}
-    speciesRows.forEach((s) => {
-      const q = req.session.data[s.quantityKey]
-      const p = req.session.data[s.packagesKey]
-      if (q !== undefined) quantities[s.quantityKey] = q
-      if (p !== undefined) quantities[s.packagesKey] = p
-    })
-    const entry = {
-      commodity,
-      commoditySpecies: commoditySpecies,
-      commodityType: req.session.data.commodityType || 'domestic',
-      quantities
-    }
-    const commodities = req.session.data.commodities || []
-    const editIdx = req.session.data.commodityEditIndex
-    if (typeof editIdx === 'number' && editIdx >= 0 && editIdx < commodities.length) {
-      commodities[editIdx] = entry
-    } else {
-      commodities.push(entry)
-    }
-    req.session.data.commodities = commodities
-    const quantityKeys = Object.keys(req.session.data).filter(k => k.startsWith('quantity_') || k.startsWith('packages_'))
-    quantityKeys.forEach(k => delete req.session.data[k])
-    delete req.session.data.commodity
-    delete req.session.data.commoditySpecies
-    delete req.session.data.commodityType
-    delete req.session.data.commodityEditIndex
-    delete req.session.data.commodityPickerFromHub
-    res.redirect(`${EXP_PICKER}/hub`)
-  })
-  router.get(`${EXP_PICKER}/commodity-quantities-prefill`, (req, res) => {
-    const commoditySpecies = req.session.data.commoditySpecies || []
-    if (commoditySpecies.length > 0) {
-      const key = commoditySpecies[0].replace(/\s+/g, '_').toLowerCase().replace(/[^a-z0-9_]/g, '')
-      req.session.data[`quantity_${key}`] = '10'
-      req.session.data[`packages_${key}`] = '1'
-    }
-    delete req.session.data.errors
-    delete req.session.data.errorList
-    res.redirect(`${EXP_PICKER}/commodity-quantities`)
+    const fromHub = req.session.data.commodityFromHub
+    const fromAnimalId = req.session.data.addSpeciesFromAnimalId
+    res.redirect((fromAnimalId || fromHub) ? `${BASE}/create/animal-identification` : `${BASE}/create/origin`)
   })
 
-  router.get(`${BASE}/create/commodity`, (req, res) => {
+  router.get(`${BASE}/create/origin-prefill`, (req, res) => {
+    req.session.data.countryOfOrigin = 'France'
+    req.session.data.regionOfOriginRequired = 'no'
     delete req.session.data.errors
     delete req.session.data.errorList
-    const commoditiesData = require('../../data/commodities-eu.js')
-    const commodityOptions = []
-    for (const [commodityKey, d] of Object.entries(commoditiesData)) {
-      commodityOptions.push({ value: commodityKey, text: `${d.commonName || commodityKey} (${d.code})` })
-      if (d.species && d.species.length > 0) {
-        const commonName = d.commonName || commodityKey
-        for (const species of d.species) {
-          commodityOptions.push({
-            value: `species:${commodityKey}:${species}`,
-            text: `${species} (${commonName})`
-          })
-        }
-      }
-    }
-    res.render('v1-baseline/create/commodity', {
-      commodityOptions
-    })
-  })
-
-  router.post(`${BASE}/create/commodity`, (req, res) => {
-    const commodity = req.session.data.commodity
-    const errors = {}
-    const errorList = []
-
-    if (!commodity || commodity.trim() === '') {
-      errors.commodity = 'Select a commodity'
-      errorList.push({ href: '#commodity', text: 'Select a commodity' })
-    }
-
-    if (Object.keys(errors).length > 0) {
-      req.session.data.errors = errors
-      req.session.data.errorList = errorList
-      return res.redirect(`${BASE}/create/commodity`)
-    }
-
-    delete req.session.data.errors
-    delete req.session.data.errorList
-
-    const speciesMatch = commodity.match(/^species:(.+?):(.+)$/)
-    if (speciesMatch) {
-      const [, commodityKey, speciesName] = speciesMatch
-      req.session.data.commodity = commodityKey
-      req.session.data.commoditySpecies = [speciesName]
-      req.session.data.commodityType = req.session.data.commodityType || 'domestic'
-      return res.redirect(`${BASE}/create/commodity-quantities`)
-    }
-
-    res.redirect(`${BASE}/create/commodity-species`)
-  })
-
-  router.get(`${BASE}/create/commodity-prefill`, (req, res) => {
-    req.session.data.commodity = 'Cow'
-    delete req.session.data.errors
-    delete req.session.data.errorList
-    res.redirect(`${BASE}/create/commodity-species`)
-  })
-
-  router.get(`${BASE}/create/commodity-species`, (req, res) => {
-    delete req.session.data.errors
-    delete req.session.data.errorList
-    const commodity = req.session.data.commodity
-    const commoditiesData = require('../../data/commodities-eu.js')
-    const commodityDetails = commodity ? commoditiesData[commodity] : null
-
-    if (!commodityDetails) {
-      return res.redirect(`${BASE}/create/commodity`)
-    }
-
-    const commodityTypeItems = commodityDetails.commodityTypes.map(t => ({
-      value: t.toLowerCase(),
-      text: t
-    }))
-    const selectedSpecies = getCommoditySpeciesArray(req.session.data)
-    const speciesItems = commodityDetails.species.map(s => ({
-      value: s,
-      text: s,
-      checked: selectedSpecies.indexOf(s) !== -1
-    }))
-
-    const showCommodityType = commodity !== 'Dog'
-
-    res.render('v1-baseline/create/commodity-species', {
-      commodityDetails,
-      commodityTypeItems,
-      speciesItems,
-      showCommodityType
-    })
-  })
-
-  router.post(`${BASE}/create/commodity-species`, (req, res) => {
-    const species = getCommoditySpeciesArray(req.session.data)
-    const commodity = req.session.data.commodity
-    const errors = {}
-    const errorList = []
-
-    if (species.length === 0) {
-      errors.commoditySpecies = 'Select at least one species'
-      errorList.push({ href: '#commoditySpecies-1', text: 'Select at least one species' })
-    }
-
-    if (Object.keys(errors).length > 0) {
-      req.session.data.errors = errors
-      req.session.data.errorList = errorList
-      return res.redirect(`${BASE}/create/commodity-species`)
-    }
-
-    if (commodity === 'Dog') {
-      req.session.data.commodityType = 'domestic'
-    }
-    req.session.data.commoditySpecies = species
-    delete req.session.data.errors
-    delete req.session.data.errorList
-    res.redirect(`${BASE}/create/commodity-quantities`)
-  })
-
-  router.get(`${BASE}/create/commodity-species-prefill`, (req, res) => {
-    const commoditiesEu = require('../../data/commodities-eu.js')
-    const commodityDetails = req.session.data.commodity ? commoditiesEu[req.session.data.commodity] : null
-    // Use Bos taurus (domestic cattle) for Cow; otherwise first species in list
-    const species = commodityDetails && req.session.data.commodity === 'Cow'
-      ? 'Bos taurus'
-      : (commodityDetails ? commodityDetails.species[0] : 'Bos taurus')
-    req.session.data.commoditySpecies = [species]
-    req.session.data.commodityType = 'domestic'
-    delete req.session.data.errors
-    delete req.session.data.errorList
-    res.redirect(`${BASE}/create/commodity-quantities`)
-  })
-
-  router.get(`${BASE}/create/import-reason`, (req, res) => {
-    delete req.session.data.errors
-    delete req.session.data.errorList
-    const commoditySpecies = getCommoditySpeciesArray(req.session.data)
-    const horseSpecies = require('../../data/commodity-list.js').horseSpecies
-    const showTemporaryAdmissionHorses = commoditySpecies.some(s => horseSpecies.includes(s))
-    const internalMarketPurposes = require('../../data/internal-market-purposes.js')
-    const commoditiesEu = require('../../data/commodities-eu.js')
-    const purposeOptions = internalMarketPurposes.getPurposeOptionsForCommodityAndSpecies
-      ? internalMarketPurposes.getPurposeOptionsForCommodityAndSpecies(req.session.data.commodity, commoditySpecies, commoditiesEu)
-      : internalMarketPurposes
-
-    const purposeItems = purposeOptions.map(p => ({
-      value: p.value,
-      text: p.text,
-      hint: p.hint ? { text: p.hint } : undefined,
-      checked: req.session.data.internalMarketPurpose === p.value
-    }))
-
-    const escapeHtml = (s) => String(s)
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-
-    const purposeError = req.session.data.errors && req.session.data.errors.internalMarketPurpose
-    const purposeConditionalHtml = `
-      <div class="govuk-form-group govuk-!-margin-top-3 ${purposeError ? 'govuk-form-group--error' : ''}">
-        <fieldset class="govuk-fieldset" ${purposeError ? 'aria-describedby="internal-market-purpose-error"' : ''}>
-          <legend class="govuk-fieldset__legend govuk-fieldset__legend--s">
-            Purpose in the internal market
-          </legend>
-          ${purposeError ? `<p id="internal-market-purpose-error" class="govuk-error-message"><span class="govuk-visually-hidden">Error:</span> ${escapeHtml(purposeError)}</p>` : ''}
-          <div class="govuk-radios govuk-radios--small" data-module="govuk-radios">
-            ${purposeItems.map((item, i) => `
-              <div class="govuk-radios__item">
-                <input class="govuk-radios__input" id="internal-market-purpose-${i}" name="internalMarketPurpose" type="radio" value="${escapeHtml(item.value)}" ${item.checked ? 'checked' : ''}>
-                <label class="govuk-label govuk-radios__label" for="internal-market-purpose-${i}">${escapeHtml(item.text)}</label>
-                ${item.hint ? `<div class="govuk-hint govuk-radios__hint">${escapeHtml(item.hint.text)}</div>` : ''}
-              </div>
-            `).join('')}
-          </div>
-        </fieldset>
-      </div>
-    `
-
-    const importReasonItems = [
-      {
-        value: 'internal-market',
-        text: 'Internal market',
-        hint: { text: 'The consignment is intended for sale or use in Great Britain (England, Scotland or Wales).' },
-        conditional: { html: purposeConditionalHtml }
-      },
-      {
-        value: 're-entry',
-        text: 'Re-entry',
-        hint: { text: 'The consignment is authorised for re-entry or includes rejected exports that are re-entering Great Britain.' }
-      }
-    ]
-    if (showTemporaryAdmissionHorses) {
-      importReasonItems.push({
-        value: 'temporary-admission-horses',
-        text: 'Temporary admission horses',
-        hint: { text: 'For horses authorised for temporary entry.' }
-      })
-    }
-
-    res.render('v1-baseline/create/import-reason', {
-      importReasonItems
-    })
-  })
-
-  router.post(`${BASE}/create/import-reason`, (req, res) => {
-    const importReason = req.session.data.importReason
-    const internalMarketPurpose = req.session.data.internalMarketPurpose
-    const commoditySpecies = getCommoditySpeciesArray(req.session.data)
-    const horseSpecies = require('../../data/commodity-list.js').horseSpecies
-    const showTemporaryAdmissionHorses = commoditySpecies.some(s => horseSpecies.includes(s))
-    const errors = {}
-    const errorList = []
-
-    if (!importReason || importReason.trim() === '') {
-      errors.importReason = 'Select the main reason for importing the animals'
-      errorList.push({ href: '#import-reason-1', text: 'Select the main reason for importing the animals' })
-    } else if (importReason === 'temporary-admission-horses' && !showTemporaryAdmissionHorses) {
-      errors.importReason = 'Temporary admission horses is only available when importing horses'
-      errorList.push({ href: '#import-reason-1', text: 'Select a valid reason for importing the animals' })
-    } else if (importReason === 'internal-market' && (!internalMarketPurpose || internalMarketPurpose.trim() === '')) {
-      errors.internalMarketPurpose = 'Select the purpose in the internal market'
-      errorList.push({ href: '#internal-market-purpose-0', text: 'Select the purpose in the internal market' })
-    }
-
-    if (Object.keys(errors).length > 0) {
-      req.session.data.errors = errors
-      req.session.data.errorList = errorList
-      return res.redirect(`${BASE}/create/import-reason`)
-    }
-
-    delete req.session.data.errors
-    delete req.session.data.errorList
-    res.redirect(`${BASE}/create/accompanying-documents`)
-  })
-
-  router.get(`${BASE}/create/import-reason-prefill`, (req, res) => {
-    req.session.data.importReason = 'internal-market'
-    req.session.data.internalMarketPurpose = 'breeding'
-    delete req.session.data.errors
-    delete req.session.data.errorList
-    res.redirect(`${BASE}/create/accompanying-documents`)
-  })
-
-  router.get(`${BASE}/create/commodity-quantities`, (req, res) => {
-    delete req.session.data.errors
-    delete req.session.data.errorList
-    const commodity = req.session.data.commodity
-    const commoditySpecies = getCommoditySpeciesArray(req.session.data)
-    const commodityType = req.session.data.commodityType || 'domestic'
-    const commoditiesData = require('../../data/commodities-eu.js')
-    const commodityDetails = commodity ? commoditiesData[commodity] : null
-
-    if (!commodityDetails || commoditySpecies.length === 0) {
-      return res.redirect(`${BASE}/create/commodity-species`)
-    }
-
-    const typeLabel = commodityType === 'game' ? 'Game' : 'Domestic'
-    const speciesRows = commoditySpecies.map(s => {
-      const key = s.replace(/\s+/g, '_').toLowerCase().replace(/[^a-z0-9_]/g, '')
-      return {
-        key,
-        speciesAndType: `${s}, ${typeLabel}`,
-        quantityKey: `quantity_${key}`,
-        packagesKey: `packages_${key}`
-      }
-    })
-
-    let totalAnimals = 0
-    let totalPackages = 0
-    speciesRows.forEach(s => {
-      const qty = parseInt(req.session.data[s.quantityKey], 10)
-      const pkg = parseInt(req.session.data[s.packagesKey], 10)
-      totalAnimals += (isNaN(qty) ? 0 : qty)
-      totalPackages += (isNaN(pkg) ? 0 : pkg)
-    })
-
-    res.render('v1-baseline/create/commodity-quantities', {
-      commodityDetails,
-      speciesRows,
-      totalAnimals,
-      totalPackages
-    })
-  })
-
-  router.post(`${BASE}/create/commodity-quantities`, (req, res) => {
-    const commodity = req.session.data.commodity
-    const commoditySpecies = getCommoditySpeciesArray(req.session.data)
-    const commoditiesData = require('../../data/commodities-eu.js')
-    const commodityDetails = commodity ? commoditiesData[commodity] : null
-    const errors = {}
-    const errorList = []
-
-    if (!commodityDetails || commoditySpecies.length === 0) {
-      return res.redirect(`${BASE}/create/commodity-species`)
-    }
-
-    const typeLabel = req.session.data.commodityType === 'game' ? 'Game' : 'Domestic'
-    const speciesRows = commoditySpecies.map(s => {
-      const key = s.replace(/\s+/g, '_').toLowerCase().replace(/[^a-z0-9_]/g, '')
-      return {
-        key,
-        speciesAndType: `${s}, ${typeLabel}`,
-        quantityKey: `quantity_${key}`,
-        packagesKey: `packages_${key}`
-      }
-    })
-
-    speciesRows.forEach((s, i) => {
-      const qtyVal = req.session.data[s.quantityKey]
-      const qtyNum = parseInt(qtyVal, 10)
-      if (!qtyVal || String(qtyVal).trim() === '' || isNaN(qtyNum) || qtyNum < 1) {
-        errors[s.quantityKey] = 'Enter at least 1 animal'
-        errorList.push({ href: `#quantity-${s.key}`, text: `Enter at least 1 animal for ${s.speciesAndType}` })
-      }
-      const pkgVal = req.session.data[s.packagesKey]
-      if (pkgVal === undefined || pkgVal === null || String(pkgVal).trim() === '' || parseInt(pkgVal, 10) < 0) {
-        errors[s.packagesKey] = 'Enter the number of packages'
-        errorList.push({ href: `#packages-${s.key}`, text: `Enter the number of packages for ${s.speciesAndType}` })
-      }
-    })
-
-    if (Object.keys(errors).length > 0) {
-      req.session.data.errors = errors
-      req.session.data.errorList = errorList
-      return res.redirect(`${BASE}/create/commodity-quantities`)
-    }
-
-    delete req.session.data.errors
-    delete req.session.data.errorList
-    res.redirect(`${BASE}/create/animal-identification`)
+    res.redirect(`${BASE}/create/commodity`)
   })
 
   router.get(`${BASE}/create/commodity-quantities-prefill`, (req, res) => {
-    const commoditySpecies = getCommoditySpeciesArray(req.session.data)
+    const commodity = req.session.data.commodity
+    const commoditySpecies = req.session.data.commoditySpecies || []
+    if (!commodity || commoditySpecies.length === 0) {
+      return res.redirect(`${BASE}/create/commodity`)
+    }
     commoditySpecies.forEach(s => {
       const key = s.replace(/\s+/g, '_').toLowerCase().replace(/[^a-z0-9_]/g, '')
-      req.session.data[`quantity_${key}`] = 2
-      req.session.data[`packages_${key}`] = 1
+      req.session.data[`animalCount_${key}`] = '10'
+      req.session.data[`quantity_${key}`] = '10'
+      req.session.data[`numberOfPackages_${key}`] = '1'
+      req.session.data[`packages_${key}`] = '1'
     })
     delete req.session.data.errors
     delete req.session.data.errorList
     res.redirect(`${BASE}/create/animal-identification`)
-  })
-
-  router.get(`${BASE}/create/animal-identification`, (req, res) => {
-    delete req.session.data.errors
-    delete req.session.data.errorList
-    const commodity = req.session.data.commodity
-    const commoditySpecies = getCommoditySpeciesArray(req.session.data)
-    const commodityType = req.session.data.commodityType || 'domestic'
-    const commoditiesData = require('../../data/commodities-eu.js')
-    const commodityDetails = commodity ? commoditiesData[commodity] : null
-
-    if (!commodityDetails || commoditySpecies.length === 0) {
-      return res.redirect(`${BASE}/create/commodity-species`)
-    }
-
-    const quantityKey = (s) => `quantity_${s.replace(/\s+/g, '_').toLowerCase().replace(/[^a-z0-9_]/g, '')}`
-    const hasQuantities = commoditySpecies.some(s => {
-      const q = parseInt(req.session.data[quantityKey(s)], 10)
-      return !isNaN(q) && q > 0
-    })
-    if (!hasQuantities) {
-      return res.redirect(`${BASE}/create/commodity-quantities`)
-    }
-
-    const typeLabel = commodityType === 'game' ? 'Game' : 'Domestic'
-    const isPetIdentification = commodityDetails.code === '01061900'
-    const isGameBirdIdentification = commodityDetails.code === '01063980'
-    const isHorseIdentification = commodityDetails.code === '0101'
-    const isEarTagOnlyIdentification = ['010410', '0103'].includes(commodityDetails.code)
-    const speciesRows = commoditySpecies.map(s => {
-      const key = s.replace(/\s+/g, '_').toLowerCase().replace(/[^a-z0-9_]/g, '')
-      const quantityKey = `quantity_${key}`
-      const animalCountKey = `animalCount_${key}`
-      const quantity = parseInt(req.session.data[animalCountKey] ?? req.session.data[quantityKey], 10) || 0
-      const animals = []
-      for (let i = 1; i <= quantity; i++) {
-        const animal = { index: i }
-        if (isPetIdentification) {
-          animal.microchipKey = `microchip_${key}_${i}`
-          animal.passportKey = `passport_${key}_${i}`
-          animal.tattooKey = `tattoo_${key}_${i}`
-        } else if (isGameBirdIdentification) {
-          animal.flockIdKey = `flockId_${key}_${i}`
-          animal.hatchingDateKey = `hatchingDate_${key}_${i}`
-        } else if (isHorseIdentification) {
-          animal.horseNameKey = `horseName_${key}_${i}`
-          animal.microchipKey = `microchip_${key}_${i}`
-          animal.passportKey = `passport_${key}_${i}`
-        } else if (isEarTagOnlyIdentification) {
-          animal.earTagKey = `earTag_${key}_${i}`
-        } else {
-          animal.earTagKey = `earTag_${key}_${i}`
-          animal.passportKey = `passport_${key}_${i}`
-        }
-        animals.push(animal)
-      }
-      return {
-        key,
-        speciesName: s,
-        speciesAndType: `${s}, ${typeLabel}`,
-        quantity,
-        animals,
-        isPetIdentification,
-        isGameBirdIdentification,
-        isHorseIdentification,
-        isEarTagOnlyIdentification
-      }
-    })
-
-    res.render('v1-baseline/create/animal-identification', {
-      commodityDetails,
-      speciesRows
-    })
-  })
-
-  router.get(`${BASE}/create/animal-identification-prefill`, (req, res) => {
-    const commodity = req.session.data.commodity
-    const commoditySpecies = getCommoditySpeciesArray(req.session.data)
-    const commodityType = req.session.data.commodityType || 'domestic'
-    const commoditiesData = require('../../data/commodities-eu.js')
-    const commodityDetails = commodity ? commoditiesData[commodity] : null
-
-    if (!commodityDetails || commoditySpecies.length === 0) {
-      return res.redirect(`${BASE}/create/commodity-species`)
-    }
-
-    const quantityKey = (s) => `quantity_${s.replace(/\s+/g, '_').toLowerCase().replace(/[^a-z0-9_]/g, '')}`
-    const hasQuantities = commoditySpecies.some(s => {
-      const q = parseInt(req.session.data[quantityKey(s)], 10)
-      return !isNaN(q) && q > 0
-    })
-    if (!hasQuantities) {
-      return res.redirect(`${BASE}/create/commodity-quantities`)
-    }
-
-    // BCMS (Cattle Tracing System) format: 12-digit ear tag (6 herd + 6 individual), passport UK herd check sequential
-    const HERD_MARK = '123456'
-    const CHECK_DIGIT = '7'
-    let animalCounter = 0
-    const isCattle = commodity === 'Cow'
-    const isPetIdentification = commodityDetails && commodityDetails.code === '01061900'
-    const isGameBirdIdentification = commodityDetails && commodityDetails.code === '01063980'
-    const isHorseIdentification = commodityDetails && commodityDetails.code === '0101'
-    const isEarTagOnlyIdentification = commodityDetails && ['010410', '0103'].includes(commodityDetails.code)
-    commoditySpecies.forEach(s => {
-      const key = s.replace(/\s+/g, '_').toLowerCase().replace(/[^a-z0-9_]/g, '')
-      const quantityKey = `quantity_${key}`
-      const quantity = parseInt(req.session.data[quantityKey], 10) || 0
-      for (let i = 1; i <= quantity; i++) {
-        animalCounter++
-        if (isPetIdentification) {
-          req.session.data[`microchip_${key}_${i}`] = `9820001234567${String(i).padStart(2, '0')}`
-          req.session.data[`passport_${key}_${i}`] = `PASSPORT-${key}-${i}`
-          req.session.data[`tattoo_${key}_${i}`] = `TAT${key.slice(0, 4).toUpperCase()}-${i}`
-        } else if (isGameBirdIdentification) {
-          req.session.data[`flockId_${key}_${i}`] = `FLOCK-${key.slice(0, 6).toUpperCase()}-${String(i).padStart(3, '0')}`
-          req.session.data[`hatchingDate_${key}_${i}`] = `${15 + (i % 14)} ${4 + (i % 9)} 2025`
-        } else if (isHorseIdentification) {
-          req.session.data[`horseName_${key}_${i}`] = `Thunder ${i}`
-          req.session.data[`microchip_${key}_${i}`] = `9820001234567${String(i).padStart(2, '0')}`
-          req.session.data[`passport_${key}_${i}`] = `GBR-XIV-${String(i).padStart(6, '0')}`
-        } else if (isEarTagOnlyIdentification) {
-          req.session.data[`earTag_${key}_${i}`] = `UK0 ${key.slice(0, 6).toUpperCase()} ${String(i).padStart(6, '0')}`
-        } else if (isCattle) {
-          req.session.data[`earTag_${key}_${i}`] = `${HERD_MARK}${String(animalCounter).padStart(6, '0')}`
-          req.session.data[`passport_${key}_${i}`] = `UK ${HERD_MARK} ${CHECK_DIGIT} ${String(animalCounter).padStart(5, '0')}`
-        } else {
-          req.session.data[`earTag_${key}_${i}`] = `PRE-${key}-${i}`
-          req.session.data[`passport_${key}_${i}`] = `PASSPORT-${key}-${i}`
-        }
-      }
-    })
-
-    delete req.session.data.errors
-    delete req.session.data.errorList
-    res.redirect(`${BASE}/create/additional-animal-details`)
-  })
-
-  router.get(`${BASE}/create/additional-animal-details`, (req, res) => {
-    delete req.session.data.errors
-    delete req.session.data.errorList
-    const commodity = req.session.data.commodity
-    const commoditySpecies = getCommoditySpeciesArray(req.session.data)
-    const commoditiesData = require('../../data/commodities-eu.js')
-    const commodityDetails = commodity ? commoditiesData[commodity] : null
-
-    if (!commodityDetails || commoditySpecies.length === 0) {
-      return res.redirect(`${BASE}/create/commodity-species`)
-    }
-
-    const quantityKey = (s) => `quantity_${s.replace(/\s+/g, '_').toLowerCase().replace(/[^a-z0-9_]/g, '')}`
-    const hasQuantities = commoditySpecies.some(s => {
-      const q = parseInt(req.session.data[quantityKey(s)], 10)
-      return !isNaN(q) && q > 0
-    })
-    if (!hasQuantities) {
-      return res.redirect(`${BASE}/create/commodity-quantities`)
-    }
-
-    const certifiedForOptions = require('../../data/certified-for-options.js')
-    const certifiedForItems = certifiedForOptions.getCertifiedForOptions
-      ? certifiedForOptions.getCertifiedForOptions(commodity, commoditySpecies, commoditiesData)
-      : certifiedForOptions
-
-    const code = commodityDetails && commodityDetails.code ? String(commodityDetails.code).replace(/\s/g, '') : ''
-    const isDogConsignment = code === '01061900' && commoditySpecies.includes('Canis familiaris')
-    const showUnweanedAnimals = !isDogConsignment
-
-    res.render('v1-baseline/create/additional-animal-details', { certifiedForItems, showUnweanedAnimals })
-  })
-
-  router.post(`${BASE}/create/additional-animal-details`, (req, res) => {
-    const animalsCertifiedFor = req.session.data.animalsCertifiedFor
-    const unweanedAnimals = req.session.data.unweanedAnimals
-    const commodity = req.session.data.commodity
-    const commoditySpecies = getCommoditySpeciesArray(req.session.data)
-    const commoditiesData = require('../../data/commodities-eu.js')
-    const commodityDetails = commodity ? commoditiesData[commodity] : null
-    const code = commodityDetails && commodityDetails.code ? String(commodityDetails.code).replace(/\s/g, '') : ''
-    const isDogConsignment = code === '01061900' && commoditySpecies.includes('Canis familiaris')
-    const showUnweanedAnimals = !isDogConsignment
-
-    const errors = {}
-    const errorList = []
-
-    if (!animalsCertifiedFor || animalsCertifiedFor.trim() === '') {
-      errors.animalsCertifiedFor = 'Select what the animals are certified for'
-      errorList.push({ href: '#animals-certified-for-1', text: 'Select what the animals are certified for' })
-    }
-    if (showUnweanedAnimals && (!unweanedAnimals || unweanedAnimals.trim() === '')) {
-      errors.unweanedAnimals = 'Select if the consignment contains unweaned animals'
-      errorList.push({ href: '#unweaned-animals-1', text: 'Select if the consignment contains unweaned animals' })
-    }
-
-    if (Object.keys(errors).length > 0) {
-      req.session.data.errors = errors
-      req.session.data.errorList = errorList
-      return res.redirect(`${BASE}/create/additional-animal-details`)
-    }
-
-    delete req.session.data.errors
-    delete req.session.data.errorList
-    res.redirect(`${BASE}/create/import-reason`)
-  })
-
-  router.get(`${BASE}/create/additional-animal-details-prefill`, (req, res) => {
-    req.session.data.animalsCertifiedFor = 'breeding-production'
-    req.session.data.unweanedAnimals = 'no'
-    delete req.session.data.errors
-    delete req.session.data.errorList
-    res.redirect(`${BASE}/create/import-reason`)
-  })
-
-  router.get(`${BASE}/create/accompanying-documents`, (req, res) => {
-    delete req.session.data.errors
-    delete req.session.data.errorList
-    const documentTypes = require('../../data/document-types.js')
-    const documentTypeItems = [{ value: '', text: 'Select document type' }].concat(documentTypes)
-    const sessionDocuments = req.session.data.documents
-    let documents = (sessionDocuments && sessionDocuments.length) ? sessionDocuments : [{ type: '', reference: '', date: '' }]
-    // Normalise date: convert legacy dateDay/dateMonth/dateYear to YYYY-MM-DD for input type="date"
-    documents = documents.map(doc => {
-      const d = doc || {}
-      if (d.date) return { ...d, date: d.date }
-      if (d.dateDay && d.dateMonth && d.dateYear) {
-        const y = String(d.dateYear).padStart(4, '0')
-        const m = String(d.dateMonth).padStart(2, '0')
-        const day = String(d.dateDay).padStart(2, '0')
-        return { ...d, date: `${y}-${m}-${day}` }
-      }
-      return { ...d, date: d.date || '' }
-    })
-    res.render('v1-baseline/create/accompanying-documents', {
-      documentTypeItems,
-      documents
-    })
-  })
-
-  router.post(`${BASE}/create/accompanying-documents`, (req, res) => {
-    const data = req.session.data
-    const documents = []
-    const errors = {}
-    const errorList = []
-    let i = 0
-    while (data[`documentType_${i}`] !== undefined) {
-      const type = data[`documentType_${i}`]
-      const reference = (data[`documentReference_${i}`] || '').trim()
-      const date = (data[`documentDate_${i}`] || '').trim()
-      const filenamesStr = data[`documentAttachmentFilenames_${i}`] || ''
-      const attachments = filenamesStr ? filenamesStr.split(',').map(s => s.trim()).filter(Boolean) : []
-
-      if (!type || type.trim() === '') {
-        errors[`documentType_${i}`] = 'Select a document type'
-        errorList.push({ href: `#document-type-${i}`, text: `Document ${i + 1}: Select a document type` })
-      }
-      if (reference === '') {
-        errors[`documentReference_${i}`] = 'Enter the document reference'
-        errorList.push({ href: `#document-reference-${i}`, text: `Document ${i + 1}: Enter the document reference` })
-      }
-      if (date === '') {
-        errors[`documentDate_${i}`] = 'Enter the date of issue'
-        errorList.push({ href: `#document-date-${i}`, text: `Document ${i + 1}: Enter the date of issue` })
-      }
-
-      documents.push({
-        type: type || '',
-        reference: reference,
-        date: date,
-        attachments
-      })
-      i++
-    }
-    if (documents.length === 0) {
-      documents.push({ type: '', reference: '', date: '', attachments: [] })
-    }
-    data.documents = documents
-
-    if (Object.keys(errors).length > 0) {
-      req.session.data.errors = errors
-      req.session.data.errorList = errorList
-      return res.redirect(`${BASE}/create/accompanying-documents`)
-    }
-
-    delete data.errors
-    delete data.errorList
-    res.redirect(`${BASE}/create/addresses`)
-  })
-
-  router.get(`${BASE}/create/addresses`, (req, res) => {
-    const data = req.session.data || {}
-    delete data.errors
-    delete data.errorList
-
-    // Store selected consignor when coming from address-consignor-search
-    const consignorId = req.query.consignor
-    if (req.query.removeConsignor === '1') {
-      delete data.consignorId
-      delete data.consignorName
-      delete data.consignorAddress
-      delete data.consignorCountry
-      delete data.consignor
-    } else if (consignorId) {
-      const consignors = require('../../data/consignors.js')
-      const selected = consignors.find(c => String(c.id) === String(consignorId))
-      if (selected) {
-        data.consignorId = selected.id
-        data.consignorName = selected.name
-        data.consignorAddress = selected.address
-        data.consignorCountry = selected.country
-        data.consignor = selected
-      }
-    }
-
-    // Store selected consignee when coming from address-consignee-search
-    const consigneeId = req.query.consignee
-    if (req.query.removeConsignee === '1') {
-      delete data.consigneeId
-      delete data.consigneeName
-      delete data.consigneeAddress
-      delete data.consigneeCountry
-      delete data.consigneeAddressLine1
-      delete data.consigneeAddressLine2
-      delete data.consigneeTown
-      delete data.consigneePostcode
-      delete data.importerName
-      delete data.importerAddress
-      delete data.importerCountry
-    } else if (consigneeId) {
-      const consignees = require('../../data/consignees.js')
-      const selectedConsignee = consignees.find(c => String(c.id) === String(consigneeId))
-      if (selectedConsignee) {
-        data.consigneeId = selectedConsignee.id
-        data.consigneeName = selectedConsignee.name
-        data.consigneeAddress = selectedConsignee.address
-        data.consigneeCountry = selectedConsignee.country
-      }
-    }
-
-    // Store selected importer when coming from address-consignee-search?for=importer
-    const importerId = req.query.importer
-    if (importerId) {
-      const consignees = require('../../data/consignees.js')
-      const selectedImporter = consignees.find(c => String(c.id) === String(importerId))
-      if (selectedImporter) {
-        data.importerId = selectedImporter.id
-        data.importerName = selectedImporter.name
-        data.importerAddress = selectedImporter.address
-        data.importerCountry = selectedImporter.country
-      }
-    }
-
-    // Pass consignor explicitly (session may not persist nested objects reliably)
-    const selected = data.consignor || (data.consignorName && { name: data.consignorName, address: data.consignorAddress, country: data.consignorCountry })
-    const consignorName = (selected && selected.name) || data.consignorName || ''
-    const consignorAddress = (selected && selected.address) || data.consignorAddress || ''
-    const consignorCountry = (selected && selected.country) || data.consignorCountry || ''
-    const hasConsignor = !!(selected || data.consignorId)
-
-    // Handle "Same as consignee" for importer
-    if (req.query.importerSameAsConsignee === '1') {
-      const hasConsigneeCheck = !!(data.consigneeId && data.consigneeName && data.consigneeAddress && data.consigneeCountry) ||
-        !!(data.consigneeName && data.consigneeAddressLine1 && data.consigneeTown && data.consigneePostcode)
-      if (hasConsigneeCheck) {
-        data.importerId = data.consigneeId
-        data.importerName = data.consigneeName
-        data.importerAddress = data.consigneeAddress
-        data.importerCountry = data.consigneeCountry
-        data.importerAddressLine1 = data.consigneeAddressLine1
-        data.importerAddressLine2 = data.consigneeAddressLine2
-        data.importerTown = data.consigneeTown
-        data.importerPostcode = data.consigneePostcode
-      }
-    }
-    if (req.query.removeImporter === '1') {
-      delete data.importerId
-      delete data.importerName
-      delete data.importerAddress
-      delete data.importerCountry
-      delete data.importerAddressLine1
-      delete data.importerAddressLine2
-      delete data.importerTown
-      delete data.importerPostcode
-    }
-
-    // Consignee – build display (from search selection or manual form)
-    const hasConsigneeFromSearch = !!(data.consigneeId && data.consigneeName && data.consigneeAddress && data.consigneeCountry)
-    const hasConsigneeFromForm = !!(data.consigneeName && data.consigneeAddressLine1 && data.consigneeTown && data.consigneePostcode)
-    const hasConsignee = hasConsigneeFromSearch || hasConsigneeFromForm
-    const consigneeAddressLines = []
-    if (hasConsigneeFromSearch) {
-      consigneeAddressLines.push(data.consigneeName, data.consigneeAddress, data.consigneeCountry)
-    } else if (hasConsigneeFromForm) {
-      if (data.consigneeName) consigneeAddressLines.push(data.consigneeName)
-      if (data.consigneeAddressLine1) consigneeAddressLines.push(data.consigneeAddressLine1)
-      if (data.consigneeAddressLine2) consigneeAddressLines.push(data.consigneeAddressLine2)
-      if (data.consigneeTown) consigneeAddressLines.push(data.consigneeTown)
-      if (data.consigneePostcode) consigneeAddressLines.push(data.consigneePostcode + ' United Kingdom')
-    }
-
-    // Importer – build display (from same-as-consignee, search, or manual form)
-    const hasImporterFromConsignee = !!(data.importerName && (data.importerAddress || data.importerAddressLine1))
-    const hasImporter = hasImporterFromConsignee
-
-    // Same as consignee: show when importer is empty OR importer differs from consignee
-    const importerMatchesConsignee = hasConsignee && hasImporter && (
-      (data.importerId && data.consigneeId && String(data.importerId) === String(data.consigneeId)) ||
-      (data.importerName === data.consigneeName && data.importerAddress === data.consigneeAddress) ||
-      (data.importerName === data.consigneeName && data.importerAddressLine1 === data.consigneeAddressLine1 && data.importerTown === data.consigneeTown)
-    )
-    const showSameAsConsignee = hasConsignee && !importerMatchesConsignee
-    const importerAddressLines = []
-    if (hasImporter) {
-      if (data.importerAddress) {
-        importerAddressLines.push(data.importerName, data.importerAddress, data.importerCountry || 'United Kingdom')
-      } else {
-        if (data.importerName) importerAddressLines.push(data.importerName)
-        if (data.importerAddressLine1) importerAddressLines.push(data.importerAddressLine1)
-        if (data.importerAddressLine2) importerAddressLines.push(data.importerAddressLine2)
-        if (data.importerTown) importerAddressLines.push(data.importerTown)
-        if (data.importerPostcode) importerAddressLines.push(data.importerPostcode + ' United Kingdom')
-      }
-    }
-
-    // Place of destination – from search selection or same as consignee
-    const placeOfDestinationId = req.query.placeOfDestination
-    if (req.query.removePlaceOfDestination === '1') {
-      delete data.placeOfDestinationId
-      delete data.placeOfDestinationName
-      delete data.placeOfDestinationAddress
-      delete data.placeOfDestinationCountry
-      delete data.placeOfDestinationType
-    } else if (req.query.placeOfDestinationSameAsConsignee === '1') {
-      const hasConsigneeFromSearch = !!(data.consigneeId && data.consigneeName && data.consigneeAddress && data.consigneeCountry)
-      const hasConsigneeFromForm = !!(data.consigneeName && data.consigneeAddressLine1 && data.consigneeTown && data.consigneePostcode)
-      if (hasConsigneeFromSearch) {
-        delete data.placeOfDestinationId
-        data.placeOfDestinationName = data.consigneeName
-        data.placeOfDestinationAddress = data.consigneeAddress
-        data.placeOfDestinationCountry = data.consigneeCountry
-        delete data.placeOfDestinationType
-      } else if (hasConsigneeFromForm) {
-        delete data.placeOfDestinationId
-        data.placeOfDestinationName = data.consigneeName
-        data.placeOfDestinationAddressLine1 = data.consigneeAddressLine1
-        data.placeOfDestinationAddressLine2 = data.consigneeAddressLine2
-        data.placeOfDestinationTown = data.consigneeTown
-        data.placeOfDestinationPostcode = data.consigneePostcode
-        data.placeOfDestinationCountry = 'United Kingdom'
-        delete data.placeOfDestinationAddress
-        delete data.placeOfDestinationType
-      }
-    } else if (placeOfDestinationId) {
-      const placesOfDestination = require('../../data/places-of-destination.js')
-      const selected = placesOfDestination.find(p => String(p.id) === String(placeOfDestinationId))
-      if (selected) {
-        data.placeOfDestinationId = selected.id
-        data.placeOfDestinationName = selected.name
-        data.placeOfDestinationAddress = selected.address
-        data.placeOfDestinationCountry = selected.country
-        data.placeOfDestinationType = selected.type
-      }
-    }
-    const hasPlaceOfDestination = !!(data.placeOfDestinationName && (data.placeOfDestinationAddress || data.placeOfDestinationAddressLine1))
-    const placeOfDestinationAddressLines = []
-    if (hasPlaceOfDestination) {
-      if (data.placeOfDestinationAddress) {
-        placeOfDestinationAddressLines.push(data.placeOfDestinationName, data.placeOfDestinationAddress, (data.placeOfDestinationCountry || '') + (data.placeOfDestinationType ? ' (' + data.placeOfDestinationType + ')' : ''))
-      } else {
-        if (data.placeOfDestinationName) placeOfDestinationAddressLines.push(data.placeOfDestinationName)
-        if (data.placeOfDestinationAddressLine1) placeOfDestinationAddressLines.push(data.placeOfDestinationAddressLine1)
-        if (data.placeOfDestinationAddressLine2) placeOfDestinationAddressLines.push(data.placeOfDestinationAddressLine2)
-        if (data.placeOfDestinationTown) placeOfDestinationAddressLines.push(data.placeOfDestinationTown)
-        if (data.placeOfDestinationPostcode) placeOfDestinationAddressLines.push(data.placeOfDestinationPostcode + ' United Kingdom')
-      }
-    }
-
-    // Same as consignee for place of destination: show when consignee exists and place is empty or different
-    const placeOfDestinationMatchesConsignee = hasConsignee && hasPlaceOfDestination && (
-      (data.placeOfDestinationName === data.consigneeName && data.placeOfDestinationAddress === data.consigneeAddress) ||
-      (data.placeOfDestinationName === data.consigneeName && data.placeOfDestinationAddressLine1 === data.consigneeAddressLine1 && data.placeOfDestinationTown === data.consigneeTown)
-    )
-    const showSameAsConsigneeForDestination = hasConsignee && !placeOfDestinationMatchesConsignee
-
-    res.render('v1-baseline/create/addresses', {
-      consignorName,
-      consignorAddress,
-      consignorCountry,
-      hasConsignor,
-      hasConsignee,
-      consigneeAddressLines,
-      hasImporter,
-      importerAddressLines,
-      showSameAsConsignee,
-      hasPlaceOfDestination,
-      placeOfDestinationAddressLines,
-      showSameAsConsigneeForDestination
-    })
-  })
-
-  router.post(`${BASE}/create/addresses`, (req, res) => {
-    const data = req.session.data || {}
-    delete data.errors
-    delete data.errorList
-    let next = `${BASE}/create/contact-address-for-consignment`
-    if (isPetConsignment(data)) next = `${BASE}/create/permanent-addresses-for-animals`
-    else if (isLivestockConsignment(data)) next = `${BASE}/create/address-cph`
-    res.redirect(next)
-  })
-
-  function getPermanentAddressViewData (data) {
-    const commoditiesEu = require('../../data/commodities-eu.js')
-    const names = Array.isArray(data.commodities) && data.commodities.length > 0
-      ? data.commodities.map(c => c.commodity).filter(Boolean)
-      : (data.commodity ? [data.commodity] : [])
-    const firstPet = names.find(n => PET_COMMODITIES.has(n))
-    const details = firstPet ? commoditiesEu[firstPet] : null
-    const animalLabel = details ? (details.commonName || firstPet) : null
-    const podParts = []
-    if (data.placeOfDestinationName) podParts.push(data.placeOfDestinationName)
-    if (data.placeOfDestinationAddress) {
-      const addr = Array.isArray(data.placeOfDestinationAddress) ? data.placeOfDestinationAddress.join(', ') : data.placeOfDestinationAddress
-      podParts.push(addr)
-    } else if (data.placeOfDestinationAddressLine1) {
-      const lines = [data.placeOfDestinationAddressLine1, data.placeOfDestinationAddressLine2, data.placeOfDestinationTown, data.placeOfDestinationPostcode].filter(Boolean)
-      podParts.push(lines.join(', '))
-    }
-    if (data.placeOfDestinationCountry) podParts.push(data.placeOfDestinationCountry)
-    const podAddressDisplay = podParts.length ? podParts.join(', ') : null
-    const podAddressLines = podParts
-    return { animalLabel, podAddressDisplay, podAddressLines }
-  }
-
-  router.get(`${BASE}/create/permanent-addresses-for-animals`, (req, res) => {
-    const data = req.session.data || {}
-    delete data.errors
-    delete data.errorList
-    if (isLivestockConsignment(data)) return res.redirect(`${BASE}/create/address-cph`)
-    if (!isPetConsignment(data)) return res.redirect(`${BASE}/create/contact-address-for-consignment`)
-    let viewData = getPermanentAddressViewData(data)
-    // Fallback for standalone visits (e.g. from index) – show qualifying pet and sample address
-    if (!viewData.animalLabel) {
-      viewData = {
-        animalLabel: 'Dog (Canis familiaris)',
-        podAddressDisplay: 'Greenfield Farm, Marsh Lane, Ashford, TN25 4PQ, United Kingdom',
-        podAddressLines: ['Greenfield Farm', 'Marsh Lane, Ashford, TN25 4PQ', 'United Kingdom']
-      }
-    }
-    res.render('v1-baseline/create/permanent-addresses-for-animals', { ...viewData, backHref: `${BASE}/create/addresses` })
-  })
-
-  router.post(`${BASE}/create/permanent-addresses-for-animals`, (req, res) => {
-    const data = req.session.data || {}
-    if (isLivestockConsignment(data)) return res.redirect(`${BASE}/create/address-cph`)
-    if (!isPetConsignment(data)) return res.redirect(`${BASE}/create/contact-address-for-consignment`)
-    const sameAsPOD = data.permanentAddressSameAsPOD === 'yes'
-    const errors = {}
-    const errorList = []
-    if (!sameAsPOD) {
-      const name = (data.permanentAddressName || '').trim()
-      const line1 = (data.permanentAddressLine1 || '').trim()
-      const town = (data.permanentAddressTown || '').trim()
-      const postcode = (data.permanentAddressPostcode || '').trim()
-      if (!name) { errors.permanentAddressName = 'Enter the address name'; errorList.push({ href: '#permanentAddressName', text: 'Enter the address name' }) }
-      if (!line1) { errors.permanentAddressLine1 = 'Enter address line 1'; errorList.push({ href: '#permanentAddressLine1', text: 'Enter address line 1' }) }
-      if (!town) { errors.permanentAddressTown = 'Enter the city or town'; errorList.push({ href: '#permanentAddressTown', text: 'Enter the city or town' }) }
-      if (!postcode) { errors.permanentAddressPostcode = 'Enter the postcode'; errorList.push({ href: '#permanentAddressPostcode', text: 'Enter the postcode' }) }
-    }
-    if (errorList.length > 0) {
-      data.errors = errors
-      data.errorList = errorList
-      return res.redirect(`${BASE}/create/permanent-addresses-for-animals`)
-    }
-    delete data.errors
-    delete data.errorList
-    res.redirect(`${BASE}/create/contact-address-for-consignment`)
-  })
-
-  router.get(`${BASE}/create/permanent-addresses-for-animals-prefill`, (req, res) => {
-    const data = req.session.data || {}
-    data.permanentAddressSameAsPOD = 'yes'
-    delete data.errors
-    delete data.errorList
-    res.redirect(`${BASE}/create/contact-address-for-consignment`)
-  })
-
-  router.get(`${BASE}/create/address-cph`, (req, res) => {
-    const data = req.session.data || {}
-    delete data.errors
-    delete data.errorList
-    if (isPetConsignment(data)) return res.redirect(`${BASE}/create/permanent-addresses-for-animals`)
-    if (!isLivestockConsignment(data)) return res.redirect(`${BASE}/create/contact-address-for-consignment`)
-    res.render('v1-baseline/create/address-cph')
-  })
-
-  router.post(`${BASE}/create/address-cph`, (req, res) => {
-    const data = req.session.data || {}
-    if (isPetConsignment(data)) return res.redirect(`${BASE}/create/permanent-addresses-for-animals`)
-    if (!isLivestockConsignment(data)) return res.redirect(`${BASE}/create/contact-address-for-consignment`)
-    const cphNumber = (data.cphNumber || '').trim()
-    const errors = {}
-    const errorList = []
-    if (!cphNumber) {
-      errors.cphNumber = 'Enter the CPH number'
-      errorList.push({ href: '#cphNumber', text: 'Enter the CPH number' })
-    }
-    if (errorList.length > 0) {
-      data.errors = errors
-      data.errorList = errorList
-      return res.redirect(`${BASE}/create/address-cph`)
-    }
-    delete data.errors
-    delete data.errorList
-    res.redirect(`${BASE}/create/contact-address-for-consignment`)
-  })
-
-  router.get(`${BASE}/create/address-cph-prefill`, (req, res) => {
-    const data = req.session.data || {}
-    data.cphNumber = '12/345/6789'
-    delete data.errors
-    delete data.errorList
-    res.redirect(`${BASE}/create/contact-address-for-consignment`)
-  })
-
-  router.get(`${BASE}/create/contact-address-add-branch`, (req, res) => {
-    const data = req.session.data || {}
-    delete data.errors
-    delete data.errorList
-    const euCountries = require('../../data/eu-countries.js')
-    const euuCountries = ['Iceland', 'Liechtenstein', 'Norway', 'Switzerland']
-    const uk = 'United Kingdom of Great Britain and Northern Ireland'
-    const allCountries = [...euCountries, ...euuCountries, uk].filter((c, i, arr) => arr.indexOf(c) === i).sort()
-    const countryItems = [
-      { value: '', text: 'Please select your country' },
-      ...allCountries.map((c) => ({ value: c, text: c }))
-    ]
-    res.render('v1-baseline/create/contact-address-add-branch', { countryItems })
-  })
-
-  router.post(`${BASE}/create/contact-address-add-branch`, (req, res) => {
-    const data = req.session.data || {}
-    const branchAddressName = (req.body.branchAddressName || '').trim()
-    const branchAddressLine1 = (req.body.branchAddressLine1 || '').trim()
-    const branchCity = (req.body.branchCity || '').trim()
-    const branchPostcode = (req.body.branchPostcode || '').trim()
-    const branchTelephone = (req.body.branchTelephone || '').trim()
-    const branchCountry = (req.body.branchCountry || '').trim()
-    const branchEmail = (req.body.branchEmail || '').trim()
-    const branchAddressLine2 = (req.body.branchAddressLine2 || '').trim()
-    const branchAddressLine3 = (req.body.branchAddressLine3 || '').trim()
-    const errors = {}
-    const errorList = []
-    if (!branchAddressName) {
-      errors.branchAddressName = 'Enter the branch address name'
-      errorList.push({ href: '#branchAddressName', text: 'Enter the branch address name' })
-    }
-    if (!branchAddressLine1) {
-      errors.branchAddressLine1 = 'Enter address line 1'
-      errorList.push({ href: '#branchAddressLine1', text: 'Enter address line 1' })
-    }
-    if (!branchCity) {
-      errors.branchCity = 'Enter the city or town'
-      errorList.push({ href: '#branchCity', text: 'Enter the city or town' })
-    }
-    if (!branchPostcode) {
-      errors.branchPostcode = 'Enter the postcode or ZIP code'
-      errorList.push({ href: '#branchPostcode', text: 'Enter the postcode or ZIP code' })
-    }
-    if (!branchTelephone) {
-      errors.branchTelephone = 'Enter the telephone number'
-      errorList.push({ href: '#branchTelephone', text: 'Enter the telephone number' })
-    }
-    if (!branchCountry) {
-      errors.branchCountry = 'Select a country'
-      errorList.push({ href: '#branchCountry', text: 'Select a country' })
-    }
-    if (!branchEmail) {
-      errors.branchEmail = 'Enter the email address'
-      errorList.push({ href: '#branchEmail', text: 'Enter the email address' })
-    }
-    if (errorList.length > 0) {
-      data.errors = errors
-      data.errorList = errorList
-      data.branchAddressName = branchAddressName || req.body.branchAddressName
-      data.branchAddressLine1 = branchAddressLine1 || req.body.branchAddressLine1
-      data.branchAddressLine2 = branchAddressLine2 || req.body.branchAddressLine2
-      data.branchAddressLine3 = branchAddressLine3 || req.body.branchAddressLine3
-      data.branchCity = branchCity || req.body.branchCity
-      data.branchPostcode = branchPostcode || req.body.branchPostcode
-      data.branchTelephone = branchTelephone || req.body.branchTelephone
-      data.branchCountry = branchCountry || req.body.branchCountry
-      data.branchEmail = branchEmail || req.body.branchEmail
-      return res.redirect(`${BASE}/create/contact-address-add-branch`)
-    }
-    const addressLines = [branchAddressLine1]
-    if (branchAddressLine2) addressLines.push(branchAddressLine2)
-    if (branchAddressLine3) addressLines.push(branchAddressLine3)
-    addressLines.push(branchCity)
-    addressLines.push(branchPostcode)
-    const branchAddr = {
-      id: `branch-${Date.now()}`,
-      name: branchAddressName,
-      addressLines,
-      country: branchCountry,
-      telephone: branchTelephone,
-      email: branchEmail
-    }
-    if (!Array.isArray(data.contactAddressesAdditional)) data.contactAddressesAdditional = []
-    data.contactAddressesAdditional.push(branchAddr)
-    data.branchAddressAdded = true
-    delete data.errors
-    delete data.errorList
-    delete data.branchAddressName
-    delete data.branchAddressLine1
-    delete data.branchAddressLine2
-    delete data.branchCity
-    delete data.branchPostcode
-    delete data.branchTelephone
-    delete data.branchCountry
-    delete data.branchEmail
-    res.redirect(`${BASE}/create/contact-address-for-consignment`)
-  })
-
-  router.get(`${BASE}/create/contact-address-add-branch-prefill`, (req, res) => {
-    const data = req.session.data || {}
-    if (!Array.isArray(data.contactAddressesAdditional)) data.contactAddressesAdditional = []
-    const branchId = `branch-${Date.now()}`
-    data.contactAddressesAdditional.push({
-      id: branchId,
-      name: 'Sample Branch Office',
-      addressLines: ['123 High Street', 'Manchester', 'M1 2AB'],
-      country: 'United Kingdom of Great Britain and Northern Ireland',
-      telephone: '0161 123 4567',
-      email: 'branch@example.com'
-    })
-    data.contactAddressId = branchId
-    data.branchAddressAdded = true
-    delete data.errors
-    delete data.errorList
-    res.redirect(`${BASE}/create/contact-address-for-consignment`)
-  })
-
-  router.get(`${BASE}/create/contact-address-for-consignment`, (req, res) => {
-    const data = req.session.data || {}
-    const showBranchAddedSuccess = !!data.branchAddressAdded
-    delete data.branchAddressAdded
-    delete data.errors
-    delete data.errorList
-    const contactAddresses = require('../../data/contact-addresses.js')
-    const additional = Array.isArray(data.contactAddressesAdditional) ? data.contactAddressesAdditional : []
-    const allAddresses = [...contactAddresses, ...additional]
-    const contactAddressItems = allAddresses.map((addr) => {
-      const lines = [addr.name, ...(addr.addressLines || [addr.address] || [])]
-      if (addr.country) lines.push(addr.country)
-      const html = lines.join('<br>')
-      return {
-        value: String(addr.id),
-        html
-      }
-    })
-    let backHref = `${BASE}/create/addresses`
-    if (isPetConsignment(data)) backHref = `${BASE}/create/permanent-addresses-for-animals`
-    else if (isLivestockConsignment(data)) backHref = `${BASE}/create/address-cph`
-    res.render('v1-baseline/create/contact-address-for-consignment', {
-      contactAddressItems,
-      backHref,
-      showBranchAddedSuccess
-    })
-  })
-
-  router.post(`${BASE}/create/contact-address-for-consignment`, (req, res) => {
-    const data = req.session.data || {}
-    const contactAddressId = (data.contactAddressId || '').trim()
-    const errors = {}
-    const errorList = []
-    if (!contactAddressId) {
-      errors.contactAddressId = 'Select an address'
-      errorList.push({ href: '#contact-address-1', text: 'Select an address' })
-    }
-    if (errorList.length > 0) {
-      data.errors = errors
-      data.errorList = errorList
-      return res.redirect(`${BASE}/create/contact-address-for-consignment`)
-    }
-    delete data.errors
-    delete data.errorList
-    res.redirect(`${BASE}/create/transport-arrival`)
-  })
-
-  router.get(`${BASE}/create/contact-address-for-consignment-prefill`, (req, res) => {
-    const data = req.session.data || {}
-    data.contactAddressId = '1'
-    delete data.errors
-    delete data.errorList
-    res.redirect(`${BASE}/create/transport-arrival`)
-  })
-
-  router.get(`${BASE}/create/transport-arrival`, (req, res) => {
-    const data = req.session.data || {}
-    delete data.errors
-    delete data.errorList
-    const d = new Date()
-    d.setDate(d.getDate() + 3)
-    const minArrivalDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-    res.render('v1-baseline/create/transport-arrival', {
-      minArrivalDate,
-      defaultArrivalDate: minArrivalDate
-    })
-  })
-
-  router.post(`${BASE}/create/transport-arrival`, (req, res) => {
-    const data = req.session.data || {}
-    const arrivalDate = (data.arrivalDate || '').trim()
-    const errors = {}
-    const errorList = []
-    if (!arrivalDate) {
-      errors.arrivalDate = 'Enter the arrival date'
-      errorList.push({ href: '#arrivalDate', text: 'Enter the arrival date' })
-    }
-    if (errorList.length > 0) {
-      data.errors = errors
-      data.errorList = errorList
-      return res.redirect(`${BASE}/create/transport-arrival`)
-    }
-    delete data.errors
-    delete data.errorList
-    res.redirect(`${BASE}/create/transport-transporter`)
-  })
-
-  router.get(`${BASE}/create/transport-arrival-prefill`, (req, res) => {
-    const data = req.session.data || {}
-    const d = new Date()
-    d.setDate(d.getDate() + 3)
-    data.arrivalDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-    delete data.errors
-    delete data.errorList
-    res.redirect(`${BASE}/create/transport-transporter`)
-  })
-
-  router.get(`${BASE}/create/transport-transporter`, (req, res) => {
-    const data = req.session.data || {}
-    delete data.errors
-    delete data.errorList
-
-    // Store selected transporter when returning from address-consignee-search?returnTo=transport-transporter
-    const transporterId = req.query.transporter
-    if (req.query.removeTransporter === '1') {
-      delete data.transporterId
-      delete data.transporterName
-      delete data.transporterAddress
-      delete data.transporterCountry
-      delete data.transporterType
-      delete data.transporterApprovalNumber
-      delete data.transporterAddressLine1
-      delete data.transporterAddressLine2
-      delete data.transporterTown
-      delete data.transporterPostcode
-    } else if (transporterId) {
-      const consignees = require('../../data/consignees.js')
-      const selected = consignees.find(c => String(c.id) === String(transporterId))
-      if (selected) {
-        data.transporterId = selected.id
-        data.transporterName = selected.name
-        data.transporterAddress = selected.address
-        data.transporterCountry = selected.country
-        data.transporterType = selected.transporterType || ''
-        data.transporterApprovalNumber = selected.approvalNumber || ''
-      }
-      return res.redirect(`${BASE}/create/transport-transporter`)
-    }
-
-    const hasTransporter = !!(data.transporterName && (data.transporterId || data.transporterAddressLine1))
-    const typeDisplay = data.transporterType === 'Commercial transporter' ? 'Commercial' : data.transporterType === 'Private transporter' ? 'Private' : ''
-    const approvalDisplay = data.transporterType === 'Private transporter' ? 'Not required' : (data.transporterApprovalNumber || '')
-    const transporterRows = [
-      { key: { text: 'Name' }, value: { html: `<strong>${data.transporterName || ''}</strong>` } },
-      { key: { text: 'Address' }, value: { html: (data.transporterAddress || '') + (data.transporterAddress && data.transporterCountry ? '<br>' : '') + (data.transporterCountry || '') } },
-      { key: { text: 'Type' }, value: { text: typeDisplay || '—' } }
-    ]
-    if (typeDisplay !== 'Private') {
-      transporterRows.push({ key: { text: 'Approval number' }, value: { text: approvalDisplay || '—' } })
-    }
-    res.render('v1-baseline/create/transport-transporter', {
-      hasTransporter,
-      transporterName: data.transporterName || '',
-      transporterAddress: data.transporterAddress || '',
-      transporterCountry: data.transporterCountry || '',
-      transporterType: typeDisplay,
-      transporterApprovalNumber: approvalDisplay,
-      transporterRows
-    })
-  })
-
-  router.post(`${BASE}/create/transport-transporter`, (req, res) => {
-    delete req.session.data.errors
-    delete req.session.data.errorList
-    res.redirect(`${BASE}/create/check-your-answers`)
-  })
-
-  router.get(`${BASE}/create/transport-transporter-prefill`, (req, res) => {
-    const data = req.session.data || {}
-    delete data.errors
-    delete data.errorList
-    if (!data.transporterName || !data.transporterType) {
-      const consignees = require('../../data/consignees.js')
-      const sample = consignees.find(c => c.transporterType) || consignees[0]
-      if (sample) {
-        data.transporterId = sample.id
-        data.transporterName = sample.name
-        data.transporterAddress = sample.address
-        data.transporterCountry = sample.country
-        data.transporterType = sample.transporterType || ''
-        data.transporterApprovalNumber = sample.approvalNumber || ''
-      }
-    }
-    // Ensure commodity/species data exists for Check your answers table (avoids empty species table)
-    if (!data.commoditySpecies || data.commoditySpecies.length === 0 || !data.quantity_bos_taurus) {
-      data.commodity = data.commodity || 'Cow'
-      data.commoditySpecies = ['Bos taurus']
-      data.commodityType = 'domestic'
-      data.quantity_bos_taurus = 24
-      data.packages_bos_taurus = 3
-    }
-    // Ensure documents exist for Check your answers table (avoids empty Accompanying documents table)
-    const hasDocuments = data.documents && data.documents.some(d => d && d.type)
-    if (!hasDocuments) {
-      data.documents = [
-        { type: 'veterinary-health-certificate', reference: 'VHC-2024-001', date: '2025-06-14', attachments: [{}] },
-        { type: 'commercial-invoice', reference: 'INV-7892', date: '2025-06-14', attachments: [] }
-      ]
-    }
-    res.redirect(`${BASE}/create/check-your-answers`)
-  })
-
-  function formatDate (isoDate) {
-    if (!isoDate || typeof isoDate !== 'string') return isoDate || 'Not provided'
-    const [y, m, d] = isoDate.split('-').map(Number)
-    const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
-    return `${d} ${months[m - 1]} ${y}`
-  }
-
-  function buildCheckYourAnswersData (data) {
-    const row = (key, value) => ({ key: { text: key }, value: { text: value } })
-    const rowHtml = (key, html) => ({ key: { text: key }, value: { html } })
-    const escapeHtml = (s) => typeof s !== 'string' ? '' : String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
-    const formatAddressHtml = (name, address, country) => {
-      const parts = []
-      if (name) parts.push(`<strong>${escapeHtml(name)}</strong>`)
-      const addrLines = Array.isArray(address) ? address.filter(Boolean) : (address ? String(address).split(',').map(s => s.trim()).filter(Boolean) : [])
-      addrLines.forEach(line => parts.push(escapeHtml(line)))
-      if (country) parts.push(escapeHtml(country))
-      return parts.length ? parts.join('<br>') : 'Not provided'
-    }
-    const documentTypes = require('../../data/document-types.js')
-    const getDocumentTypeLabel = (val) => (documentTypes.find(d => d.value === val) || {}).text || val || 'Not provided'
-
-    // Type of goods (import-type page)
-    const importTypeLabel = { 'live-animals': 'Live animals', 'animal-products': 'Animal products' }[data.importType] || data.importType || 'Not provided'
-    const typeOfGoodsRows = [row('Type of goods', importTypeLabel)]
-
-    // Origin of the import (origin page) – matches form fields: country, region of origin, internal reference (optional)
-    const originRows = [
-      row('Country of origin', data.countryOfOrigin || 'Not provided'),
-      row('Region of origin code', data.regionOfOriginRequired === 'yes' ? (data.regionOfOriginCode || 'Not provided') : 'Not required')
-    ]
-    const refNum = (data.consignmentReference || '').trim()
-    if (refNum) originRows.push(row('Your internal reference number', refNum))
-
-    // Import reason (import-reason page) – matches form: main reason + purpose when internal market
-    const mainReasonLabels = { 'internal-market': 'Internal market', 're-entry': 'Re-entry', 'temporary-admission-horses': 'Temporary admission (horses)' }
-    const mainReasonLabel = mainReasonLabels[data.importReason] || data.importReason || 'Not provided'
-    const importReasonRows = [row('Main reason for importing the animals', mainReasonLabel)]
-    if (data.importReason === 'internal-market' && data.internalMarketPurpose) {
-      const purposes = require('../../data/internal-market-purposes.js')
-      const purpose = purposes.find(p => p.value === data.internalMarketPurpose)
-      importReasonRows.push(row('Purpose in the internal market', purpose ? purpose.text : data.internalMarketPurpose))
-    }
-
-    // Description of the goods – commodity info + table: Species | Number of animals | Number of packages
-    const commoditiesData = require('../../data/commodities.js')
-    const commoditiesEu = require('../../data/commodities-eu.js')
-    const commodityDetails = data.commodity ? (commoditiesEu[data.commodity] || commoditiesData[data.commodity]) : null
-    const descriptionSummaryRows = []
-    if (commodityDetails) {
-      descriptionSummaryRows.push(row('Commodity code', commodityDetails.code || 'Not provided'))
-      descriptionSummaryRows.push(row('Common name', commodityDetails.commonName || data.commodity || 'Not provided'))
-      descriptionSummaryRows.push(row('Classification', commodityDetails.description || 'Not provided'))
-    } else if (data.commodity) {
-      descriptionSummaryRows.push(row('Commodity', data.commodity))
-    }
-    // Normalise to array: checkboxes can return a string when only one is selected (body-parser quirk)
-    const rawSpecies = data.commoditySpecies
-    const commoditySpecies = Array.isArray(rawSpecies) ? rawSpecies : (rawSpecies ? [rawSpecies] : [])
-    const typeLabel = data.commodityType === 'game' ? 'Game' : 'Domestic'
-    const descriptionTableRows = []
-    let totalAnimals = 0
-    let totalPackages = 0
-    const toKey = (s) => String(s || '').replace(/\s+/g, '_').toLowerCase().replace(/[^a-z0-9_]/g, '')
-    commoditySpecies.forEach(s => {
-      const key = toKey(s)
-      const qty = parseInt(data[`quantity_${key}`], 10) || 0
-      const pkg = parseInt(data[`packages_${key}`], 10) || 0
-      totalAnimals += qty
-      totalPackages += pkg
-      descriptionTableRows.push([
-        { text: `${s}, ${typeLabel}` },
-        { text: String(qty), format: 'numeric' },
-        { text: String(pkg), format: 'numeric' }
-      ])
-    })
-    const hasNoDescriptionData = !data.commodity && commoditySpecies.length === 0
-    if (hasNoDescriptionData) {
-      // Dummy data only when user landed directly (no commodity, no species) – e.g. direct link
-      descriptionTableRows.length = 0
-      descriptionTableRows.push(
-        [{ text: 'Bos taurus, Domestic' }, { text: '24', format: 'numeric' }, { text: '3', format: 'numeric' }],
-        [{ text: 'Ovis aries, Domestic' }, { text: '12', format: 'numeric' }, { text: '2', format: 'numeric' }],
-        [{ text: 'Total', classes: 'govuk-table__header' }, { text: '36', format: 'numeric' }, { text: '5', format: 'numeric' }]
-      )
-    } else if (descriptionTableRows.length > 0) {
-      descriptionTableRows.push([
-        { text: 'Total', classes: 'govuk-table__header' },
-        { text: String(totalAnimals), format: 'numeric' },
-        { text: String(totalPackages), format: 'numeric' }
-      ])
-    }
-
-    // County Parish Holding number (CPH) – livestock only
-    const cphRows = [row('County Parish Holding number (CPH)', data.cphNumber || 'Not provided')]
-
-    // Permanent addresses for these animals – pets only (matches form fields)
-    const permAddrLines = [data.permanentAddressLine1, data.permanentAddressLine2, data.permanentAddressLine3, data.permanentAddressTown, data.permanentAddressPostcode].filter(Boolean)
-    const permanentAddressHtml = data.permanentAddressSameAsPOD === 'yes'
-      ? 'Same as place of destination'
-      : formatAddressHtml(data.permanentAddressName, permAddrLines, null)
-    const permanentAddressRows = [rowHtml('Permanent address', permanentAddressHtml || 'Not provided')]
-    if (data.permanentAddressSameAsPOD !== 'yes' && data.permanentAddressTelephone) {
-      permanentAddressRows.push(row('Telephone number', data.permanentAddressTelephone))
-    }
-    if (data.permanentAddressSameAsPOD !== 'yes' && data.permanentAddressEmail) {
-      permanentAddressRows.push(row('Email address', data.permanentAddressEmail))
-    }
-
-    // Animal identification – first species/animal as summary, or placeholder
-    const animalIdRows = []
-    if (commoditySpecies.length > 0) {
-      const key = commoditySpecies[0].replace(/\s+/g, '_').toLowerCase().replace(/[^a-z0-9_]/g, '')
-      const earTag1 = data[`earTag_${key}_1`] || 'Not provided'
-      const passport1 = data[`passport_${key}_1`] || 'Not provided'
-      animalIdRows.push(row('Identification device', 'Ear tag\nPassport'))
-      animalIdRows.push(row('Animal', `${commoditySpecies[0]}, ${typeLabel}`))
-      animalIdRows.push(row('Identification 1', `${earTag1}\n${passport1}`))
-      if (data[`earTag_${key}_2`] || data[`passport_${key}_2`]) {
-        animalIdRows.push(row('Identification 2', `${data[`earTag_${key}_2`] || '-'}\n${data[`passport_${key}_2`] || '-'}`))
-      }
-    }
-    if (animalIdRows.length === 0) {
-      animalIdRows.push(row('Details', 'Not yet provided'))
-    }
-
-    // Additional animal details – labels from certified-for-options, unweaned hidden for Dog
-    const certifiedForOptions = require('../../data/certified-for-options.js')
-    const certOpt = certifiedForOptions.find(o => o.value === data.animalsCertifiedFor)
-    const certifiedForLabel = certOpt ? certOpt.text : (data.animalsCertifiedFor || 'Not provided')
-    const showUnweaned = data.commodity !== 'Dog'
-    const unweanedLabel = data.unweanedAnimals === 'yes' ? 'Yes' : data.unweanedAnimals === 'no' ? 'No' : 'Not provided'
-    const additionalAnimalRows = [row('Certified for', certifiedForLabel)]
-    if (showUnweaned) additionalAnimalRows.push(row('Unweaned animals', unweanedLabel))
-
-    // Documents table – cells must be objects { text: '...' } for GOV.UK table macro
-    const docs = data.documents || []
-    const cell = (t) => ({ text: String(t ?? '-') })
-    let documentsTableRows = docs.filter(d => d.type).map(d => [
-      cell(getDocumentTypeLabel(d.type)),
-      cell(d.reference),
-      cell(d.date ? formatDate(d.date) : '-'),
-      cell((d.attachments && d.attachments.length) ? `${d.attachments.length} attachment${d.attachments.length !== 1 ? 's' : ''}` : '-')
-    ])
-    if (documentsTableRows.length === 0) {
-      documentsTableRows = [
-        [cell('Veterinary health certificate'), cell('VHC-2024-001'), cell('14 June 2025'), cell('1 attachment')],
-        [cell('Commercial invoice'), cell('INV-7892'), cell('14 June 2025'), cell('-')],
-        [cell('Import permit'), cell('GB-IMP-2024-456'), cell('1 September 2025'), cell('2 attachments')]
-      ]
-    }
-
-    // Addresses – use selected object when present (from search), else flat session fields
-    const selectedConsignor = data.consignor || (data.consignorName && { name: data.consignorName, address: data.consignorAddress, country: data.consignorCountry })
-    const consignorAddr = formatAddressHtml(selectedConsignor?.name || data.consignorName, selectedConsignor?.address || data.consignorAddress, selectedConsignor?.country || data.consignorCountry)
-    const selectedConsignee = data.consignee || (data.consigneeName && { name: data.consigneeName, address: data.consigneeAddress, country: data.consigneeCountry })
-    const consigneeAddr = selectedConsignee
-      ? formatAddressHtml(selectedConsignee.name, selectedConsignee.address, selectedConsignee.country)
-      : (data.consigneeAddress
-        ? formatAddressHtml(data.consigneeName, data.consigneeAddress, data.consigneeCountry)
-        : formatAddressHtml(data.consigneeName, [data.consigneeAddressLine1, data.consigneeAddressLine2, data.consigneeTown, data.consigneePostcode].filter(Boolean), null)) || (data.consigneeName ? formatAddressHtml(data.consigneeName, null, null) : 'Not provided')
-    const importerAddr = data.importerAddress
-      ? formatAddressHtml(data.importerName, data.importerAddress, data.importerCountry)
-      : formatAddressHtml(data.importerName, [data.importerAddressLine1, data.importerAddressLine2, data.importerTown, data.importerPostcode].filter(Boolean), null) || (data.importerName ? formatAddressHtml(data.importerName, null, null) : 'Not provided')
-    const placeAddr = data.placeOfDestinationAddress
-      ? formatAddressHtml(data.placeOfDestinationName, data.placeOfDestinationAddress, data.placeOfDestinationCountry)
-      : formatAddressHtml(data.placeOfDestinationName, [data.placeOfDestinationAddressLine1, data.placeOfDestinationAddressLine2, data.placeOfDestinationTown, data.placeOfDestinationPostcode].filter(Boolean), null) || (data.placeOfDestinationName ? formatAddressHtml(data.placeOfDestinationName, null, null) : 'Not provided')
-
-    const addressRows = [
-      rowHtml('Consignor or exporter', consignorAddr),
-      rowHtml('Consignee', consigneeAddr),
-      rowHtml('Importer', importerAddr),
-      rowHtml('Place of destination', placeAddr)
-    ]
-    if (data.consigneeBusinessRegistration) {
-      addressRows.push(row('Consignee business registration', data.consigneeBusinessRegistration))
-    }
-
-    // Contact address
-    const contactAddresses = require('../../data/contact-addresses.js')
-    const additional = Array.isArray(data.contactAddressesAdditional) ? data.contactAddressesAdditional : []
-    const allContactAddresses = [...contactAddresses, ...additional]
-    const selectedContact = data.contactAddressId && allContactAddresses.find(c => String(c.id) === String(data.contactAddressId))
-    const contactAddrHtml = selectedContact
-      ? formatAddressHtml(selectedContact.name, selectedContact.addressLines || [], selectedContact.country)
-      : (data.consignorName ? formatAddressHtml(data.consignorName, data.consignorAddress, data.consignorCountry) : 'Not provided')
-    const contactAddressRows = [rowHtml('Contact address', contactAddrHtml)]
-
-    // Transport – split into Arrival at destination and Transporter (each with own Change link)
-    let transporterTypeDisplay = data.transporterType
-    if (!transporterTypeDisplay) {
-      const consignees = require('../../data/consignees.js')
-      const normalize = (s) => (s || '').trim().toLowerCase().replace(/\./g, '').replace(/\s+/g, ' ')
-      const nameA = normalize(data.transporterName)
-      const addrA = normalize(data.transporterAddress)
-      const transporterRecord = data.transporterId
-        ? consignees.find(c => String(c.id) === String(data.transporterId))
-        : consignees.find(c => {
-            const matchName = c.name && nameA && normalize(c.name) === nameA
-            const matchAddr = c.address && addrA && normalize(c.address) === addrA
-            return matchName || matchAddr
-          })
-      transporterTypeDisplay = transporterRecord && transporterRecord.transporterType ? transporterRecord.transporterType : null
-    }
-    transporterTypeDisplay = transporterTypeDisplay
-      ? (transporterTypeDisplay === 'Commercial transporter'
-        ? 'Commercial transporter'
-        : transporterTypeDisplay === 'Private transporter'
-          ? 'Private transporter'
-          : transporterTypeDisplay)
-      : 'Not provided'
-    const arrivalRows = [
-      row('Arrival date', formatDate(data.arrivalDate))
-    ]
-    const transporterAddrHtml = formatAddressHtml(
-      data.transporterName,
-      data.transporterAddress || [data.transporterAddressLine1, data.transporterAddressLine2, data.transporterTown, data.transporterPostcode].filter(Boolean),
-      data.transporterCountry
-    )
-    const transporterApprovalDisplay = transporterTypeDisplay === 'Private transporter'
-      ? 'Not required'
-      : (data.transporterApprovalNumber || 'Not provided')
-    const transporterRows = [
-      rowHtml('Details', transporterAddrHtml),
-      row('Type', transporterTypeDisplay),
-      row('Approval number', transporterApprovalDisplay)
-    ]
-
-    return {
-      typeOfGoodsRows,
-      originRows,
-      importReasonRows,
-      descriptionSummaryRows,
-      descriptionTableRows,
-      animalIdRows,
-      additionalAnimalRows,
-      documentsTableRows,
-      addressRows,
-      cphRows,
-      permanentAddressRows,
-      contactAddressRows,
-      arrivalRows,
-      transporterRows,
-      isPetConsignment: isPetConsignment(data),
-      isLivestockConsignment: isLivestockConsignment(data)
-    }
-  }
-
-  router.get(`${BASE}/create/check-your-answers-prefill`, (req, res) => {
-    const d = req.session.data || {}
-    d.importType = 'live-animals'
-    d.countryOfOrigin = 'France'
-    d.regionOfOriginRequired = 'no'
-    d.designatedArrivalPoint = 'Dover'
-    d.importReason = 'internal-market'
-    d.internalMarketPurpose = 'breeding'
-    d.requiredRestInterval = 'N/A'
-    d.commodity = 'Cow'
-    d.commoditySpecies = ['Bos taurus']
-    d.commodityType = 'domestic'
-    d.quantity_bos_taurus = 24
-    d.packages_bos_taurus = 3
-    d.earTag_bos_taurus_1 = 'UK123456789000'
-    d.passport_bos_taurus_1 = 'GB-2024-001'
-    d.animalsCertifiedFor = 'breeding-production'
-    d.unweanedAnimals = 'no'
-    d.documents = [
-      { type: 'veterinary-health-certificate', reference: 'VHC-2024-001', date: '2025-06-14', attachments: [{}] },
-      { type: 'commercial-invoice', reference: 'INV-7892', date: '2025-06-14', attachments: [] },
-      { type: 'import-permit', reference: 'GB-IMP-2024-456', date: '2025-09-01', attachments: [{}, {}] }
-    ]
-    d.consignorName = 'Ferme Dupont SAS'
-    d.consignorAddress = ['12 Rue de la Ferme', '75001 Paris']
-    d.consignorCountry = 'France'
-    d.consigneeName = 'Smith Livestock Ltd'
-    d.consigneeAddress = ['45 Farm Road', 'Canterbury', 'CT1 2AB']
-    d.consigneeCountry = 'United Kingdom'
-    d.importerName = 'Smith Livestock Ltd'
-    d.importerAddress = ['45 Farm Road', 'Canterbury', 'CT1 2AB']
-    d.importerCountry = 'United Kingdom'
-    d.placeOfDestinationName = 'Greenfield Farm'
-    d.placeOfDestinationAddress = ['Marsh Lane', 'Ashford', 'TN25 4PQ']
-    d.placeOfDestinationCountry = 'United Kingdom'
-    d.cphNumber = '12/345/6789'
-    d.contactAddressLine1 = '45 Farm Road'
-    d.contactAddressTown = 'Canterbury'
-    d.contactAddressPostcode = 'CT1 2AB'
-    d.arrivalDate = '2025-06-15'
-    d.transporterName = 'EuroHaul Transport Ltd'
-    d.transporterAddress = ['10 Depot Way', 'Folkestone', 'CT19 5AB']
-    d.transporterCountry = 'United Kingdom'
-    d.transporterType = 'Haulier'
-    d.transporterApprovalNumber = 'GB-AP-2024-123'
-    delete d.errors
-    delete d.errorList
-    res.redirect(`${BASE}/create/check-your-answers`)
-  })
-  router.get(`${BASE}/create/check-your-answers`, (req, res) => {
-    const data = req.session.data || {}
-    delete data.errors
-    delete data.errorList
-    const viewData = buildCheckYourAnswersData(data)
-    res.render('v1-baseline/create/check-your-answers', viewData)
-  })
-
-  router.post(`${BASE}/create/check-your-answers`, (req, res) => {
-    delete req.session.data.errors
-    delete req.session.data.errorList
-    res.redirect(`${BASE}/create/declaration`)
-  })
-
-  router.get(`${BASE}/create/declaration`, (req, res) => {
-    delete req.session.data.errors
-    delete req.session.data.errorList
-    const now = new Date()
-    const declarationDate = `${now.getDate()} ${['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'][now.getMonth()]} ${now.getFullYear()}`
-    res.render('v1-baseline/create/declaration', { declarationDate })
-  })
-
-  router.post(`${BASE}/create/declaration`, (req, res) => {
-    const accepted = req.session.data.declarationAccepted
-    const isAccepted = accepted === 'yes' || (Array.isArray(accepted) && accepted.includes('yes'))
-    if (!isAccepted) {
-      req.session.data.errors = { declarationAccepted: 'You must confirm the declaration to submit' }
-      req.session.data.errorList = [{ href: '#declaration-accepted-1', text: 'You must confirm the declaration to submit' }]
-      return res.redirect(`${BASE}/create/declaration`)
-    }
-    delete req.session.data.errors
-    delete req.session.data.errorList
-    const data = req.session.data || {}
-    req.session.data.declarationDate = new Date().toISOString().split('T')[0]
-    const year = new Date().getFullYear()
-    const suffix = String(Math.floor(1000000 + Math.random() * 9000000))
-    const referenceNumber = `IMP.GB.${year}.${suffix}`
-    req.session.data.lastReferenceNumber = referenceNumber
-
-    const commoditiesData = require('../../data/commodities.js')
-    const commodityDetails = data.commodity ? commoditiesData[data.commodity] : null
-    const commodityCode = commodityDetails ? commodityDetails.code : (data.commodityCode || '')
-    const commodityName = (data.commoditySpecies && data.commoditySpecies[0]) || 'Live animals'
-    const commodityDisplay = commodityCode ? `${commodityName} (${commodityCode})` : commodityName
-
-    const now = new Date()
-    const todayIso = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
-    const submitted = {
-      reference: referenceNumber,
-      commodity: commodityDisplay,
-      origin: data.countryOfOrigin || 'Not provided',
-      consignee: data.consigneeName || (data.consignee && data.consignee.name) || 'Not provided',
-      consignor: data.consignorName || (data.consignor && data.consignor.name) || 'Not provided',
-      arrival: formatDate(data.arrivalDate) || 'Not provided',
-      dateCreated: formatDate(todayIso),
-      status: 'submitted'
-    }
-    if (!Array.isArray(data.submittedNotifications)) data.submittedNotifications = []
-    data.submittedNotifications.push(submitted)
-
-    res.redirect(`${BASE}/create/confirmation`)
-  })
-
-  router.get(`${BASE}/create/confirmation`, (req, res) => {
-    const referenceNumber = req.session.data.lastReferenceNumber
-    res.render('v1-baseline/create/confirmation', { referenceNumber })
-  })
-
-  router.get(`${BASE}/create/confirmation-prefill`, (req, res) => {
-    const year = new Date().getFullYear()
-    const suffix = String(Math.floor(1000000 + Math.random() * 9000000))
-    req.session.data.lastReferenceNumber = `IMP.GB.${year}.${suffix}`
-    res.redirect(`${BASE}/create/confirmation`)
-  })
-
-  router.get(`${BASE}/create/declaration-prefill`, (req, res) => {
-    req.session.data.declarationAccepted = 'yes'
-    delete req.session.data.errors
-    delete req.session.data.errorList
-    res.redirect(`${BASE}/create/declaration`)
-  })
-
-  router.get(`${BASE}/create/transport-add-transporter`, (req, res) => {
-    const data = req.session.data || {}
-    delete data.errors
-    delete data.errorList
-    const euCountries = require('../../data/eu-countries.js')
-    const countryItems = [{ value: '', text: 'Select country' }, { value: 'United Kingdom', text: 'United Kingdom' }].concat(
-      euCountries.map(c => ({ value: c, text: c }))
-    )
-    res.render('v1-baseline/create/transport-add-transporter', { countryItems })
-  })
-
-  router.post(`${BASE}/create/transport-add-transporter`, (req, res) => {
-    const data = req.session.data || {}
-    const transporterName = (data.transporterName || '').trim()
-    const transporterAddressLine1 = (data.transporterAddressLine1 || '').trim()
-    const transporterAddressLine2 = (data.transporterAddressLine2 || '').trim()
-    const transporterTown = (data.transporterTown || '').trim()
-    const transporterPostcode = (data.transporterPostcode || '').trim()
-    const transporterCountry = (data.transporterCountry || '').trim()
-
-    const errors = {}
-    const errorList = []
-    if (!transporterName) {
-      errors.transporterName = 'Enter the name or organisation'
-      errorList.push({ href: '#transporterName', text: 'Enter the name or organisation' })
-    }
-    if (!transporterAddressLine1) {
-      errors.transporterAddressLine1 = 'Enter address line 1'
-      errorList.push({ href: '#transporterAddressLine1', text: 'Enter address line 1' })
-    }
-    if (!transporterTown) {
-      errors.transporterTown = 'Enter the town or city'
-      errorList.push({ href: '#transporterTown', text: 'Enter the town or city' })
-    }
-    if (!transporterCountry) {
-      errors.transporterCountry = 'Select a country'
-      errorList.push({ href: '#transporterCountry', text: 'Select a country' })
-    } else if (transporterCountry === 'United Kingdom' && !transporterPostcode) {
-      errors.transporterPostcode = 'Enter the postcode'
-      errorList.push({ href: '#transporterPostcode', text: 'Enter the postcode' })
-    }
-
-    if (errorList.length > 0) {
-      data.errors = errors
-      data.errorList = errorList
-      const euCountries = require('../../data/eu-countries.js')
-      const countryItems = [{ value: '', text: 'Select country' }, { value: 'United Kingdom', text: 'United Kingdom' }].concat(
-        euCountries.map(c => ({ value: c, text: c }))
-      )
-      return res.redirect(`${BASE}/create/transport-add-transporter`)
-    }
-
-    delete data.transporterId
-    const addressParts = [transporterAddressLine1, transporterAddressLine2, transporterTown, transporterPostcode].filter(Boolean)
-    data.transporterAddress = addressParts.join(', ') + ', ' + transporterCountry
-    data.transporterCountry = transporterCountry
-    delete data.errors
-    delete data.errorList
-    res.redirect(`${BASE}/create/transport-transporter`)
-  })
-
-  router.get(`${BASE}/create/transport`, (req, res) => {
-    res.redirect(`${BASE}/create/transport-arrival`)
-  })
-
-  router.get(`${BASE}/create/address-consignee`, (req, res) => {
-    const data = req.session.data || {}
-    delete data.errors
-    delete data.errorList
-    res.render('v1-baseline/create/address-consignee')
-  })
-
-  router.post(`${BASE}/create/address-consignee`, (req, res) => {
-    const data = req.session.data || {}
-    const consigneeName = (data.consigneeName || '').trim()
-    const consigneeAddressLine1 = (data.consigneeAddressLine1 || '').trim()
-    const consigneeTown = (data.consigneeTown || '').trim()
-    const consigneePostcode = (data.consigneePostcode || '').trim()
-
-    const errors = {}
-    const errorList = []
-    if (!consigneeName) {
-      errors.consigneeName = 'Enter the name or organisation'
-      errorList.push({ href: '#consigneeName', text: 'Enter the name or organisation' })
-    }
-    if (!consigneeAddressLine1) {
-      errors.consigneeAddressLine1 = 'Enter address line 1'
-      errorList.push({ href: '#consigneeAddressLine1', text: 'Enter address line 1' })
-    }
-    if (!consigneeTown) {
-      errors.consigneeTown = 'Enter the town or city'
-      errorList.push({ href: '#consigneeTown', text: 'Enter the town or city' })
-    }
-    if (!consigneePostcode) {
-      errors.consigneePostcode = 'Enter the postcode'
-      errorList.push({ href: '#consigneePostcode', text: 'Enter the postcode' })
-    }
-
-    if (errorList.length > 0) {
-      data.errors = errors
-      data.errorList = errorList
-      return res.redirect(`${BASE}/create/address-consignee`)
-    }
-
-    delete data.errors
-    delete data.errorList
-    res.redirect(`${BASE}/create/addresses`)
-  })
-
-  router.get(`${BASE}/create/address-consignee-search`, (req, res) => {
-    const data = req.session.data || {}
-    const consignees = require('../../data/consignees.js')
-    const returnTo = req.query.returnTo || ''
-    const isTransporter = returnTo === 'transport-transporter'
-    const page = parseInt(req.query.page, 10) || 1
-    const perPage = 10
-
-    let filtered = consignees
-    if (isTransporter) {
-      const searchName = (req.query.searchName || data.searchTransporterName || '').trim().toLowerCase()
-      const searchApprovalNumber = (req.query.searchApprovalNumber || data.searchTransporterApprovalNumber || '').trim().toLowerCase()
-      const searchPostCode = (req.query.searchPostCode || data.searchTransporterPostCode || '').trim().toLowerCase().replace(/\s+/g, ' ')
-      data.searchTransporterName = req.query.searchName ?? data.searchTransporterName
-      data.searchTransporterApprovalNumber = req.query.searchApprovalNumber ?? data.searchTransporterApprovalNumber
-      data.searchTransporterPostCode = req.query.searchPostCode ?? data.searchTransporterPostCode
-      if (searchName) {
-        filtered = filtered.filter(c => c.name.toLowerCase().includes(searchName))
-      }
-      if (searchApprovalNumber) {
-        filtered = filtered.filter(c => (c.approvalNumber || '').toLowerCase().includes(searchApprovalNumber))
-      }
-      if (searchPostCode) {
-        filtered = filtered.filter(c => (c.postCode || '').toLowerCase().replace(/\s+/g, ' ').includes(searchPostCode))
-      }
-    } else {
-      const searchName = (req.query.searchName || data.searchConsigneeName || '').trim().toLowerCase()
-      const searchAddress = (req.query.searchAddress || data.searchConsigneeAddress || '').trim().toLowerCase()
-      const searchCountry = (req.query.searchCountry || data.searchConsigneeCountry || '').trim()
-      data.searchConsigneeName = req.query.searchName ?? data.searchConsigneeName
-      data.searchConsigneeAddress = req.query.searchAddress ?? data.searchConsigneeAddress
-      data.searchConsigneeCountry = req.query.searchCountry ?? data.searchConsigneeCountry
-      if (searchName) {
-        filtered = filtered.filter(c => c.name.toLowerCase().includes(searchName))
-      }
-      if (searchAddress) {
-        filtered = filtered.filter(c => c.address.toLowerCase().includes(searchAddress))
-      }
-      if (searchCountry) {
-        filtered = filtered.filter(c => c.country === searchCountry)
-      }
-    }
-
-    const total = filtered.length
-    const totalPages = Math.max(1, Math.ceil(total / perPage))
-    const pageNum = Math.max(1, Math.min(page, totalPages))
-    const start = (pageNum - 1) * perPage
-    const results = filtered.slice(start, start + perPage)
-
-    const countries = [...new Set(consignees.map(c => c.country))].sort()
-
-    const forImporter = req.query.for === 'importer'
-    res.render('v1-baseline/create/address-consignee-search', {
-      results,
-      countries,
-      page: pageNum,
-      totalPages,
-      total,
-      forImporter,
-      returnTo
-    })
-  })
-
-  router.get(`${BASE}/create/address-place-of-destination-search`, (req, res) => {
-    const data = req.session.data || {}
-    const placesOfDestination = require('../../data/places-of-destination.js')
-    const searchName = (req.query.searchName || data.searchPlaceOfDestinationName || '').trim().toLowerCase()
-    const searchAddress = (req.query.searchAddress || data.searchPlaceOfDestinationAddress || '').trim().toLowerCase()
-    const searchType = (req.query.searchType || data.searchPlaceOfDestinationType || '').trim()
-    const searchCountry = (req.query.searchCountry || data.searchPlaceOfDestinationCountry || '').trim()
-    const page = parseInt(req.query.page, 10) || 1
-    const perPage = 10
-
-    data.searchPlaceOfDestinationName = req.query.searchName ?? data.searchPlaceOfDestinationName
-    data.searchPlaceOfDestinationAddress = req.query.searchAddress ?? data.searchPlaceOfDestinationAddress
-    data.searchPlaceOfDestinationType = req.query.searchType ?? data.searchPlaceOfDestinationType
-    data.searchPlaceOfDestinationCountry = req.query.searchCountry ?? data.searchPlaceOfDestinationCountry
-
-    let filtered = placesOfDestination
-    if (searchName) {
-      filtered = filtered.filter(p => p.name.toLowerCase().includes(searchName))
-    }
-    if (searchAddress) {
-      filtered = filtered.filter(p => p.address.toLowerCase().includes(searchAddress))
-    }
-    if (searchType) {
-      filtered = filtered.filter(p => p.type === searchType)
-    }
-    if (searchCountry) {
-      filtered = filtered.filter(p => p.country === searchCountry)
-    }
-
-    const total = filtered.length
-    const totalPages = Math.max(1, Math.ceil(total / perPage))
-    const pageNum = Math.max(1, Math.min(page, totalPages))
-    const start = (pageNum - 1) * perPage
-    const results = filtered.slice(start, start + perPage)
-
-    const countries = [...new Set(placesOfDestination.map(p => p.country))].sort()
-    const types = [...new Set(placesOfDestination.map(p => p.type))].sort()
-
-    res.render('v1-baseline/create/address-place-of-destination-search', {
-      results,
-      countries,
-      types,
-      page: pageNum,
-      totalPages,
-      total
-    })
-  })
-
-  router.get(`${BASE}/create/address-consignor-search`, (req, res) => {
-    const data = req.session.data || {}
-    const consignors = require('../../data/consignors.js')
-    const euCountries = require('../../data/eu-countries.js')
-    const searchName = (req.query.searchName || data.searchName || '').trim().toLowerCase()
-    const searchAddress = (req.query.searchAddress || data.searchAddress || '').trim().toLowerCase()
-    const searchCountry = (req.query.searchCountry || data.searchCountry || '').trim()
-    const page = parseInt(req.query.page, 10) || 1
-    const perPage = 10
-
-    data.searchName = req.query.searchName ?? data.searchName
-    data.searchAddress = req.query.searchAddress ?? data.searchAddress
-    data.searchCountry = req.query.searchCountry ?? data.searchCountry
-
-    let filtered = consignors
-    if (searchName) {
-      filtered = filtered.filter(c => c.name.toLowerCase().includes(searchName))
-    }
-    if (searchAddress) {
-      filtered = filtered.filter(c => c.address.toLowerCase().includes(searchAddress))
-    }
-    if (searchCountry) {
-      filtered = filtered.filter(c => c.country === searchCountry)
-    }
-
-    const total = filtered.length
-    const totalPages = Math.max(1, Math.ceil(total / perPage))
-    const pageNum = Math.max(1, Math.min(page, totalPages))
-    const start = (pageNum - 1) * perPage
-    const results = filtered.slice(start, start + perPage)
-
-    const countriesFromData = [...new Set(consignors.map(c => c.country))]
-    const countries = [...new Set([...euCountries, ...countriesFromData])].sort()
-
-    res.render('v1-baseline/create/address-consignor-search', {
-      results,
-      countries,
-      page: pageNum,
-      totalPages,
-      total
-    })
-  })
-
-  router.get(`${BASE}/create/accompanying-documents-prefill`, (req, res) => {
-    const data = req.session.data
-    data.documents = [{
-      type: 'veterinary-health-certificate',
-      reference: 'CHED-PP-2024-001',
-      date: '2024-03-15',
-      attachments: ['Sample health certificate.pdf']
-    }]
-    delete data.errors
-    delete data.errorList
-    res.redirect(`${BASE}/create/addresses`)
-  })
-
-  router.get(`${BASE}/create/address-prefill`, (req, res) => {
-    const data = req.session.data || {}
-    const consignors = require('../../data/consignors.js')
-    const consignees = require('../../data/consignees.js')
-    const placesOfDestination = require('../../data/places-of-destination.js')
-    const consignor = consignors[0]
-    const consignee = consignees[0]
-    const place = placesOfDestination[0]
-    data.consignorId = consignor.id
-    data.consignorName = consignor.name
-    data.consignorAddress = consignor.address
-    data.consignorCountry = consignor.country
-    data.consigneeId = consignee.id
-    data.consigneeName = consignee.name
-    data.consigneeAddress = consignee.address
-    data.consigneeCountry = consignee.country
-    data.importerId = consignee.id
-    data.importerName = consignee.name
-    data.importerAddress = consignee.address
-    data.importerCountry = consignee.country
-    data.placeOfDestinationId = place.id
-    data.placeOfDestinationName = place.name
-    data.placeOfDestinationAddress = place.address
-    data.placeOfDestinationCountry = place.country
-    data.placeOfDestinationType = place.type
-    delete data.errors
-    delete data.errorList
-    res.redirect(`${BASE}/create/address-cph`)
-  })
-
-  router.post(`${BASE}/create/animal-identification`, (req, res) => {
-    const commodity = req.session.data.commodity
-    const commoditySpecies = getCommoditySpeciesArray(req.session.data)
-    const commoditiesData = require('../../data/commodities-eu.js')
-    const commodityDetails = commodity ? commoditiesData[commodity] : null
-
-    if (!commodityDetails || commoditySpecies.length === 0) {
-      return res.redirect(`${BASE}/create/commodity-species`)
-    }
-
-    const commodityType = req.session.data.commodityType || 'domestic'
-    const typeLabel = commodityType === 'game' ? 'Game' : 'Domestic'
-    const isPetIdentification = commodityDetails.code === '01061900'
-    const isGameBirdIdentification = commodityDetails.code === '01063980'
-    const isHorseIdentification = commodityDetails.code === '0101'
-    const isEarTagOnlyIdentification = ['010410', '0103'].includes(commodityDetails.code)
-    const speciesRows = commoditySpecies.map(s => {
-      const key = s.replace(/\s+/g, '_').toLowerCase().replace(/[^a-z0-9_]/g, '')
-      const quantityKey = `quantity_${key}`
-      const animalCountKey = `animalCount_${key}`
-      const quantity = parseInt(req.session.data[animalCountKey] ?? req.session.data[quantityKey], 10) || 0
-      const animals = []
-      for (let i = 1; i <= quantity; i++) {
-        const animal = { index: i }
-        if (isPetIdentification) {
-          animal.microchipKey = `microchip_${key}_${i}`
-          animal.passportKey = `passport_${key}_${i}`
-          animal.tattooKey = `tattoo_${key}_${i}`
-        } else if (isGameBirdIdentification) {
-          animal.flockIdKey = `flockId_${key}_${i}`
-          animal.hatchingDateKey = `hatchingDate_${key}_${i}`
-        } else if (isHorseIdentification) {
-          animal.horseNameKey = `horseName_${key}_${i}`
-          animal.microchipKey = `microchip_${key}_${i}`
-          animal.passportKey = `passport_${key}_${i}`
-        } else if (isEarTagOnlyIdentification) {
-          animal.earTagKey = `earTag_${key}_${i}`
-        } else {
-          animal.earTagKey = `earTag_${key}_${i}`
-          animal.passportKey = `passport_${key}_${i}`
-        }
-        animals.push(animal)
-      }
-      return {
-        key,
-        speciesAndType: `${s}, ${typeLabel}`,
-        quantity,
-        animals,
-        isPetIdentification,
-        isGameBirdIdentification,
-        isHorseIdentification,
-        isEarTagOnlyIdentification
-      }
-    })
-
-    const errors = {}
-    const errorList = []
-    speciesRows.forEach(s => {
-      s.animals.forEach(a => {
-        if (s.isHorseIdentification) {
-          const horseNameVal = req.session.data[a.horseNameKey]
-          const microchipVal = req.session.data[a.microchipKey]
-          const passportVal = req.session.data[a.passportKey]
-          const horseNameMissing = !horseNameVal || String(horseNameVal).trim() === ''
-          const microchipMissing = !microchipVal || String(microchipVal).trim() === ''
-          const passportMissing = !passportVal || String(passportVal).trim() === ''
-          if (horseNameMissing) errors[a.horseNameKey] = 'Enter the horse name'
-          if (microchipMissing) errors[a.microchipKey] = 'Enter the microchip number'
-          if (passportMissing) errors[a.passportKey] = 'Enter the passport number'
-          if (horseNameMissing || microchipMissing || passportMissing) {
-            const animalLabel = `${s.speciesAndType} ${a.index}`
-            const missingParts = []
-            if (horseNameMissing) missingParts.push('horse name')
-            if (microchipMissing) missingParts.push('microchip')
-            if (passportMissing) missingParts.push('passport')
-            errorList.push({ href: `#horse-name-${a.horseNameKey}`, text: `Enter the ${missingParts.join(', ')} for ${animalLabel}` })
-          }
-        } else if (s.isGameBirdIdentification) {
-          const flockIdVal = req.session.data[a.flockIdKey]
-          const hatchingDateVal = req.session.data[a.hatchingDateKey]
-          const flockIdMissing = !flockIdVal || String(flockIdVal).trim() === ''
-          const hatchingDateMissing = !hatchingDateVal || String(hatchingDateVal).trim() === ''
-          if (flockIdMissing) errors[a.flockIdKey] = 'Enter the flock id'
-          if (hatchingDateMissing) errors[a.hatchingDateKey] = 'Enter the hatching date'
-          if (flockIdMissing || hatchingDateMissing) {
-            const animalLabel = `${s.speciesAndType} ${a.index}`
-            const missingParts = []
-            if (flockIdMissing) missingParts.push('flock id')
-            if (hatchingDateMissing) missingParts.push('hatching date')
-            errorList.push({ href: `#flock-id-${a.flockIdKey}`, text: `Enter the ${missingParts.join(' and ')} for ${animalLabel}` })
-          }
-        } else if (s.isEarTagOnlyIdentification) {
-          const earTagVal = req.session.data[a.earTagKey]
-          const earTagMissing = !earTagVal || String(earTagVal).trim() === ''
-          if (earTagMissing) {
-            errors[a.earTagKey] = 'Enter the ear tag number'
-            const animalLabel = `${s.speciesAndType} ${a.index}`
-            errorList.push({ href: `#ear-tag-${a.earTagKey}`, text: `Enter the ear tag for ${animalLabel}` })
-          }
-        } else if (s.isPetIdentification) {
-        const passportVal = req.session.data[a.passportKey]
-        const passportMissing = !passportVal || String(passportVal).trim() === ''
-          const microchipVal = req.session.data[a.microchipKey]
-          const tattooVal = req.session.data[a.tattooKey]
-          const microchipMissing = !microchipVal || String(microchipVal).trim() === ''
-          const tattooMissing = !tattooVal || String(tattooVal).trim() === ''
-          if (microchipMissing) errors[a.microchipKey] = 'Enter the microchip number'
-          if (passportMissing) errors[a.passportKey] = 'Enter the passport number'
-          if (tattooMissing) errors[a.tattooKey] = 'Enter the tattoo number'
-          if (microchipMissing || passportMissing || tattooMissing) {
-            const animalLabel = `${s.speciesAndType} ${a.index}`
-            const missingParts = []
-            if (microchipMissing) missingParts.push('microchip')
-            if (passportMissing) missingParts.push('passport')
-            if (tattooMissing) missingParts.push('tattoo')
-            const message = `Enter the ${missingParts.join(', ')} for ${animalLabel}`
-            errorList.push({ href: `#microchip-${a.microchipKey}`, text: message })
-          }
-        } else {
-          const earTagVal = req.session.data[a.earTagKey]
-          const passportVal = req.session.data[a.passportKey]
-          const earTagMissing = !earTagVal || String(earTagVal).trim() === ''
-          const passportMissing = !passportVal || String(passportVal).trim() === ''
-          if (earTagMissing) errors[a.earTagKey] = 'Enter the ear tag number'
-          if (passportMissing) errors[a.passportKey] = 'Enter the passport number'
-          if (earTagMissing || passportMissing) {
-            const animalLabel = `${s.speciesAndType} animal ${a.index}`
-            const missingParts = []
-            if (earTagMissing) missingParts.push('ear tag')
-            if (passportMissing) missingParts.push('passport')
-            const message = missingParts.length === 2
-              ? `Enter the ear tag and passport for ${animalLabel}`
-              : `Enter the ${missingParts[0]} for ${animalLabel}`
-            errorList.push({ href: `#ear-tag-${a.earTagKey}`, text: message })
-          }
-        }
-      })
-    })
-
-    if (Object.keys(errors).length > 0) {
-      req.session.data.errors = errors
-      req.session.data.errorList = errorList
-      return res.redirect(`${BASE}/create/animal-identification`)
-    }
-
-    // Sync quantity from animalCount so downstream pages use correct counts
-    speciesRows.forEach(s => {
-      const animalCountVal = req.session.data[`animalCount_${s.key}`]
-      if (animalCountVal !== undefined && animalCountVal !== '') {
-        req.session.data[`quantity_${s.key}`] = animalCountVal
-      }
-    })
-
-    delete req.session.data.errors
-    delete req.session.data.errorList
-    res.redirect(`${BASE}/create/additional-animal-details`)
-  })
-
-  router.get(`${BASE}/clear-filters`, (req, res) => {
-    FILTER_KEYS.forEach(key => delete req.session.data[key])
-    delete req.session.data.sort
-    res.redirect(`${BASE}/dashboard`)
   })
 }

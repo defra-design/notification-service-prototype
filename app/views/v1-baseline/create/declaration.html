@@ -1,15 +1,15 @@
 
 {% extends "layouts/v1-baseline-forms.html" %}
 {% set title = "Declaration" %}
-{% set backLinkHref = "/v1-baseline/create/check-your-answers" %}
+{% set backLinkHref = (basePath or '/v1-baseline') + '/create/check-your-answers' %}
 
 {% block formContent %}
 
 {% from "includes/page-header.njk" import pageHeader %}
 {% call pageHeader(title, null, "two-thirds") %}
-    <p class="govuk-body">I confirm I am responsible for this notification.</p>
+    <p class="govuk-body"><strong>I confirm I am responsible for this notification.</strong></p>
     <p class="govuk-body">I am responsible from the submission of this notification to when it enters Great Britain.</p>
-    <p class="govuk-body">I am authorised as being accountable for these things if raising notifications on behalf of a third party.</p>
+    <p class="govuk-body">I am authorised as being accountable for these things if raising notifications on behalf of a third party and others.</p>
     <p class="govuk-body">I can legally act on behalf of a third party in relation to the conditions of this declaration.</p>
 
     <form method="post" novalidate>
@@ -39,10 +39,10 @@
       {{ govukButton({
         text: "Submit notification"
       }) }}
-
-      {% set quickFillHref = (basePath or '/v1-baseline') + '/create/declaration-prefill' %}
-      {% include "includes/quick-fill-internal-link.njk" %}
     </form>
+
+    {% set quickFillHref = (basePath or '/v1-baseline') + '/create/declaration-prefill' %}
+    {% include "includes/quick-fill-internal-link.njk" %}
 
 {% endcall %}
 

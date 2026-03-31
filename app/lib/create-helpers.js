@@ -1,5 +1,5 @@
 //
-// Shared helpers for create journey (v1-baseline and v1-experimental)
+// Shared helpers for create journey (v1-baseline)
 //
 
 const PET_COMMODITIES = new Set([

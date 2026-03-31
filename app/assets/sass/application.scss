@@ -575,18 +575,26 @@
 }
 
 .dashboard-results-bar {
-  overflow: hidden;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: govuk-spacing(3);
 }
+
 .dashboard-results-count {
-  float: left;
+  margin-top: 0;
+  margin-bottom: 0;
 }
+
 .dashboard-sort-form {
-  float: right;
+  flex-shrink: 0;
 }
+
 .dashboard-sort-controls {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: govuk-spacing(2);
 }
 .dashboard-filter-list {
   margin-bottom: 0;
@@ -696,4 +704,13 @@
 .transport-and-arrival__help-details .govuk-details__text .govuk-list {
   font-size: inherit;
   line-height: inherit;
+}
+
+.ns-task-list__item--error {
+  border-left: 5px solid $govuk-error-colour;
+  padding-left: govuk-spacing(3);
+}
+
+.ns-task-list__error-intro {
+  color: $govuk-error-colour;
 }

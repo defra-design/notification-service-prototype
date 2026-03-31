@@ -407,6 +407,7 @@ function buildCheckYourAnswersData (data, base) {
 
   const docs = data.documents || []
   const cell = (t) => ({ text: String(t ?? '-') })
+  const hasUploadedDocs = docs.some(d => d && String(d.type || '').trim() !== '')
   let documentsTableRows = docs.filter(d => d.type).map(d => [
     cell(getDocumentTypeLabel(d.type)),
     cell(d.reference),
@@ -415,9 +416,7 @@ function buildCheckYourAnswersData (data, base) {
   ])
   if (documentsTableRows.length === 0) {
     documentsTableRows = [
-      [cell('Veterinary health certificate'), cell('VHC-2024-001'), cell('14 June 2025'), cell('1 attachment')],
-      [cell('Commercial invoice'), cell('INV-7892'), cell('14 June 2025'), cell('-')],
-      [cell('Import permit'), cell('GB-IMP-2024-456'), cell('1 September 2025'), cell('2 attachments')]
+      [cell('Not yet added'), cell('–'), cell('–'), cell('–')]
     ]
   }
 
@@ -518,6 +517,7 @@ function buildCheckYourAnswersData (data, base) {
     commodityIdCards,
     additionalAnimalRows,
     documentsTableRows,
+    accompanyingDocumentsNotYetAdded: !hasUploadedDocs,
     addressRows,
     cphRows,
     permanentAddressRows,
@@ -576,6 +576,9 @@ function registerPostHubRoutes (router, base) {
 
     const now = new Date()
     const todayIso = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+    const documentsSnapshot = Array.isArray(data.documents)
+      ? JSON.parse(JSON.stringify(data.documents))
+      : []
     const submitted = {
       reference: referenceNumber,
       commodity: commodityDisplay,
@@ -584,7 +587,8 @@ function registerPostHubRoutes (router, base) {
       consignor: data.consignorName || (data.consignor && data.consignor.name) || 'Not provided',
       arrival: formatDate(data.arrivalDate) || 'Not provided',
       dateCreated: formatDate(todayIso),
-      status: 'submitted'
+      status: 'submitted',
+      documents: documentsSnapshot
     }
     if (!Array.isArray(data.submittedNotifications)) data.submittedNotifications = []
     data.submittedNotifications.push(submitted)
@@ -677,7 +681,7 @@ function registerPostHubRoutes (router, base) {
     let backHref = create('/addresses')
     if (isPetConsignment(data)) backHref = create('/permanent-addresses-for-animals')
     else if (isLivestockConsignment(data)) backHref = create('/address-cph')
-    res.render('v1-experimental/create/transport-and-arrival', {
+    res.render('v1-baseline/create/transport-and-arrival', {
       hasTransporter,
       transporterRows,
       transporterChangeHref,
@@ -891,7 +895,7 @@ function registerPostHubRoutes (router, base) {
       }
     }
     const showActionsColumn = goodsSummaryRows.some(r => r.addSpeciesHref)
-    res.render('v1-experimental/create/animal-identification', {
+    res.render('v1-baseline/create/animal-identification', {
       commodityDetails,
       speciesRows,
       goodsSummaryRows,
@@ -1269,7 +1273,7 @@ function registerPostHubRoutes (router, base) {
     const isCatsOrDogs = code === '01061900' && (commodity === 'Cat' || commodity === 'Dog')
     const showUnweanedAnimals = !isCatsOrDogs
 
-    res.render('v1-experimental/create/additional-animal-details', { certifiedForItems, showUnweanedAnimals })
+    res.render('v1-baseline/create/additional-animal-details', { certifiedForItems, showUnweanedAnimals })
   })
 
   router.post(create('/additional-animal-details'), (req, res) => {
@@ -1413,7 +1417,7 @@ function registerPostHubRoutes (router, base) {
       })
     }
 
-    res.render('v1-experimental/create/import-reason', {
+    res.render('v1-baseline/create/import-reason', {
       importReasonItems
     })
   })
@@ -1496,7 +1500,7 @@ function registerPostHubRoutes (router, base) {
       }
       return { ...d, date: d.date || '' }
     })
-    res.render('v1-experimental/create/accompanying-documents', {
+    res.render('v1-baseline/create/accompanying-documents', {
       documentTypeItems,
       documents
     })
@@ -1509,23 +1513,30 @@ function registerPostHubRoutes (router, base) {
     const errorList = []
     let i = 0
     while (data[`documentType_${i}`] !== undefined) {
-      const type = data[`documentType_${i}`]
+      const type = (data[`documentType_${i}`] || '').trim()
       const reference = (data[`documentReference_${i}`] || '').trim()
       const date = (data[`documentDate_${i}`] || '').trim()
       const filenamesStr = data[`documentAttachmentFilenames_${i}`] || ''
       const attachments = filenamesStr ? filenamesStr.split(',').map(s => s.trim()).filter(Boolean) : []
 
-      if (!type || type.trim() === '') {
+      const isBlank = !type && !reference && !date && attachments.length === 0
+      if (isBlank) {
+        i++
+        continue
+      }
+
+      const docNum = i + 1
+      if (!type) {
         errors[`documentType_${i}`] = 'Select a document type'
-        errorList.push({ href: `#document-type-${i}`, text: `Document ${i + 1}: Select a document type` })
+        errorList.push({ href: `#document-type-${i}`, text: `Document ${docNum}: Select a document type` })
       }
       if (reference === '') {
         errors[`documentReference_${i}`] = 'Enter the document reference'
-        errorList.push({ href: `#document-reference-${i}`, text: `Document ${i + 1}: Enter the document reference` })
+        errorList.push({ href: `#document-reference-${i}`, text: `Document ${docNum}: Enter the document reference` })
       }
       if (date === '') {
         errors[`documentDate_${i}`] = 'Enter the date of issue'
-        errorList.push({ href: `#document-date-${i}`, text: `Document ${i + 1}: Enter the date of issue` })
+        errorList.push({ href: `#document-date-${i}`, text: `Document ${docNum}: Enter the date of issue` })
       }
 
       documents.push({
@@ -1536,10 +1547,9 @@ function registerPostHubRoutes (router, base) {
       })
       i++
     }
-    if (documents.length === 0) {
-      documents.push({ type: '', reference: '', date: '', attachments: [] })
-    }
+
     data.documents = documents
+    data.accompanyingDocumentsConfirmed = true
 
     if (Object.keys(errors).length > 0) {
       req.session.data.errors = errors
@@ -1760,7 +1770,7 @@ function registerPostHubRoutes (router, base) {
     const showBranchAddedSuccess = !!data.branchAddressAdded
     if (data.branchAddressAdded) delete data.branchAddressAdded
 
-    res.render('v1-experimental/create/addresses', {
+    res.render('v1-baseline/create/addresses', {
       consignorName,
       consignorAddress,
       consignorCountry,
@@ -1862,7 +1872,7 @@ function registerPostHubRoutes (router, base) {
         podAddressLines: ['Greenfield Farm', 'Marsh Lane, Ashford, TN25 4PQ', 'United Kingdom']
       }
     }
-    res.render('v1-experimental/create/permanent-addresses-for-animals', { ...viewData, backHref: create('/addresses') })
+    res.render('v1-baseline/create/permanent-addresses-for-animals', { ...viewData, backHref: create('/addresses') })
   })
 
   router.post(create('/permanent-addresses-for-animals'), (req, res) => {
@@ -1918,7 +1928,7 @@ function registerPostHubRoutes (router, base) {
     delete data.errorList
     if (isPetConsignment(data)) return res.redirect(create('/permanent-addresses-for-animals'))
     if (!isLivestockConsignment(data)) return res.redirect(create('/addresses'))
-    res.render('v1-experimental/create/address-cph')
+    res.render('v1-baseline/create/address-cph')
   })
 
   router.post(create('/address-cph'), (req, res) => {
@@ -1982,7 +1992,7 @@ function registerPostHubRoutes (router, base) {
     const countriesFromData = [...new Set(allContacts.map(c => c.country).filter(Boolean))]
     const countries = [...new Set([...euCountries, ...countriesFromData])].sort()
 
-    res.render('v1-experimental/create/contact-address-search', {
+    res.render('v1-baseline/create/contact-address-search', {
       results,
       countries,
       page: pageNum,
@@ -2008,7 +2018,7 @@ function registerPostHubRoutes (router, base) {
       { value: '', text: 'Please select your country' },
       ...allCountries.map((c) => ({ value: c, text: c }))
     ]
-    res.render('v1-experimental/create/contact-address-add-branch', { countryItems })
+    res.render('v1-baseline/create/contact-address-add-branch', { countryItems })
   })
 
   router.post(create('/contact-address-add-branch'), (req, res) => {
@@ -2196,7 +2206,7 @@ function registerPostHubRoutes (router, base) {
     const countryItems = [{ value: '', text: 'Select country' }, { value: 'United Kingdom', text: 'United Kingdom' }].concat(
       euCountries.map(c => ({ value: c, text: c }))
     )
-    res.render('v1-experimental/create/transport-add-transporter', { countryItems })
+    res.render('v1-baseline/create/transport-add-transporter', { countryItems })
   })
 
   router.post(create('/transport-add-transporter'), (req, res) => {
@@ -2317,7 +2327,7 @@ function registerPostHubRoutes (router, base) {
     delete data.errors
     delete data.errorList
     const viewData = buildCheckYourAnswersData(data, base)
-    res.render('v1-experimental/create/check-your-answers', viewData)
+    res.render('v1-baseline/create/check-your-answers', viewData)
   })
 
   router.post(create('/check-your-answers'), (req, res) => {
@@ -2338,7 +2348,7 @@ function registerPostHubRoutes (router, base) {
     delete req.session.data.errorList
     const now = new Date()
     const declarationDate = `${now.getDate()} ${['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'][now.getMonth()]} ${now.getFullYear()}`
-    res.render('v1-experimental/create/declaration', { declarationDate })
+    res.render('v1-baseline/create/declaration', { declarationDate })
   })
 
   router.post(create('/declaration'), (req, res) => {
@@ -2355,7 +2365,7 @@ function registerPostHubRoutes (router, base) {
   // --- confirmation ---
   router.get(create('/confirmation'), (req, res) => {
     const referenceNumber = req.session.data.lastReferenceNumber
-    res.render('v1-experimental/create/confirmation', { referenceNumber })
+    res.render('v1-baseline/create/confirmation', { referenceNumber })
   })
 
   // --- address-consignee (manual entry) ---
@@ -2363,7 +2373,7 @@ function registerPostHubRoutes (router, base) {
     const data = req.session.data || {}
     delete data.errors
     delete data.errorList
-    res.render('v1-experimental/create/address-consignee', { basePath: base })
+    res.render('v1-baseline/create/address-consignee', { basePath: base })
   })
 
   router.post(create('/address-consignee'), (req, res) => {
@@ -2442,7 +2452,7 @@ function registerPostHubRoutes (router, base) {
     const results = filtered.slice(start, start + perPage)
     const countries = [...new Set(consignees.map(c => c.country))].sort()
     const forImporter = req.query.for === 'importer'
-    res.render('v1-experimental/create/address-consignee-search', {
+    res.render('v1-baseline/create/address-consignee-search', {
       results,
       countries,
       page: pageNum,
@@ -2484,7 +2494,7 @@ function registerPostHubRoutes (router, base) {
     const countries = [...new Set(placesOfDestination.map(p => p.country))].sort()
     const types = [...new Set(placesOfDestination.map(p => p.type))].sort()
 
-    res.render('v1-experimental/create/address-place-of-destination-search', {
+    res.render('v1-baseline/create/address-place-of-destination-search', {
       results,
       countries,
       types,
@@ -2523,7 +2533,7 @@ function registerPostHubRoutes (router, base) {
     const countriesFromData = [...new Set(consignors.map(c => c.country))]
     const countries = [...new Set([...euCountries, ...countriesFromData])].sort()
 
-    res.render('v1-experimental/create/address-consignor-search', {
+    res.render('v1-baseline/create/address-consignor-search', {
       results,
       countries,
       page: pageNum,

@@ -11,11 +11,13 @@
 
 {% block content %}
 
+{% set dp = dashboardBasePath or basePath or '/v1-baseline' %}
+
 {% from "includes/page-header.njk" import pageHeader %}
 {% call pageHeader(title, null, "full") %}
     {{ govukButton({
       text: "Create an import notification",
-      href: "/v1-baseline/create/import-type",
+      href: (dashboardBasePath or basePath or '/v1-baseline') + "/create/new",
       classes: "govuk-!-margin-top-0 govuk-!-margin-bottom-6"
     }) }}
 {% endcall %}
@@ -97,7 +99,7 @@
         classes: "govuk-!-margin-bottom-2"
       }) }}
       <p class="govuk-body govuk-!-margin-top-4 govuk-!-margin-bottom-0">
-        <a href="/v1-baseline/clear-filters" class="govuk-link govuk-link--no-visited-state">Clear filters</a>
+        <a href="{{ dashboardBasePath or basePath or '/v1-baseline' }}/clear-filters" class="govuk-link govuk-link--no-visited-state">Clear filters</a>
       </p>
     </form>
     <hr class="govuk-section-break govuk-section-break--l govuk-section-break--visible govuk-!-margin-top-6 govuk-!-margin-bottom-4">
@@ -106,10 +108,11 @@
       <p id="notification-created-presets-label" class="govuk-body-s govuk-!-margin-bottom-1 govuk-!-margin-top-1">Quick presets</p>
       <nav class="govuk-!-margin-top-1" aria-labelledby="notification-created-filters-label notification-created-presets-label">
         <ul class="govuk-list govuk-list--spaced dashboard-filter-list">
-          <li><a href="/v1-baseline/dashboard?filterPeriod=last-1-hour{% if filterQueryBase %}&{{ filterQueryBase }}{% endif %}" class="govuk-link govuk-link--no-visited-state govuk-!-font-size-16{% if data.filterPeriod == 'last-1-hour' %} govuk-!-font-weight-bold{% endif %}"{% if data.filterPeriod == 'last-1-hour' %} aria-current="true"{% endif %}>Last 1 hour</a></li>
-          <li><a href="/v1-baseline/dashboard?filterPeriod=last-24-hours{% if filterQueryBase %}&{{ filterQueryBase }}{% endif %}" class="govuk-link govuk-link--no-visited-state govuk-!-font-size-16{% if data.filterPeriod == 'last-24-hours' %} govuk-!-font-weight-bold{% endif %}"{% if data.filterPeriod == 'last-24-hours' %} aria-current="true"{% endif %}>Last 24 hours</a></li>
-          <li><a href="/v1-baseline/dashboard?filterPeriod=last-7-days{% if filterQueryBase %}&{{ filterQueryBase }}{% endif %}" class="govuk-link govuk-link--no-visited-state govuk-!-font-size-16{% if data.filterPeriod == 'last-7-days' %} govuk-!-font-weight-bold{% endif %}"{% if data.filterPeriod == 'last-7-days' %} aria-current="true"{% endif %}>Last 7 days</a></li>
-          <li><a href="/v1-baseline/dashboard?filterPeriod=last-30-days{% if filterQueryBase %}&{{ filterQueryBase }}{% endif %}" class="govuk-link govuk-link--no-visited-state govuk-!-font-size-16{% if data.filterPeriod == 'last-30-days' or not data.filterPeriod %} govuk-!-font-weight-bold{% endif %}"{% if data.filterPeriod == 'last-30-days' or not data.filterPeriod %} aria-current="true"{% endif %}>Last 30 days</a></li>
+          {% set dp = dashboardBasePath or basePath or '/v1-baseline' %}
+          <li><a href="{{ dp }}/dashboard?filterPeriod=last-1-hour{% if filterQueryBase %}&{{ filterQueryBase }}{% endif %}" class="govuk-link govuk-link--no-visited-state govuk-!-font-size-16{% if data.filterPeriod == 'last-1-hour' %} govuk-!-font-weight-bold{% endif %}"{% if data.filterPeriod == 'last-1-hour' %} aria-current="true"{% endif %}>Last 1 hour</a></li>
+          <li><a href="{{ dp }}/dashboard?filterPeriod=last-24-hours{% if filterQueryBase %}&{{ filterQueryBase }}{% endif %}" class="govuk-link govuk-link--no-visited-state govuk-!-font-size-16{% if data.filterPeriod == 'last-24-hours' %} govuk-!-font-weight-bold{% endif %}"{% if data.filterPeriod == 'last-24-hours' %} aria-current="true"{% endif %}>Last 24 hours</a></li>
+          <li><a href="{{ dp }}/dashboard?filterPeriod=last-7-days{% if filterQueryBase %}&{{ filterQueryBase }}{% endif %}" class="govuk-link govuk-link--no-visited-state govuk-!-font-size-16{% if data.filterPeriod == 'last-7-days' %} govuk-!-font-weight-bold{% endif %}"{% if data.filterPeriod == 'last-7-days' %} aria-current="true"{% endif %}>Last 7 days</a></li>
+          <li><a href="{{ dp }}/dashboard?filterPeriod=last-30-days{% if filterQueryBase %}&{{ filterQueryBase }}{% endif %}" class="govuk-link govuk-link--no-visited-state govuk-!-font-size-16{% if data.filterPeriod == 'last-30-days' or not data.filterPeriod %} govuk-!-font-weight-bold{% endif %}"{% if data.filterPeriod == 'last-30-days' or not data.filterPeriod %} aria-current="true"{% endif %}>Last 30 days</a></li>
         </ul>
       </nav>
     </section>
@@ -119,13 +122,13 @@
     {% if activeFilters and (activeFilters|length) > 0 %}
     <div class="govuk-!-margin-bottom-4">
       <p class="govuk-body govuk-!-margin-bottom-0">
-        <strong>{{ activeFilters|length }} filter{% if (activeFilters|length) != 1 %}s{% endif %} applied</strong>. <a href="/v1-baseline/clear-filters" class="govuk-link govuk-link--no-visited-state">Clear filters</a>
+        <strong>{{ activeFilters|length }} filter{% if (activeFilters|length) != 1 %}s{% endif %} applied</strong>. <a href="{{ dashboardBasePath or basePath or '/v1-baseline' }}/clear-filters" class="govuk-link govuk-link--no-visited-state">Clear filters</a>
       </p>
     </div>
     {% endif %}
     <div class="govuk-!-margin-bottom-4 dashboard-results-bar">
       <p class="govuk-body govuk-!-margin-bottom-0 dashboard-results-count"><strong>{{ data.resultsCount or 3 }} results</strong></p>
-      <form method="get" action="/v1-baseline/dashboard" class="govuk-form-group govuk-!-margin-0 dashboard-sort-form" id="sort-form">
+      <form method="get" action="{{ dashboardBasePath or basePath or '/v1-baseline' }}/dashboard" class="govuk-form-group govuk-!-margin-0 dashboard-sort-form" id="sort-form">
         {% for key in ['filterKeyword', 'filterCommodity', 'filterOrigin', 'filterConsignee', 'filterDestination', 'filterStatus', 'filterPeriod', 'filterStartDate', 'filterEndDate'] %}
         <input type="hidden" name="{{ key }}" value="{{ data[key] or '' }}">
         {% endfor %}
@@ -151,10 +154,10 @@
           <h3 class="govuk-summary-card__title dashboard-card-title">{{ n.reference }}</h3>
           <ul class="govuk-summary-card__actions dashboard-card-actions">
             <li>
-              {% if n.status == "submitted" %}
-              <a class="govuk-link govuk-!-font-weight-regular" href="#">Copy as new</a> <span class="dashboard-card-separator" aria-hidden="true">|</span> <a class="govuk-link govuk-!-font-weight-regular" href="#">View</a>
+              {% if n.isSessionDraft or n.status != "submitted" %}
+              <a class="govuk-link govuk-!-font-weight-regular" href="{{ n.viewHref }}">View</a>
               {% else %}
-              <a class="govuk-link govuk-!-font-weight-regular" href="#">View</a>
+              <a class="govuk-link govuk-!-font-weight-regular" href="#">Copy as new</a> <span class="dashboard-card-separator" aria-hidden="true">|</span> <a class="govuk-link govuk-!-font-weight-regular" href="{{ n.viewHref }}">View</a>
               {% endif %}
             </li>
           </ul>
@@ -206,7 +209,7 @@
 
     {% if dashboardTotalPages > 1 %}
     <div class="govuk-!-margin-top-6">
-      {% set baseUrl = "/v1-baseline/dashboard" %}
+      {% set baseUrl = (dashboardBasePath or basePath or '/v1-baseline') + "/dashboard" %}
       {% set sep = dashboardQueryParams and "&" or "" %}
       {% set prevHref = baseUrl + "?page=" + (dashboardPage - 1) + (sep + (dashboardQueryParams or '')) %}
       {% set nextHref = baseUrl + "?page=" + (dashboardPage + 1) + (sep + (dashboardQueryParams or '')) %}
