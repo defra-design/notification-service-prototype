@@ -99,9 +99,12 @@
     {% endif %}
     {% endif %}
 
-    <p class="govuk-body govuk-!-margin-top-4">
-      <a href="{{ (basePath or '/v1-baseline') }}/create/contact-address-add-branch" class="govuk-link govuk-!-font-size-16">Create a new contact address for consignment</a>
-    </p>
+    <div class="govuk-!-margin-top-8">
+      {{ govukButton({
+        text: "Create a new contact address for consignment",
+        href: (basePath or '/v1-baseline') + '/create/contact-address-add-branch'
+      }) }}
+    </div>
 
 {% endcall %}
 

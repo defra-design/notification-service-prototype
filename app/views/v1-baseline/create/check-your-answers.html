@@ -123,13 +123,63 @@
           ],
           rows: species.idTableRows
         }) }}
-        {% elif species.isHorseIdentification %}
+        {% elif species.isHorseIdentification or species.isSmallMammalIdentification %}
         {{ govukTable({
           classes: "commodity-details-table",
           head: [
             { text: "Animal" },
             { text: "Microchip" },
             { text: "Passport" }
+          ],
+          rows: species.idTableRows
+        }) }}
+        {% elif species.isMicrochipEarTagIdentification %}
+        {{ govukTable({
+          classes: "commodity-details-table",
+          head: [
+            { text: "Animal" },
+            { text: "Microchip" },
+            { text: "Ear tag" }
+          ],
+          rows: species.idTableRows
+        }) }}
+        {% elif species.isGameBirdIdentification %}
+        {{ govukTable({
+          classes: "commodity-details-table",
+          head: [
+            { text: "Animal" },
+            { text: "Flock id" },
+            { text: "Hatching date" }
+          ],
+          rows: species.idTableRows
+        }) }}
+        {% elif species.isHatchingEggIdentification %}
+        {{ govukTable({
+          classes: "commodity-details-table",
+          head: [
+            { text: "Animal" },
+            { text: "Egg mark" },
+            { text: "Collection date" }
+          ],
+          rows: species.idTableRows
+        }) }}
+        {% elif species.isPoultryIdentification %}
+        {{ govukTable({
+          classes: "commodity-details-table",
+          head: [
+            { text: "Animal" },
+            { text: "Holding or house ID" },
+            { text: "Flock or batch number" }
+          ],
+          rows: species.idTableRows
+        }) }}
+        {% elif species.isBeeIdentification %}
+        {{ govukTable({
+          classes: "commodity-details-table",
+          head: [
+            { text: "Animal" },
+            { text: "Apiary registration" },
+            { text: "Colony or hive identifier" }
           ],
           rows: species.idTableRows
         }) }}

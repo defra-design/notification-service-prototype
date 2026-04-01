@@ -123,14 +123,6 @@
       </tbody>
     </table>
 
-    <p class="govuk-body govuk-!-margin-top-4">
-      {% if transportReturn %}
-      <a href="{{ (basePath or '/v1-baseline') }}/create/transport-add-transporter" class="govuk-link govuk-!-font-size-16">Add a new transporter</a>
-      {% else %}
-      <a href="{{ (basePath or '/v1-baseline') }}/create/address-consignee" class="govuk-link govuk-!-font-size-16">Create a new consignee</a>
-      {% endif %}
-    </p>
-
     {% if totalPages > 1 %}
     <div class="govuk-!-margin-top-6">
       {% set forParam = "&for=importer" if forImporter else "" %}
@@ -159,6 +151,20 @@
     </div>
     {% endif %}
     {% endif %}
+
+    <div class="govuk-!-margin-top-8">
+      {% if transportReturn %}
+      {{ govukButton({
+        text: "Add a new transporter",
+        href: (basePath or '/v1-baseline') + '/create/transport-add-transporter'
+      }) }}
+      {% else %}
+      {{ govukButton({
+        text: "Create a new consignee",
+        href: (basePath or '/v1-baseline') + '/create/address-consignee'
+      }) }}
+      {% endif %}
+    </div>
 
 {% endcall %}
 

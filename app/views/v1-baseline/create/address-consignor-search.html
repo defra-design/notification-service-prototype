@@ -79,10 +79,6 @@
       </tbody>
     </table>
 
-    <p class="govuk-body govuk-!-margin-top-4">
-      <a href="#" class="govuk-link govuk-!-font-size-16">Create a new consignor or exporter</a>
-    </p>
-
     {% if totalPages > 1 %}
     <div class="govuk-!-margin-top-6">
       {% set prevHref = "?page=" + (page - 1) + "&searchName=" + (data.searchName or '') + "&searchAddress=" + (data.searchAddress or '') + "&searchCountry=" + (data.searchCountry or '') %}
@@ -104,6 +100,13 @@
     </div>
     {% endif %}
     {% endif %}
+
+    <div class="govuk-!-margin-top-8">
+      {{ govukButton({
+        text: "Create a new consignor or exporter",
+        href: "#"
+      }) }}
+    </div>
 
 {% endcall %}
 

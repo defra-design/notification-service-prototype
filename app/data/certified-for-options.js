@@ -7,8 +7,10 @@ const allOptions = [
   { value: 'approved-bodies', text: 'Approved bodies' },
   { value: 'breeding-production', text: 'Breeding and/or production' },
   { value: 'circus-exhibition', text: 'Circus/exhibition' },
+  { value: 'fattening', text: 'Fattening' },
   { value: 'other', text: 'Other' },
   { value: 'pets', text: 'Pets' },
+  { value: 'quarantine', text: 'Quarantine' },
   { value: 'registered-equidae', text: 'Registered equidae' },
   { value: 'slaughter', text: 'Slaughter' }
 ]
@@ -18,9 +20,38 @@ const codeSpeciesToOptions = {}
 
 // Code-level overrides: commodity code -> allowed values
 // 01061900 = Cat, Dog, Ferrets, Rodents (pets)
+// 04071100 = Poultry hatching eggs (chickens): four options only, no circus/slaughter etc.
+// 010410 / 010420 = Sheep / goats: certified-for list from health certificate; no unweaned step
+const SHEEP_GOAT_CERTIFIED_FOR = [
+  'approved-bodies',
+  'breeding-production',
+  'circus-exhibition',
+  'fattening',
+  'slaughter'
+]
+const { POULTRY_CODES } = require('../lib/animal-identification-profile.js')
+
+const POULTRY_AND_DUCKS_CERTIFIED_FOR = [
+  'approved-bodies',
+  'breeding-production',
+  'pets',
+  'quarantine',
+  'slaughter',
+  'other'
+]
+
 const codeToOptions = {
   '01061900': ['approved-bodies', 'breeding-production', 'circus-exhibition', 'pets', 'other'],
-  '0102': ['approved-bodies', 'breeding-production', 'slaughter']
+  '0102': ['approved-bodies', 'breeding-production', 'slaughter'],
+  '04071100': ['approved-bodies', 'breeding-production', 'pets', 'other'],
+  '010410': SHEEP_GOAT_CERTIFIED_FOR,
+  '010420': SHEEP_GOAT_CERTIFIED_FOR,
+  '10410': SHEEP_GOAT_CERTIFIED_FOR,
+  '10420': SHEEP_GOAT_CERTIFIED_FOR
+}
+
+for (const pCode of POULTRY_CODES) {
+  codeToOptions[pCode] = POULTRY_AND_DUCKS_CERTIFIED_FOR
 }
 
 function getCertifiedForOptions (commodityName, speciesList, commoditiesEu) {
@@ -55,6 +86,16 @@ function getCertifiedForOptions (commodityName, speciesList, commoditiesEu) {
 
   if (codeToOptions[code]) {
     const allowed = new Set(codeToOptions[code])
+    return sortOptions(allOptions.filter(o => allowed.has(o.value)))
+  }
+
+  if (commodityName === 'Goats' || commodityName === 'Sheep (Domestic)') {
+    const allowed = new Set(SHEEP_GOAT_CERTIFIED_FOR)
+    return sortOptions(allOptions.filter(o => allowed.has(o.value)))
+  }
+
+  if (commodityName && commodityName.startsWith('Poultry -')) {
+    const allowed = new Set(POULTRY_AND_DUCKS_CERTIFIED_FOR)
     return sortOptions(allOptions.filter(o => allowed.has(o.value)))
   }
 

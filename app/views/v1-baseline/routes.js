@@ -3,7 +3,7 @@
 //
 
 const BASE = '/v1-baseline'
-const { isPetConsignment, isLivestockConsignment } = require('../../lib/create-helpers.js')
+const { isPetConsignment, isLivestockConsignment, sanitizeCommoditySpeciesSession } = require('../../lib/create-helpers.js')
 const { assignDraftNotificationReferenceIfNeeded } = require('../../lib/draft-notification-reference.js')
 
 // For code 0102 (bovine), use the definition with speciesByType (Domestic/Game)
@@ -225,7 +225,7 @@ function buildExperimentalTaskListSections (data, basePath, opts) {
   const statusIncomplete = { tag: { text: 'Incomplete', classes: 'govuk-tag--blue' } }
   const statusOptional = { tag: { text: 'Optional', classes: 'govuk-tag--grey' } }
 
-  function buildRow (key, titleText, href, done, incompleteStatus, inlineErrorText) {
+  function buildRow (key, titleText, href, done, incompleteStatus, inlineErrorText, hint) {
     const status = done ? statusCompleted : incompleteStatus
     if (showInlineTaskErrors && !done && inlineErrorText) {
       const errId = `task-inline-error-${key}`
@@ -244,6 +244,7 @@ function buildExperimentalTaskListSections (data, basePath, opts) {
       status
     }
     if (href) o.href = href
+    if (hint) o.hint = hint
     return o
   }
 
@@ -337,11 +338,12 @@ function buildExperimentalTaskListSections (data, basePath, opts) {
         ),
         buildRow(
           'accompanying-docs',
-          'Accompanying documents (Optional)',
+          'Accompanying documents',
           `${bp}/accompanying-documents`,
           documentsDone,
           statusOptional,
-          null
+          null,
+          { html: '<span class="govuk-body-s">(Optional)</span>' }
         )
       ]
     }
@@ -602,6 +604,7 @@ module.exports = (router) => {
       })
     })
     commodityOptions.sort((a, b) => a.text.localeCompare(b.text, undefined, { sensitivity: 'base' }))
+    sanitizeCommoditySpeciesSession(req.session.data, commoditiesData)
     const initialDataJson = JSON.stringify({
       commodity: req.session.data.commodity || '',
       commoditySpecies: req.session.data.commoditySpecies || [],
@@ -639,6 +642,8 @@ module.exports = (router) => {
       return res.redirect(`${BASE}/create/commodity`)
     }
     const commoditiesData = require('../../data/commodities-eu.js')
+    sanitizeCommoditySpeciesSession(req.session.data, commoditiesData)
+    commodity = req.session.data.commodity
     const details = commoditiesData[commodity]
     const speciesList = details && details.speciesByType
       ? Object.values(details.speciesByType).flat()
@@ -684,6 +689,7 @@ module.exports = (router) => {
   router.get(`${BASE}/create/commodity-species`, (req, res) => {
     const commodity = req.session.data.commodity
     const commoditiesData = require('../../data/commodities-eu.js')
+    sanitizeCommoditySpeciesSession(req.session.data, commoditiesData)
     const commodityDetails = commodity ? getCommodityDetailsForSpecies(commoditiesData, commodity) : null
     if (!commodityDetails) return res.redirect(`${BASE}/create/commodity`)
 

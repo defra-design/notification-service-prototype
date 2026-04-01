@@ -23,6 +23,62 @@ function isPetConsignment (data) {
   return names.some(name => PET_COMMODITIES.has(name))
 }
 
+function speciesSessionKey (speciesName) {
+  return String(speciesName || '').replace(/\s+/g, '_').toLowerCase().replace(/[^a-z0-9_]/g, '')
+}
+
+function removeSessionKeysForSpecies (data, sk) {
+  if (!data || !sk) return
+  ;[`quantity_${sk}`, `packages_${sk}`, `animalCount_${sk}`, `numberOfPackages_${sk}`].forEach((k) => {
+    if (k in data) delete data[k]
+  })
+  const prefixes = [
+    'microchip_', 'passport_', 'tattoo_', 'earTag_', 'flockId_', 'hatchingDate_',
+    'holdingId_', 'flockBatch_', 'apiaryReg_', 'colonyId_', 'eggMark_', 'collectionDate_'
+  ]
+  Object.keys(data).forEach((k) => {
+    for (const p of prefixes) {
+      if (k.startsWith(p + sk + '_')) {
+        delete data[k]
+        break
+      }
+    }
+  })
+}
+
+function getAllowedSpeciesNames (commodityKey, commodityType, commoditiesData) {
+  const d = commodityKey ? commoditiesData[commodityKey] : null
+  if (!d) return []
+  if (d.speciesByType) {
+    const typeKey = commodityType === 'game' ? 'Game' : 'Domestic'
+    const arr = d.speciesByType[typeKey]
+    if (Array.isArray(arr) && arr.length) return arr
+    return Object.values(d.speciesByType).flat()
+  }
+  if (Array.isArray(d.species)) return d.species
+  return []
+}
+
+function sanitizeCommoditySpeciesSession (data, commoditiesData) {
+  const commodityKey = data.commodity
+  if (!commodityKey || !commoditiesData) return
+  const commodityType = String(data.commodityType || 'domestic').toLowerCase()
+  const allowed = getAllowedSpeciesNames(commodityKey, commodityType, commoditiesData)
+  if (!allowed.length) return
+  const allowedSet = new Set(allowed)
+  const raw = data.commoditySpecies
+  const current = Array.isArray(raw) ? raw : (raw ? [raw] : [])
+  const filtered = current.filter(s => allowedSet.has(s))
+  const removedNames = current.filter(s => !allowedSet.has(s))
+  if (filtered.length === 0) {
+    data.commoditySpecies = [allowed[0]]
+    current.forEach((name) => removeSessionKeysForSpecies(data, speciesSessionKey(name)))
+  } else {
+    data.commoditySpecies = filtered
+    removedNames.forEach((name) => removeSessionKeysForSpecies(data, speciesSessionKey(name)))
+  }
+}
+
 function isLivestockConsignment (data) {
   const commoditiesEu = require('../data/commodities-eu.js')
   const commoditiesData = require('../data/commodities.js')
@@ -51,6 +107,8 @@ function isLivestockConsignment (data) {
 module.exports = {
   PET_COMMODITIES,
   getCommoditySpeciesArray,
+  getAllowedSpeciesNames,
+  sanitizeCommoditySpeciesSession,
   isPetConsignment,
   isLivestockConsignment
 }

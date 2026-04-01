@@ -92,10 +92,6 @@
       </tbody>
     </table>
 
-    <p class="govuk-body govuk-!-margin-top-4">
-      <a href="#" class="govuk-link govuk-!-font-size-16">Create a new place of destination</a>
-    </p>
-
     {% if totalPages > 1 %}
     <div class="govuk-!-margin-top-6">
       {% set prevHref = "?page=" + (page - 1) + "&searchName=" + (data.searchPlaceOfDestinationName or '') + "&searchAddress=" + (data.searchPlaceOfDestinationAddress or '') + "&searchType=" + (data.searchPlaceOfDestinationType or '') + "&searchCountry=" + (data.searchPlaceOfDestinationCountry or '') %}
@@ -117,6 +113,13 @@
     </div>
     {% endif %}
     {% endif %}
+
+    <div class="govuk-!-margin-top-8">
+      {{ govukButton({
+        text: "Create a new place of destination",
+        href: "#"
+      }) }}
+    </div>
 
 {% endcall %}
 

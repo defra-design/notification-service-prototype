@@ -2,12 +2,14 @@
 // Post-hub routes – animal identification through confirmation (reuses v1-baseline create templates)
 //
 
-const { PET_COMMODITIES, getCommoditySpeciesArray, isPetConsignment, isLivestockConsignment } = require('../../lib/create-helpers.js')
+const { PET_COMMODITIES, getCommoditySpeciesArray, isPetConsignment, isLivestockConsignment, sanitizeCommoditySpeciesSession } = require('../../lib/create-helpers.js')
+const { getAnimalIdentificationShape, POULTRY_CODES } = require('../../lib/animal-identification-profile.js')
 const { assignDraftNotificationReferenceIfNeeded } = require('../../lib/draft-notification-reference.js')
 
 function formatDate (isoDate) {
   if (!isoDate || typeof isoDate !== 'string') return isoDate || 'Not provided'
   const [y, m, d] = isoDate.split('-').map(Number)
+  if (!y || !m || !d) return isoDate
   const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
   return `${d} ${months[m - 1]} ${y}`
 }
@@ -171,29 +173,27 @@ function buildCheckYourAnswersData (data, base) {
       const type = item.commodityType === 'game' ? 'Game' : 'Domestic'
       const quantities = item.quantities || {}
       const details = item.commodity ? (commoditiesEu[item.commodity] || commoditiesData[item.commodity]) : null
-      const codeNorm = details && details.code ? String(details.code).replace(/\s/g, '') : ''
-      const isEarTagOnly = details && ['010410', '0103'].includes(details.code)
-      const isHorseIdentification = details && details.code === '0101' && item.commodity === 'Horse'
-      const isPetIdentification = codeNorm === '01061900' && (item.commodity === 'Cat' || item.commodity === 'Dog')
+      const shape = getAnimalIdentificationShape(item.commodity, details)
       ;(item.commoditySpecies || []).forEach((s) => {
-        allSpeciesForId.push({ speciesName: s, speciesAndType: `${s}, ${type}`, key: toKey(s), quantities, isEarTagOnly, isHorseIdentification, isPetIdentification })
+        allSpeciesForId.push({
+          speciesName: s,
+          speciesAndType: `${s}, ${type}`,
+          key: toKey(s),
+          quantities,
+          ...shape
+        })
       })
     })
   } else {
     const details = commodityDetails
-    const codeNorm = details && details.code ? String(details.code).replace(/\s/g, '') : ''
-    const isEarTagOnly = details && ['010410', '0103'].includes(details.code)
-    const isHorseIdentification = details && details.code === '0101' && data.commodity === 'Horse'
-    const isPetIdentification = codeNorm === '01061900' && (data.commodity === 'Cat' || data.commodity === 'Dog')
+    const shape = getAnimalIdentificationShape(data.commodity, details)
     commoditySpecies.forEach((s) => {
       allSpeciesForId.push({
         speciesName: s,
         speciesAndType: `${s}, ${typeLabel}`,
         key: toKey(s),
         quantities: {},
-        isEarTagOnly,
-        isHorseIdentification,
-        isPetIdentification
+        ...shape
       })
     })
   }
@@ -203,7 +203,7 @@ function buildCheckYourAnswersData (data, base) {
     const key = spec.key
     const animalCount = parseInt(data[`animalCount_${key}`] || spec.quantities[`quantity_${key}`] || data[`quantity_${key}`], 10) || 1
     const identificationRows = []
-    if (spec.isHorseIdentification) {
+    if (spec.isHorseIdentification || spec.isSmallMammalIdentification) {
       for (let i = 1; i <= animalCount; i++) {
         const microchip = data[`microchip_${key}_${i}`] || '-'
         const passport = data[`passport_${key}_${i}`] || '-'
@@ -233,8 +233,14 @@ function buildCheckYourAnswersData (data, base) {
         summaryRows,
         useTable,
         isEarTagOnly: false,
-        isHorseIdentification: true,
-        isPetIdentification: false
+        isHorseIdentification: !!spec.isHorseIdentification,
+        isSmallMammalIdentification: !!spec.isSmallMammalIdentification,
+        isPetIdentification: false,
+        isGameBirdIdentification: false,
+        isPoultryIdentification: false,
+        isBeeIdentification: false,
+        isHatchingEggIdentification: false,
+        isMicrochipEarTagIdentification: false
       })
       continue
     }
@@ -272,7 +278,216 @@ function buildCheckYourAnswersData (data, base) {
         useTable,
         isEarTagOnly: false,
         isHorseIdentification: false,
-        isPetIdentification: true
+        isSmallMammalIdentification: false,
+        isPetIdentification: true,
+        isGameBirdIdentification: false,
+        isPoultryIdentification: false,
+        isBeeIdentification: false,
+        isHatchingEggIdentification: false
+      })
+      continue
+    }
+    if (spec.isGameBirdIdentification) {
+      for (let i = 1; i <= animalCount; i++) {
+        const flockId = data[`flockId_${key}_${i}`] || '-'
+        const hatchingDate = data[`hatchingDate_${key}_${i}`] || '-'
+        if (i === 1 && flockId === '-' && hatchingDate === '-') break
+        if (flockId === '-' && hatchingDate === '-') break
+        identificationRows.push({ flockId, hatchingDate })
+      }
+      const useTable = identificationRows.length > 0
+      const tableRows = identificationRows.map((r, i) => [
+        { text: `${spec.speciesName} ${i + 1}` },
+        { text: r.flockId },
+        { text: r.hatchingDate }
+      ])
+      const summaryRows = []
+      if (!identificationRows.length) {
+        summaryRows.push(row('Details', 'Not yet provided'))
+      } else if (!useTable) {
+        summaryRows.push(rowHtml('Method of identification', 'Flock id<br>Hatching date'))
+        identificationRows.forEach((r, i) => {
+          summaryRows.push(row(`Animal ${i + 1} – Flock id`, r.flockId))
+          summaryRows.push(row(`Animal ${i + 1} – Hatching date`, r.hatchingDate))
+        })
+      }
+      animalIdentificationGroups.push({
+        speciesLabel: spec.speciesAndType,
+        tableRows,
+        summaryRows,
+        useTable,
+        isEarTagOnly: false,
+        isHorseIdentification: false,
+        isSmallMammalIdentification: false,
+        isPetIdentification: false,
+        isGameBirdIdentification: true,
+        isPoultryIdentification: false,
+        isBeeIdentification: false,
+        isHatchingEggIdentification: false,
+        isMicrochipEarTagIdentification: false
+      })
+      continue
+    }
+    if (spec.isHatchingEggIdentification) {
+      for (let i = 1; i <= animalCount; i++) {
+        const eggMark = data[`eggMark_${key}_${i}`] || '-'
+        const collectionDate = data[`collectionDate_${key}_${i}`] || '-'
+        if (i === 1 && eggMark === '-' && collectionDate === '-') break
+        if (eggMark === '-' && collectionDate === '-') break
+        identificationRows.push({ eggMark, collectionDate })
+      }
+      const useTable = identificationRows.length > 0
+      const tableRows = identificationRows.map((r, i) => [
+        { text: `${spec.speciesName} ${i + 1}` },
+        { text: r.eggMark },
+        { text: r.collectionDate === '-' ? r.collectionDate : formatDate(String(r.collectionDate).trim()) }
+      ])
+      const summaryRows = []
+      if (!identificationRows.length) {
+        summaryRows.push(row('Details', 'Not yet provided'))
+      } else if (!useTable) {
+        summaryRows.push(rowHtml('Method of identification', 'Egg mark<br>Collection date'))
+        identificationRows.forEach((r, i) => {
+          summaryRows.push(row(`Animal ${i + 1} – Egg mark`, r.eggMark))
+          summaryRows.push(row(`Animal ${i + 1} – Collection date`, r.collectionDate === '-' ? r.collectionDate : formatDate(String(r.collectionDate).trim())))
+        })
+      }
+      animalIdentificationGroups.push({
+        speciesLabel: spec.speciesAndType,
+        tableRows,
+        summaryRows,
+        useTable,
+        isEarTagOnly: false,
+        isHorseIdentification: false,
+        isSmallMammalIdentification: false,
+        isPetIdentification: false,
+        isGameBirdIdentification: false,
+        isPoultryIdentification: false,
+        isBeeIdentification: false,
+        isHatchingEggIdentification: true
+      })
+      continue
+    }
+    if (spec.isPoultryIdentification) {
+      for (let i = 1; i <= animalCount; i++) {
+        const holdingId = data[`holdingId_${key}_${i}`] || '-'
+        const flockBatch = data[`flockBatch_${key}_${i}`] || '-'
+        if (i === 1 && holdingId === '-' && flockBatch === '-') break
+        if (holdingId === '-' && flockBatch === '-') break
+        identificationRows.push({ holdingId, flockBatch })
+      }
+      const useTable = identificationRows.length > 0
+      const tableRows = identificationRows.map((r, i) => [
+        { text: `${spec.speciesName} ${i + 1}` },
+        { text: r.holdingId },
+        { text: r.flockBatch }
+      ])
+      const summaryRows = []
+      if (!identificationRows.length) {
+        summaryRows.push(row('Details', 'Not yet provided'))
+      } else if (!useTable) {
+        summaryRows.push(rowHtml('Method of identification', 'Holding or house ID<br>Flock or batch number'))
+        identificationRows.forEach((r, i) => {
+          summaryRows.push(row(`Animal ${i + 1} – Holding or house ID`, r.holdingId))
+          summaryRows.push(row(`Animal ${i + 1} – Flock or batch number`, r.flockBatch))
+        })
+      }
+      animalIdentificationGroups.push({
+        speciesLabel: spec.speciesAndType,
+        tableRows,
+        summaryRows,
+        useTable,
+        isEarTagOnly: false,
+        isHorseIdentification: false,
+        isSmallMammalIdentification: false,
+        isPetIdentification: false,
+        isGameBirdIdentification: false,
+        isPoultryIdentification: true,
+        isBeeIdentification: false,
+        isHatchingEggIdentification: false,
+        isMicrochipEarTagIdentification: false
+      })
+      continue
+    }
+    if (spec.isBeeIdentification) {
+      for (let i = 1; i <= animalCount; i++) {
+        const apiaryReg = data[`apiaryReg_${key}_${i}`] || '-'
+        const colonyId = data[`colonyId_${key}_${i}`] || '-'
+        if (i === 1 && apiaryReg === '-' && colonyId === '-') break
+        if (apiaryReg === '-' && colonyId === '-') break
+        identificationRows.push({ apiaryReg, colonyId })
+      }
+      const useTable = identificationRows.length > 0
+      const tableRows = identificationRows.map((r, i) => [
+        { text: `${spec.speciesName} ${i + 1}` },
+        { text: r.apiaryReg },
+        { text: r.colonyId }
+      ])
+      const summaryRows = []
+      if (!identificationRows.length) {
+        summaryRows.push(row('Details', 'Not yet provided'))
+      } else if (!useTable) {
+        summaryRows.push(rowHtml('Method of identification', 'Apiary registration<br>Colony or hive identifier'))
+        identificationRows.forEach((r, i) => {
+          summaryRows.push(row(`Animal ${i + 1} – Apiary registration`, r.apiaryReg))
+          summaryRows.push(row(`Animal ${i + 1} – Colony or hive identifier`, r.colonyId))
+        })
+      }
+      animalIdentificationGroups.push({
+        speciesLabel: spec.speciesAndType,
+        tableRows,
+        summaryRows,
+        useTable,
+        isEarTagOnly: false,
+        isHorseIdentification: false,
+        isSmallMammalIdentification: false,
+        isPetIdentification: false,
+        isGameBirdIdentification: false,
+        isPoultryIdentification: false,
+        isBeeIdentification: true,
+        isHatchingEggIdentification: false,
+        isMicrochipEarTagIdentification: false
+      })
+      continue
+    }
+    if (spec.isMicrochipEarTagIdentification) {
+      for (let i = 1; i <= animalCount; i++) {
+        const microchip = data[`microchip_${key}_${i}`] || '-'
+        const earTag = data[`earTag_${key}_${i}`] || '-'
+        if (i === 1 && microchip === '-' && earTag === '-') break
+        if (microchip === '-' && earTag === '-') break
+        identificationRows.push({ microchip, earTag })
+      }
+      const useTable = identificationRows.length > 0
+      const tableRows = identificationRows.map((r, i) => [
+        { text: `${spec.speciesName} ${i + 1}` },
+        { text: r.microchip },
+        { text: r.earTag }
+      ])
+      const summaryRows = []
+      if (!identificationRows.length) {
+        summaryRows.push(row('Details', 'Not yet provided'))
+      } else if (!useTable) {
+        summaryRows.push(rowHtml('Method of identification', 'Microchip<br>Ear tag'))
+        identificationRows.forEach((r, i) => {
+          summaryRows.push(row(`Animal ${i + 1} – Microchip`, r.microchip))
+          summaryRows.push(row(`Animal ${i + 1} – Ear tag`, r.earTag))
+        })
+      }
+      animalIdentificationGroups.push({
+        speciesLabel: spec.speciesAndType,
+        tableRows,
+        summaryRows,
+        useTable,
+        isEarTagOnly: false,
+        isHorseIdentification: false,
+        isSmallMammalIdentification: false,
+        isPetIdentification: false,
+        isGameBirdIdentification: false,
+        isPoultryIdentification: false,
+        isBeeIdentification: false,
+        isHatchingEggIdentification: false,
+        isMicrochipEarTagIdentification: true
       })
       continue
     }
@@ -310,7 +525,12 @@ function buildCheckYourAnswersData (data, base) {
       useTable,
       isEarTagOnly: spec.isEarTagOnly,
       isHorseIdentification: false,
-      isPetIdentification: false
+      isSmallMammalIdentification: false,
+      isPetIdentification: false,
+      isGameBirdIdentification: false,
+      isPoultryIdentification: false,
+      isBeeIdentification: false,
+      isHatchingEggIdentification: false
     })
   }
 
@@ -322,7 +542,13 @@ function buildCheckYourAnswersData (data, base) {
       useTable: false,
       isEarTagOnly: false,
       isHorseIdentification: false,
-      isPetIdentification: false
+      isSmallMammalIdentification: false,
+      isPetIdentification: false,
+      isGameBirdIdentification: false,
+      isPoultryIdentification: false,
+      isBeeIdentification: false,
+      isHatchingEggIdentification: false,
+      isMicrochipEarTagIdentification: false
     })
   }
 
@@ -352,7 +578,13 @@ function buildCheckYourAnswersData (data, base) {
           idTableRows: group.tableRows || [],
           isEarTagOnly: group.isEarTagOnly,
           isHorseIdentification: !!group.isHorseIdentification,
-          isPetIdentification: !!group.isPetIdentification
+          isSmallMammalIdentification: !!group.isSmallMammalIdentification,
+          isPetIdentification: !!group.isPetIdentification,
+          isGameBirdIdentification: !!group.isGameBirdIdentification,
+          isPoultryIdentification: !!group.isPoultryIdentification,
+          isBeeIdentification: !!group.isBeeIdentification,
+          isHatchingEggIdentification: !!group.isHatchingEggIdentification,
+          isMicrochipEarTagIdentification: !!group.isMicrochipEarTagIdentification
         })
       })
       if (species.length > 0) {
@@ -385,7 +617,13 @@ function buildCheckYourAnswersData (data, base) {
         idTableRows: group.tableRows || [],
         isEarTagOnly: group.isEarTagOnly,
         isHorseIdentification: !!group.isHorseIdentification,
-        isPetIdentification: !!group.isPetIdentification
+        isSmallMammalIdentification: !!group.isSmallMammalIdentification,
+        isPetIdentification: !!group.isPetIdentification,
+        isGameBirdIdentification: !!group.isGameBirdIdentification,
+        isPoultryIdentification: !!group.isPoultryIdentification,
+        isBeeIdentification: !!group.isBeeIdentification,
+        isHatchingEggIdentification: !!group.isHatchingEggIdentification,
+        isMicrochipEarTagIdentification: !!group.isMicrochipEarTagIdentification
       })
     })
     if (species.length > 0) {
@@ -400,7 +638,16 @@ function buildCheckYourAnswersData (data, base) {
   const certifiedForOptions = require('../../data/certified-for-options.js')
   const certOpt = Array.isArray(certifiedForOptions) ? certifiedForOptions.find(o => o.value === data.animalsCertifiedFor) : null
   const certifiedForLabel = certOpt ? certOpt.text : (data.animalsCertifiedFor || 'Not provided')
-  const showUnweaned = data.commodity !== 'Dog'
+  const commodityCodeForUnweaned = commodityDetails && commodityDetails.code ? String(commodityDetails.code).replace(/\s/g, '') : ''
+  const skipUnweanedAdditionalAnimal =
+    POULTRY_CODES.has(commodityCodeForUnweaned) ||
+    (data.commodity && data.commodity.startsWith('Poultry -')) ||
+    commodityCodeForUnweaned === '04071100' ||
+    commodityCodeForUnweaned === '010410' ||
+    commodityCodeForUnweaned === '010420' ||
+    commodityCodeForUnweaned === '10410' ||
+    commodityCodeForUnweaned === '10420'
+  const showUnweaned = data.commodity !== 'Dog' && !skipUnweanedAdditionalAnimal
   const unweanedLabel = data.unweanedAnimals === 'yes' ? 'Yes' : data.unweanedAnimals === 'no' ? 'No' : 'Not provided'
   const additionalAnimalRows = [row('Certified for', certifiedForLabel)]
   if (showUnweaned) additionalAnimalRows.push(row('Unweaned animals', unweanedLabel))
@@ -712,10 +959,7 @@ function registerPostHubRoutes (router, base) {
     const details = commodity ? commoditiesData[commodity] : null
     if (!details || commoditySpecies.length === 0) return []
     const typeLabel = commodityType === 'game' ? 'Game' : 'Domestic'
-    const isPetIdentification = details.code === '01061900'
-    const isGameBirdIdentification = details.code === '01063980'
-    const isHorseIdentification = details.code === '0101' && commodity === 'Horse'
-    const isEarTagOnlyIdentification = ['010410', '0103'].includes(details.code)
+    const shape = getAnimalIdentificationShape(commodity, details)
     const speciesRows = []
     for (const s of commoditySpecies) {
       const key = toKey(s)
@@ -725,17 +969,29 @@ function registerPostHubRoutes (router, base) {
       const animals = []
       for (let i = 1; i <= quantity; i++) {
         const animal = { index: i }
-        if (isPetIdentification) {
+        if (shape.isPetIdentification) {
           animal.microchipKey = `microchip_${key}_${i}`
           animal.passportKey = `passport_${key}_${i}`
           animal.tattooKey = `tattoo_${key}_${i}`
-        } else if (isGameBirdIdentification) {
+        } else if (shape.isGameBirdIdentification) {
           animal.flockIdKey = `flockId_${key}_${i}`
           animal.hatchingDateKey = `hatchingDate_${key}_${i}`
-        } else if (isHorseIdentification) {
+        } else if (shape.isHatchingEggIdentification) {
+          animal.eggMarkKey = `eggMark_${key}_${i}`
+          animal.collectionDateKey = `collectionDate_${key}_${i}`
+        } else if (shape.isPoultryIdentification) {
+          animal.holdingIdKey = `holdingId_${key}_${i}`
+          animal.flockBatchKey = `flockBatch_${key}_${i}`
+        } else if (shape.isBeeIdentification) {
+          animal.apiaryRegKey = `apiaryReg_${key}_${i}`
+          animal.colonyIdKey = `colonyId_${key}_${i}`
+        } else if (shape.isHorseIdentification || shape.isSmallMammalIdentification) {
           animal.microchipKey = `microchip_${key}_${i}`
           animal.passportKey = `passport_${key}_${i}`
-        } else if (isEarTagOnlyIdentification) {
+        } else if (shape.isMicrochipEarTagIdentification) {
+          animal.microchipKey = `microchip_${key}_${i}`
+          animal.earTagKey = `earTag_${key}_${i}`
+        } else if (shape.isEarTagOnlyIdentification) {
           animal.earTagKey = `earTag_${key}_${i}`
         } else {
           animal.earTagKey = `earTag_${key}_${i}`
@@ -750,10 +1006,7 @@ function registerPostHubRoutes (router, base) {
         quantity,
         animals,
         commodityDetails: details,
-        isPetIdentification,
-        isGameBirdIdentification,
-        isHorseIdentification,
-        isEarTagOnlyIdentification
+        ...shape
       })
     }
     return speciesRows
@@ -766,10 +1019,7 @@ function registerPostHubRoutes (router, base) {
       if (!details) continue
       const commodityType = item.commodityType || 'domestic'
       const typeLabel = commodityType === 'game' ? 'Game' : 'Domestic'
-      const isPetIdentification = details.code === '01061900'
-      const isGameBirdIdentification = details.code === '01063980'
-      const isHorseIdentification = details.code === '0101' && item.commodity === 'Horse'
-      const isEarTagOnlyIdentification = ['010410', '0103'].includes(details.code)
+      const shape = getAnimalIdentificationShape(item.commodity, details)
       const itemSpecies = item.commoditySpecies || []
       const itemQuantities = item.quantities || {}
       for (const s of itemSpecies) {
@@ -781,17 +1031,29 @@ function registerPostHubRoutes (router, base) {
         const animals = []
         for (let i = 1; i <= quantity; i++) {
           const animal = { index: i }
-          if (isPetIdentification) {
+          if (shape.isPetIdentification) {
             animal.microchipKey = `microchip_${key}_${i}`
             animal.passportKey = `passport_${key}_${i}`
             animal.tattooKey = `tattoo_${key}_${i}`
-          } else if (isGameBirdIdentification) {
+          } else if (shape.isGameBirdIdentification) {
             animal.flockIdKey = `flockId_${key}_${i}`
             animal.hatchingDateKey = `hatchingDate_${key}_${i}`
-          } else if (isHorseIdentification) {
+          } else if (shape.isHatchingEggIdentification) {
+            animal.eggMarkKey = `eggMark_${key}_${i}`
+            animal.collectionDateKey = `collectionDate_${key}_${i}`
+          } else if (shape.isPoultryIdentification) {
+            animal.holdingIdKey = `holdingId_${key}_${i}`
+            animal.flockBatchKey = `flockBatch_${key}_${i}`
+          } else if (shape.isBeeIdentification) {
+            animal.apiaryRegKey = `apiaryReg_${key}_${i}`
+            animal.colonyIdKey = `colonyId_${key}_${i}`
+          } else if (shape.isHorseIdentification || shape.isSmallMammalIdentification) {
             animal.microchipKey = `microchip_${key}_${i}`
             animal.passportKey = `passport_${key}_${i}`
-          } else if (isEarTagOnlyIdentification) {
+          } else if (shape.isMicrochipEarTagIdentification) {
+            animal.microchipKey = `microchip_${key}_${i}`
+            animal.earTagKey = `earTag_${key}_${i}`
+          } else if (shape.isEarTagOnlyIdentification) {
             animal.earTagKey = `earTag_${key}_${i}`
           } else {
             animal.earTagKey = `earTag_${key}_${i}`
@@ -806,10 +1068,7 @@ function registerPostHubRoutes (router, base) {
           quantity,
           animals,
           commodityDetails: details,
-          isPetIdentification,
-          isGameBirdIdentification,
-          isHorseIdentification,
-          isEarTagOnlyIdentification
+          ...shape
         })
       }
     }
@@ -819,11 +1078,12 @@ function registerPostHubRoutes (router, base) {
   // --- animal-identification ---
   router.get(create('/animal-identification'), (req, res) => {
     storeReturnToIfPresent(req)
-    delete req.session.data.errors
-    delete req.session.data.errorList
     const data = req.session.data
     const commodities = data.commodities || []
     const commoditiesData = require('../../data/commodities-eu.js')
+    if (data.commodity) {
+      sanitizeCommoditySpeciesSession(data, commoditiesData)
+    }
     const fromHub = data.commodityFromHub
     const editIdx = data.commodityEditIndex
     const commodityIndex = data.animalIdCommodityIndex
@@ -910,6 +1170,9 @@ function registerPostHubRoutes (router, base) {
     const data = req.session.data
     const commodities = data.commodities || []
     const commoditiesData = require('../../data/commodities-eu.js')
+    if (data.commodity) {
+      sanitizeCommoditySpeciesSession(data, commoditiesData)
+    }
     if (!data.commodity || !(Array.isArray(data.commoditySpecies) ? data.commoditySpecies.length : !!data.commoditySpecies)) {
       data.commodity = data.commodity || 'Cow'
       data.commoditySpecies = Array.isArray(data.commoditySpecies) && data.commoditySpecies.length ? data.commoditySpecies : ['Bos taurus']
@@ -948,9 +1211,25 @@ function registerPostHubRoutes (router, base) {
         } else if (s.isGameBirdIdentification) {
           data[`flockId_${s.key}_${i}`] = `FLOCK-${s.key.slice(0, 6).toUpperCase()}-${String(i).padStart(3, '0')}`
           data[`hatchingDate_${s.key}_${i}`] = `${15 + (i % 14)} ${4 + (i % 9)} 2025`
-        } else if (s.isHorseIdentification) {
+        } else if (s.isHatchingEggIdentification) {
+          data[`eggMark_${s.key}_${i}`] = `UK-EM-${String(i).padStart(6, '0')}`
+          const col = new Date()
+          col.setDate(col.getDate() - i)
+          data[`collectionDate_${s.key}_${i}`] = col.toISOString().slice(0, 10)
+        } else if (s.isPoultryIdentification) {
+          data[`holdingId_${s.key}_${i}`] = `UK-HLD-${String(i).padStart(4, '0')}`
+          data[`flockBatch_${s.key}_${i}`] = `FCL-${s.key.slice(0, 4).toUpperCase()}-${String(i).padStart(3, '0')}`
+        } else if (s.isBeeIdentification) {
+          data[`apiaryReg_${s.key}_${i}`] = `GB-ARY-${String(i).padStart(5, '0')}`
+          data[`colonyId_${s.key}_${i}`] = `COL-${s.key.slice(0, 4).toUpperCase()}-${i}`
+        } else if (s.isHorseIdentification || s.isSmallMammalIdentification) {
           data[`microchip_${s.key}_${i}`] = `9820001234567${String(i).padStart(2, '0')}`
-          data[`passport_${s.key}_${i}`] = `GBR-XIV-${String(i).padStart(6, '0')}`
+          data[`passport_${s.key}_${i}`] = s.isHorseIdentification
+            ? `GBR-XIV-${String(i).padStart(6, '0')}`
+            : `SMALL-MAM-PPT-${s.key.slice(0, 4)}-${i}`
+        } else if (s.isMicrochipEarTagIdentification) {
+          data[`microchip_${s.key}_${i}`] = `9820001234567${String(i).padStart(2, '0')}`
+          data[`earTag_${s.key}_${i}`] = `UK0 ${s.key.slice(0, 6).toUpperCase()} ${String(i).padStart(6, '0')}`
         } else if (s.isEarTagOnlyIdentification) {
           data[`earTag_${s.key}_${i}`] = `UK0 ${s.key.slice(0, 6).toUpperCase()} ${String(i).padStart(6, '0')}`
         } else if (isCattle) {
@@ -1041,9 +1320,15 @@ function registerPostHubRoutes (router, base) {
   })
 
   router.post(create('/animal-identification'), (req, res) => {
+    if (req.body && typeof req.body === 'object') {
+      Object.assign(req.session.data, req.body)
+    }
     const data = req.session.data
     const commodities = data.commodities || []
     const commoditiesData = require('../../data/commodities-eu.js')
+    if (data.commodity) {
+      sanitizeCommoditySpeciesSession(data, commoditiesData)
+    }
     const fromHub = data.commodityFromHub
     const editIdx = data.commodityEditIndex
     const commodityIndex = data.animalIdCommodityIndex
@@ -1067,7 +1352,7 @@ function registerPostHubRoutes (router, base) {
     const errorList = []
     speciesRows.forEach(s => {
       s.animals.forEach(a => {
-        if (s.isHorseIdentification) {
+        if (s.isHorseIdentification || s.isSmallMammalIdentification) {
           const microchipVal = req.session.data[a.microchipKey]
           const passportVal = req.session.data[a.passportKey]
           const microchipMissing = !microchipVal || String(microchipVal).trim() === ''
@@ -1098,6 +1383,66 @@ function registerPostHubRoutes (router, base) {
             if (flockIdMissing) missingParts.push('flock id')
             if (hatchingDateMissing) missingParts.push('hatching date')
             errorList.push({ href: `#flock-id-${a.flockIdKey}`, text: `Enter the ${missingParts.join(' and ')} for ${animalLabel}` })
+          }
+        } else if (s.isHatchingEggIdentification) {
+          const eggMarkVal = req.session.data[a.eggMarkKey]
+          const collectionDateVal = req.session.data[a.collectionDateKey]
+          const eggMarkMissing = !eggMarkVal || String(eggMarkVal).trim() === ''
+          const collectionDateMissing = !collectionDateVal || String(collectionDateVal).trim() === ''
+          if (eggMarkMissing) errors[a.eggMarkKey] = 'Enter the egg mark'
+          if (collectionDateMissing) errors[a.collectionDateKey] = 'Enter the collection date'
+          if (eggMarkMissing || collectionDateMissing) {
+            const animalLabel = `${s.speciesAndType} ${a.index}`
+            const missingParts = []
+            if (eggMarkMissing) missingParts.push('egg mark')
+            if (collectionDateMissing) missingParts.push('collection date')
+            const firstHref = eggMarkMissing ? `#egg-mark-${a.eggMarkKey}` : `#collection-date-${a.collectionDateKey}`
+            errorList.push({ href: firstHref, text: `Enter the ${missingParts.join(' and ')} for ${animalLabel}` })
+          }
+        } else if (s.isPoultryIdentification) {
+          const holdingVal = req.session.data[a.holdingIdKey]
+          const batchVal = req.session.data[a.flockBatchKey]
+          const holdingMissing = !holdingVal || String(holdingVal).trim() === ''
+          const batchMissing = !batchVal || String(batchVal).trim() === ''
+          if (holdingMissing) errors[a.holdingIdKey] = 'Enter the holding or house ID'
+          if (batchMissing) errors[a.flockBatchKey] = 'Enter the flock or batch number'
+          if (holdingMissing || batchMissing) {
+            const animalLabel = `${s.speciesAndType} ${a.index}`
+            const missingParts = []
+            if (holdingMissing) missingParts.push('holding or house ID')
+            if (batchMissing) missingParts.push('flock or batch number')
+            const firstHref = holdingMissing ? `#holding-id-${a.holdingIdKey}` : `#flock-batch-${a.flockBatchKey}`
+            errorList.push({ href: firstHref, text: `Enter the ${missingParts.join(' and ')} for ${animalLabel}` })
+          }
+        } else if (s.isBeeIdentification) {
+          const apiaryVal = req.session.data[a.apiaryRegKey]
+          const colonyVal = req.session.data[a.colonyIdKey]
+          const apiaryMissing = !apiaryVal || String(apiaryVal).trim() === ''
+          const colonyMissing = !colonyVal || String(colonyVal).trim() === ''
+          if (apiaryMissing) errors[a.apiaryRegKey] = 'Enter the apiary registration'
+          if (colonyMissing) errors[a.colonyIdKey] = 'Enter the colony or hive identifier'
+          if (apiaryMissing || colonyMissing) {
+            const animalLabel = `${s.speciesAndType} ${a.index}`
+            const missingParts = []
+            if (apiaryMissing) missingParts.push('apiary registration')
+            if (colonyMissing) missingParts.push('colony or hive identifier')
+            const firstHref = apiaryMissing ? `#apiary-reg-${a.apiaryRegKey}` : `#colony-id-${a.colonyIdKey}`
+            errorList.push({ href: firstHref, text: `Enter the ${missingParts.join(' and ')} for ${animalLabel}` })
+          }
+        } else if (s.isMicrochipEarTagIdentification) {
+          const microchipVal = req.session.data[a.microchipKey]
+          const earTagVal = req.session.data[a.earTagKey]
+          const microchipMissing = !microchipVal || String(microchipVal).trim() === ''
+          const earTagMissing = !earTagVal || String(earTagVal).trim() === ''
+          if (microchipMissing) errors[a.microchipKey] = 'Enter the microchip number'
+          if (earTagMissing) errors[a.earTagKey] = 'Enter the ear tag number'
+          if (microchipMissing || earTagMissing) {
+            const animalLabel = `${s.speciesAndType} ${a.index}`
+            const missingParts = []
+            if (microchipMissing) missingParts.push('microchip')
+            if (earTagMissing) missingParts.push('ear tag')
+            const firstHref = microchipMissing ? `#microchip-${a.microchipKey}` : `#ear-tag-${a.earTagKey}`
+            errorList.push({ href: firstHref, text: `Enter the ${missingParts.join(' and ')} for ${animalLabel}` })
           }
         } else if (s.isEarTagOnlyIdentification) {
           const earTagVal = req.session.data[a.earTagKey]
@@ -1271,7 +1616,15 @@ function registerPostHubRoutes (router, base) {
 
     const code = commodityDetails && commodityDetails.code ? String(commodityDetails.code).replace(/\s/g, '') : ''
     const isCatsOrDogs = code === '01061900' && (commodity === 'Cat' || commodity === 'Dog')
-    const showUnweanedAnimals = !isCatsOrDogs
+    const skipUnweanedAdditionalAnimal =
+      POULTRY_CODES.has(code) ||
+      (commodity && commodity.startsWith('Poultry -')) ||
+      code === '04071100' ||
+      code === '010410' ||
+      code === '010420' ||
+      code === '10410' ||
+      code === '10420'
+    const showUnweanedAnimals = !isCatsOrDogs && !skipUnweanedAdditionalAnimal
 
     res.render('v1-baseline/create/additional-animal-details', { certifiedForItems, showUnweanedAnimals })
   })
@@ -1285,7 +1638,15 @@ function registerPostHubRoutes (router, base) {
     const commodityDetails = commodity ? commoditiesData[commodity] : null
     const code = commodityDetails && commodityDetails.code ? String(commodityDetails.code).replace(/\s/g, '') : ''
     const isCatsOrDogs = code === '01061900' && (commodity === 'Cat' || commodity === 'Dog')
-    const showUnweanedAnimals = !isCatsOrDogs
+    const skipUnweanedAdditionalAnimal =
+      POULTRY_CODES.has(code) ||
+      (commodity && commodity.startsWith('Poultry -')) ||
+      code === '04071100' ||
+      code === '010410' ||
+      code === '010420' ||
+      code === '10410' ||
+      code === '10420'
+    const showUnweanedAnimals = !isCatsOrDogs && !skipUnweanedAdditionalAnimal
 
     const errors = {}
     const errorList = []

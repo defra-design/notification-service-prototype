@@ -64,7 +64,7 @@
 
     <form method="post" novalidate id="animal-identification-form">
       {% for species in speciesRows %}
-      <div class="species-section species-section--bordered govuk-!-margin-top-6" data-species-key="{{ species.key }}" data-species-and-type="{{ species.speciesAndType }}" data-is-pet="{{ 'true' if species.isPetIdentification else 'false' }}" data-is-game-bird="{{ 'true' if species.isGameBirdIdentification else 'false' }}" data-is-horse="{{ 'true' if species.isHorseIdentification else 'false' }}" data-is-ear-tag-only="{{ 'true' if species.isEarTagOnlyIdentification else 'false' }}">
+      <div class="species-section species-section--bordered govuk-!-margin-top-6" data-species-key="{{ species.key }}" data-species-and-type="{{ species.speciesAndType }}" data-is-pet="{{ 'true' if species.isPetIdentification else 'false' }}" data-is-game-bird="{{ 'true' if species.isGameBirdIdentification else 'false' }}" data-is-hatching-egg="{{ 'true' if species.isHatchingEggIdentification else 'false' }}" data-is-poultry="{{ 'true' if species.isPoultryIdentification else 'false' }}" data-is-bee="{{ 'true' if species.isBeeIdentification else 'false' }}" data-is-horse="{{ 'true' if species.isHorseIdentification else 'false' }}" data-is-small-mammal="{{ 'true' if species.isSmallMammalIdentification else 'false' }}" data-is-microchip-ear-tag="{{ 'true' if species.isMicrochipEarTagIdentification else 'false' }}" data-is-ear-tag-only="{{ 'true' if species.isEarTagOnlyIdentification else 'false' }}">
       <div class="species-section-header">
         <div>
           <h2 class="govuk-heading-m govuk-!-margin-bottom-0">{{ species.speciesName }}</h2>
@@ -87,9 +87,21 @@
             {% elif species.isGameBirdIdentification %}
             <th scope="col" class="govuk-table__header">Flock id</th>
             <th scope="col" class="govuk-table__header">Hatching date</th>
-            {% elif species.isHorseIdentification %}
+            {% elif species.isHatchingEggIdentification %}
+            <th scope="col" class="govuk-table__header">Egg mark</th>
+            <th scope="col" class="govuk-table__header">Collection date</th>
+            {% elif species.isPoultryIdentification %}
+            <th scope="col" class="govuk-table__header">Holding or house ID</th>
+            <th scope="col" class="govuk-table__header">Flock or batch number</th>
+            {% elif species.isBeeIdentification %}
+            <th scope="col" class="govuk-table__header">Apiary registration</th>
+            <th scope="col" class="govuk-table__header">Colony or hive identifier</th>
+            {% elif species.isHorseIdentification or species.isSmallMammalIdentification %}
             <th scope="col" class="govuk-table__header">Microchip</th>
             <th scope="col" class="govuk-table__header">Passport</th>
+            {% elif species.isMicrochipEarTagIdentification %}
+            <th scope="col" class="govuk-table__header">Microchip</th>
+            <th scope="col" class="govuk-table__header">Ear tag</th>
             {% elif species.isEarTagOnlyIdentification %}
             <th scope="col" class="govuk-table__header">Ear tag</th>
             {% else %}
@@ -102,7 +114,7 @@
         <tbody class="govuk-table__body animal-rows" id="animal-rows-{{ species.key }}">
           {% for animal in species.animals %}
           <tr class="govuk-table__row animal-row" data-species-key="{{ species.key }}" data-animal-index="{{ animal.index }}">
-            <td class="govuk-table__cell animal-identification-table__cell--animal" data-label="Animal"><span class="animal-identification-table__cell-value">{% if species.isPetIdentification or species.isGameBirdIdentification or species.isHorseIdentification or species.isEarTagOnlyIdentification %}{{ species.speciesName }} {{ animal.index }}{% else %}{{ species.speciesName }} {{ animal.index }} of {{ species.quantity }}{% endif %}</span></td>
+            <td class="govuk-table__cell animal-identification-table__cell--animal" data-label="Animal"><span class="animal-identification-table__cell-value">{% if species.isPetIdentification or species.isGameBirdIdentification or species.isHatchingEggIdentification or species.isPoultryIdentification or species.isBeeIdentification or species.isHorseIdentification or species.isSmallMammalIdentification or species.isMicrochipEarTagIdentification or species.isEarTagOnlyIdentification %}{{ species.speciesName }} {{ animal.index }}{% else %}{{ species.speciesName }} {{ animal.index }} of {{ species.quantity }}{% endif %}</span></td>
             {% if species.isPetIdentification %}
             <td class="govuk-table__cell" data-label="Microchip">
               <div class="govuk-form-group govuk-!-margin-bottom-0 {% if data.errors and data.errors[animal.microchipKey] %}govuk-form-group--error{% endif %}">
@@ -150,17 +162,64 @@
                 <input class="govuk-input govuk-input--width-10" id="hatching-date-{{ animal.hatchingDateKey }}" name="{{ animal.hatchingDateKey }}" type="text" value="{{ data[animal.hatchingDateKey] or '' }}" spellcheck="false" autocomplete="off" placeholder="For example, 24 4 2025" {% if data.errors and data.errors[animal.hatchingDateKey] %}aria-describedby="hatching-date-{{ animal.hatchingDateKey }}-error" aria-invalid="true"{% endif %}>
               </div>
             </td>
-            {% elif species.isEarTagOnlyIdentification %}
-            <td class="govuk-table__cell" data-label="Ear tag">
-              <div class="govuk-form-group govuk-!-margin-bottom-0 {% if data.errors and data.errors[animal.earTagKey] %}govuk-form-group--error{% endif %}">
-                <label class="govuk-label govuk-visually-hidden" for="ear-tag-{{ animal.earTagKey }}">Ear tag for {{ species.speciesAndType }} {{ animal.index }}</label>
-                {% if data.errors and data.errors[animal.earTagKey] %}
-                  <p class="govuk-error-message" id="ear-tag-{{ animal.earTagKey }}-error"><span class="govuk-visually-hidden">Error:</span> {{ data.errors[animal.earTagKey] }}</p>
+            {% elif species.isHatchingEggIdentification %}
+            <td class="govuk-table__cell" data-label="Egg mark">
+              <div class="govuk-form-group govuk-!-margin-bottom-0 {% if data.errors and data.errors[animal.eggMarkKey] %}govuk-form-group--error{% endif %}">
+                <label class="govuk-label govuk-visually-hidden" for="egg-mark-{{ animal.eggMarkKey }}">Egg mark for {{ species.speciesAndType }} {{ animal.index }}</label>
+                {% if data.errors and data.errors[animal.eggMarkKey] %}
+                  <p class="govuk-error-message" id="egg-mark-{{ animal.eggMarkKey }}-error"><span class="govuk-visually-hidden">Error:</span> {{ data.errors[animal.eggMarkKey] }}</p>
                 {% endif %}
-                <input class="govuk-input govuk-input--width-20" id="ear-tag-{{ animal.earTagKey }}" name="{{ animal.earTagKey }}" type="text" value="{{ data[animal.earTagKey] or '' }}" spellcheck="false" {% if data.errors and data.errors[animal.earTagKey] %}aria-describedby="ear-tag-{{ animal.earTagKey }}-error" aria-invalid="true"{% endif %}>
+                <input class="govuk-input govuk-input--width-20" id="egg-mark-{{ animal.eggMarkKey }}" name="{{ animal.eggMarkKey }}" type="text" value="{{ data[animal.eggMarkKey] or '' }}" spellcheck="false" {% if data.errors and data.errors[animal.eggMarkKey] %}aria-describedby="egg-mark-{{ animal.eggMarkKey }}-error" aria-invalid="true"{% endif %}>
               </div>
             </td>
-            {% elif species.isHorseIdentification %}
+            <td class="govuk-table__cell" data-label="Collection date">
+              <div class="govuk-form-group govuk-!-margin-bottom-0 {% if data.errors and data.errors[animal.collectionDateKey] %}govuk-form-group--error{% endif %}">
+                <label class="govuk-label govuk-visually-hidden" for="collection-date-{{ animal.collectionDateKey }}">Collection date for {{ species.speciesAndType }} {{ animal.index }}</label>
+                {% if data.errors and data.errors[animal.collectionDateKey] %}
+                  <p class="govuk-error-message" id="collection-date-{{ animal.collectionDateKey }}-error"><span class="govuk-visually-hidden">Error:</span> {{ data.errors[animal.collectionDateKey] }}</p>
+                {% endif %}
+                <input class="govuk-input govuk-input--width-10" id="collection-date-{{ animal.collectionDateKey }}" name="{{ animal.collectionDateKey }}" type="date" value="{{ data[animal.collectionDateKey] or '' }}" {% if data.errors and data.errors[animal.collectionDateKey] %}aria-describedby="collection-date-{{ animal.collectionDateKey }}-error" aria-invalid="true"{% endif %}>
+              </div>
+            </td>
+            {% elif species.isPoultryIdentification %}
+            <td class="govuk-table__cell" data-label="Holding or house ID">
+              <div class="govuk-form-group govuk-!-margin-bottom-0 {% if data.errors and data.errors[animal.holdingIdKey] %}govuk-form-group--error{% endif %}">
+                <label class="govuk-label govuk-visually-hidden" for="holding-id-{{ animal.holdingIdKey }}">Holding or house ID for {{ species.speciesAndType }} {{ animal.index }}</label>
+                {% if data.errors and data.errors[animal.holdingIdKey] %}
+                  <p class="govuk-error-message" id="holding-id-{{ animal.holdingIdKey }}-error"><span class="govuk-visually-hidden">Error:</span> {{ data.errors[animal.holdingIdKey] }}</p>
+                {% endif %}
+                <input class="govuk-input govuk-input--width-20" id="holding-id-{{ animal.holdingIdKey }}" name="{{ animal.holdingIdKey }}" type="text" value="{{ data[animal.holdingIdKey] or '' }}" spellcheck="false" {% if data.errors and data.errors[animal.holdingIdKey] %}aria-describedby="holding-id-{{ animal.holdingIdKey }}-error" aria-invalid="true"{% endif %}>
+              </div>
+            </td>
+            <td class="govuk-table__cell" data-label="Flock or batch number">
+              <div class="govuk-form-group govuk-!-margin-bottom-0 {% if data.errors and data.errors[animal.flockBatchKey] %}govuk-form-group--error{% endif %}">
+                <label class="govuk-label govuk-visually-hidden" for="flock-batch-{{ animal.flockBatchKey }}">Flock or batch number for {{ species.speciesAndType }} {{ animal.index }}</label>
+                {% if data.errors and data.errors[animal.flockBatchKey] %}
+                  <p class="govuk-error-message" id="flock-batch-{{ animal.flockBatchKey }}-error"><span class="govuk-visually-hidden">Error:</span> {{ data.errors[animal.flockBatchKey] }}</p>
+                {% endif %}
+                <input class="govuk-input govuk-input--width-20" id="flock-batch-{{ animal.flockBatchKey }}" name="{{ animal.flockBatchKey }}" type="text" value="{{ data[animal.flockBatchKey] or '' }}" spellcheck="false" {% if data.errors and data.errors[animal.flockBatchKey] %}aria-describedby="flock-batch-{{ animal.flockBatchKey }}-error" aria-invalid="true"{% endif %}>
+              </div>
+            </td>
+            {% elif species.isBeeIdentification %}
+            <td class="govuk-table__cell" data-label="Apiary registration">
+              <div class="govuk-form-group govuk-!-margin-bottom-0 {% if data.errors and data.errors[animal.apiaryRegKey] %}govuk-form-group--error{% endif %}">
+                <label class="govuk-label govuk-visually-hidden" for="apiary-reg-{{ animal.apiaryRegKey }}">Apiary registration for {{ species.speciesAndType }} {{ animal.index }}</label>
+                {% if data.errors and data.errors[animal.apiaryRegKey] %}
+                  <p class="govuk-error-message" id="apiary-reg-{{ animal.apiaryRegKey }}-error"><span class="govuk-visually-hidden">Error:</span> {{ data.errors[animal.apiaryRegKey] }}</p>
+                {% endif %}
+                <input class="govuk-input govuk-input--width-20" id="apiary-reg-{{ animal.apiaryRegKey }}" name="{{ animal.apiaryRegKey }}" type="text" value="{{ data[animal.apiaryRegKey] or '' }}" spellcheck="false" {% if data.errors and data.errors[animal.apiaryRegKey] %}aria-describedby="apiary-reg-{{ animal.apiaryRegKey }}-error" aria-invalid="true"{% endif %}>
+              </div>
+            </td>
+            <td class="govuk-table__cell" data-label="Colony or hive identifier">
+              <div class="govuk-form-group govuk-!-margin-bottom-0 {% if data.errors and data.errors[animal.colonyIdKey] %}govuk-form-group--error{% endif %}">
+                <label class="govuk-label govuk-visually-hidden" for="colony-id-{{ animal.colonyIdKey }}">Colony or hive identifier for {{ species.speciesAndType }} {{ animal.index }}</label>
+                {% if data.errors and data.errors[animal.colonyIdKey] %}
+                  <p class="govuk-error-message" id="colony-id-{{ animal.colonyIdKey }}-error"><span class="govuk-visually-hidden">Error:</span> {{ data.errors[animal.colonyIdKey] }}</p>
+                {% endif %}
+                <input class="govuk-input govuk-input--width-20" id="colony-id-{{ animal.colonyIdKey }}" name="{{ animal.colonyIdKey }}" type="text" value="{{ data[animal.colonyIdKey] or '' }}" spellcheck="false" {% if data.errors and data.errors[animal.colonyIdKey] %}aria-describedby="colony-id-{{ animal.colonyIdKey }}-error" aria-invalid="true"{% endif %}>
+              </div>
+            </td>
+            {% elif species.isHorseIdentification or species.isSmallMammalIdentification %}
             <td class="govuk-table__cell" data-label="Microchip">
               <div class="govuk-form-group govuk-!-margin-bottom-0 {% if data.errors and data.errors[animal.microchipKey] %}govuk-form-group--error{% endif %}">
                 <label class="govuk-label govuk-visually-hidden" for="microchip-{{ animal.microchipKey }}">Microchip for {{ species.speciesAndType }} {{ animal.index }}</label>
@@ -177,6 +236,35 @@
                   <p class="govuk-error-message" id="passport-{{ animal.passportKey }}-error"><span class="govuk-visually-hidden">Error:</span> {{ data.errors[animal.passportKey] }}</p>
                 {% endif %}
                 <input class="govuk-input govuk-input--width-20" id="passport-{{ animal.passportKey }}" name="{{ animal.passportKey }}" type="text" value="{{ data[animal.passportKey] or '' }}" spellcheck="false" {% if data.errors and data.errors[animal.passportKey] %}aria-describedby="passport-{{ animal.passportKey }}-error" aria-invalid="true"{% endif %}>
+              </div>
+            </td>
+            {% elif species.isMicrochipEarTagIdentification %}
+            <td class="govuk-table__cell" data-label="Microchip">
+              <div class="govuk-form-group govuk-!-margin-bottom-0 {% if data.errors and data.errors[animal.microchipKey] %}govuk-form-group--error{% endif %}">
+                <label class="govuk-label govuk-visually-hidden" for="microchip-{{ animal.microchipKey }}">Microchip for {{ species.speciesAndType }} {{ animal.index }}</label>
+                {% if data.errors and data.errors[animal.microchipKey] %}
+                  <p class="govuk-error-message" id="microchip-{{ animal.microchipKey }}-error"><span class="govuk-visually-hidden">Error:</span> {{ data.errors[animal.microchipKey] }}</p>
+                {% endif %}
+                <input class="govuk-input govuk-input--width-20" id="microchip-{{ animal.microchipKey }}" name="{{ animal.microchipKey }}" type="text" value="{{ data[animal.microchipKey] or '' }}" spellcheck="false" {% if data.errors and data.errors[animal.microchipKey] %}aria-describedby="microchip-{{ animal.microchipKey }}-error" aria-invalid="true"{% endif %}>
+              </div>
+            </td>
+            <td class="govuk-table__cell" data-label="Ear tag">
+              <div class="govuk-form-group govuk-!-margin-bottom-0 {% if data.errors and data.errors[animal.earTagKey] %}govuk-form-group--error{% endif %}">
+                <label class="govuk-label govuk-visually-hidden" for="ear-tag-{{ animal.earTagKey }}">Ear tag for {{ species.speciesAndType }} {{ animal.index }}</label>
+                {% if data.errors and data.errors[animal.earTagKey] %}
+                  <p class="govuk-error-message" id="ear-tag-{{ animal.earTagKey }}-error"><span class="govuk-visually-hidden">Error:</span> {{ data.errors[animal.earTagKey] }}</p>
+                {% endif %}
+                <input class="govuk-input govuk-input--width-20" id="ear-tag-{{ animal.earTagKey }}" name="{{ animal.earTagKey }}" type="text" value="{{ data[animal.earTagKey] or '' }}" spellcheck="false" {% if data.errors and data.errors[animal.earTagKey] %}aria-describedby="ear-tag-{{ animal.earTagKey }}-error" aria-invalid="true"{% endif %}>
+              </div>
+            </td>
+            {% elif species.isEarTagOnlyIdentification %}
+            <td class="govuk-table__cell" data-label="Ear tag">
+              <div class="govuk-form-group govuk-!-margin-bottom-0 {% if data.errors and data.errors[animal.earTagKey] %}govuk-form-group--error{% endif %}">
+                <label class="govuk-label govuk-visually-hidden" for="ear-tag-{{ animal.earTagKey }}">Ear tag for {{ species.speciesAndType }} {{ animal.index }}</label>
+                {% if data.errors and data.errors[animal.earTagKey] %}
+                  <p class="govuk-error-message" id="ear-tag-{{ animal.earTagKey }}-error"><span class="govuk-visually-hidden">Error:</span> {{ data.errors[animal.earTagKey] }}</p>
+                {% endif %}
+                <input class="govuk-input govuk-input--width-20" id="ear-tag-{{ animal.earTagKey }}" name="{{ animal.earTagKey }}" type="text" value="{{ data[animal.earTagKey] or '' }}" spellcheck="false" {% if data.errors and data.errors[animal.earTagKey] %}aria-describedby="ear-tag-{{ animal.earTagKey }}-error" aria-invalid="true"{% endif %}>
               </div>
             </td>
             {% else %}
