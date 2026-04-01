@@ -2729,6 +2729,11 @@ function registerPostHubRoutes (router, base) {
     res.render('v1-baseline/create/confirmation', { referenceNumber })
   })
 
+  router.get(create('/start-new-notification'), (req, res) => {
+    req.session.data = {}
+    res.redirect(create('/origin'))
+  })
+
   // --- address-consignee (manual entry) ---
   router.get(create('/address-consignee'), (req, res) => {
     const data = req.session.data || {}

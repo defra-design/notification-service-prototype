@@ -135,10 +135,19 @@ function sortNotifications (list, sortOption) {
     const tb = parseArrivalDate(b.arrival) || 0
     return ta - tb
   }
+  const byDateCreated = (a, b) => {
+    const ta = parseArrivalDate(a.dateCreated) || 0
+    const tb = parseArrivalDate(b.dateCreated) || 0
+    return ta - tb
+  }
   if (sortOption === 'arrival-desc') {
     sorted.sort((a, b) => byArrival(b, a))
   } else if (sortOption === 'arrival-asc') {
     sorted.sort(byArrival)
+  } else if (sortOption === 'created-desc') {
+    sorted.sort((a, b) => byDateCreated(b, a))
+  } else if (sortOption === 'created-asc') {
+    sorted.sort(byDateCreated)
   } else if (sortOption === 'reference') {
     sorted.sort((a, b) => String(a.reference || '').localeCompare(b.reference || ''))
   }
@@ -247,11 +256,15 @@ function registerDashboardRoutes (router, basePath, options) {
     }
     const filtered = filterNotifications(filterData, allNotifications, notifications)
     const sortOption = data.sort || 'arrival-desc'
-    const sorted = sortNotifications(filtered, sortOption)
+    const withDateCreated = filtered.map(n => ({
+      ...n,
+      dateCreated: ensureDateCreated(n)
+    }))
+    const sorted = sortNotifications(withDateCreated, sortOption)
     const normalised = sorted.map(n => ({
       ...n,
       commodity: normaliseCommodityDisplay(n.commodity, speciesMaps),
-      dateCreated: ensureDateCreated(n)
+      dateCreated: n.dateCreated
     }))
 
     const perPage = 20
