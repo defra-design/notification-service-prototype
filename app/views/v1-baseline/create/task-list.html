@@ -18,13 +18,6 @@
       errorList: errorList
     }) }}
     {% endif %}
-    <p class="govuk-body govuk-!-margin-bottom-6">
-      {% if errorList %}
-      You must complete every required task before you can check your answers and submit your notification.
-      {% else %}
-      Complete the tasks below. Use the button at the end of the page to check your answers and submit your notification when you are ready.
-      {% endif %}
-    </p>
 
     {% for section in taskSections %}
     <div id="{{ section.sectionId }}" class="govuk-!-margin-bottom-0">

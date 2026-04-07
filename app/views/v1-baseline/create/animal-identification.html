@@ -7,13 +7,9 @@
 
 {% from "includes/page-header.njk" import pageHeader %}
 {% call pageHeader(title, null, "full") %}
-    <p class="govuk-body govuk-!-margin-bottom-6">
-      Check the summary of your commodity and species. Then enter identification details for each animal below.
-    </p>
-
     <div class="goods-summary-table-wrapper">
     <table class="govuk-table govuk-!-margin-bottom-6 goods-summary-table goods-summary-table--stacked-mobile">
-      <caption class="govuk-table__caption govuk-table__caption--m">Summary</caption>
+      <caption class="govuk-table__caption govuk-table__caption--m">Species being imported</caption>
       <thead class="govuk-table__head">
         <tr class="govuk-table__row">
           <th scope="col" class="govuk-table__header">Commodity code</th>
@@ -57,10 +53,7 @@
     </table>
     </div>
 
-    <h2 class="govuk-heading-m govuk-!-margin-bottom-3 govuk-!-margin-top-6">Animal identification details</h2>
-    <p class="govuk-body govuk-!-margin-bottom-6">
-      You must enter all animal identification details into the notification before arrival at the port of entry.
-    </p>
+    <h2 class="govuk-heading-m govuk-!-margin-bottom-6 govuk-!-margin-top-6">Animal identification details</h2>
 
     <form method="post" novalidate id="animal-identification-form">
       {% for species in speciesRows %}

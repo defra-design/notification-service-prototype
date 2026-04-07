@@ -16,10 +16,17 @@ function getCommoditySpeciesArray (data) {
   return raw ? [].concat(raw) : []
 }
 
+function normalizeCommoditySessionKey (commodity) {
+  if (commodity == null) return ''
+  const s = String(commodity).trim()
+  const pipe = s.indexOf('|')
+  return pipe === -1 ? s : s.slice(0, pipe).trim()
+}
+
 function isPetConsignment (data) {
   const names = Array.isArray(data.commodities) && data.commodities.length > 0
-    ? data.commodities.map(c => c.commodity).filter(Boolean)
-    : (data.commodity ? [data.commodity] : [])
+    ? data.commodities.map(c => normalizeCommoditySessionKey(c.commodity)).filter(Boolean)
+    : (data.commodity ? [normalizeCommoditySessionKey(data.commodity)] : [])
   return names.some(name => PET_COMMODITIES.has(name))
 }
 
@@ -71,7 +78,11 @@ function sanitizeCommoditySpeciesSession (data, commoditiesData) {
   const filtered = current.filter(s => allowedSet.has(s))
   const removedNames = current.filter(s => !allowedSet.has(s))
   if (filtered.length === 0) {
-    data.commoditySpecies = [allowed[0]]
+    if (current.length === 0) {
+      data.commoditySpecies = []
+    } else {
+      data.commoditySpecies = [allowed[0]]
+    }
     current.forEach((name) => removeSessionKeysForSpecies(data, speciesSessionKey(name)))
   } else {
     data.commoditySpecies = filtered
@@ -84,16 +95,26 @@ function isLivestockConsignment (data) {
   const commoditiesData = require('../data/commodities.js')
   const toKey = (s) => String(s || '').replace(/\s+/g, '_').toLowerCase().replace(/[^a-z0-9_]/g, '')
   const items = Array.isArray(data.commodities) && data.commodities.length > 0
-    ? data.commodities.map(c => ({ commodity: c.commodity, commoditySpecies: c.commoditySpecies || [], quantities: c.quantities || {} }))
-    : (data.commodity ? [{ commodity: data.commodity, commoditySpecies: Array.isArray(data.commoditySpecies) ? data.commoditySpecies : (data.commoditySpecies ? [data.commoditySpecies] : []), quantities: data }] : [])
+    ? data.commodities.map(c => ({
+      commodity: normalizeCommoditySessionKey(c.commodity),
+      commoditySpecies: c.commoditySpecies || [],
+      quantities: c.quantities || {}
+    }))
+    : (data.commodity
+      ? [{
+          commodity: normalizeCommoditySessionKey(data.commodity),
+          commoditySpecies: Array.isArray(data.commoditySpecies) ? data.commoditySpecies : (data.commoditySpecies ? [data.commoditySpecies] : []),
+          quantities: data
+        }]
+      : [])
   let totalBirds = 0
   for (const item of items) {
-    if (PET_COMMODITIES.has(item.commodity)) continue
+    if (!item.commodity || PET_COMMODITIES.has(item.commodity)) continue
     const details = commoditiesEu[item.commodity] || commoditiesData[item.commodity]
     const code = details && details.code ? String(details.code).replace(/\s/g, '') : ''
     if (code.startsWith('0102') || code.startsWith('0103') || code.startsWith('0104')) return true
     if (code.startsWith('01061300')) return true
-    if (code === '01061900') return true
+    if (code === '01061900') continue
     if (code.startsWith('0105')) {
       item.commoditySpecies.forEach(s => {
         const key = toKey(s)

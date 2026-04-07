@@ -16,12 +16,38 @@ function formatDate (isoDate) {
 
 function getPermanentAddressViewData (data) {
   const commoditiesEu = require('../../data/commodities-eu.js')
-  const names = Array.isArray(data.commodities) && data.commodities.length > 0
-    ? data.commodities.map(c => c.commodity).filter(Boolean)
-    : (data.commodity ? [data.commodity] : [])
-  const firstPet = names.find(n => PET_COMMODITIES.has(n))
-  const details = firstPet ? commoditiesEu[firstPet] : null
-  const animalLabel = details ? (details.commonName || firstPet) : null
+  const petAnimalLines = []
+  const commodities = Array.isArray(data.commodities) ? data.commodities : []
+  if (commodities.length > 0) {
+    commodities.forEach((item) => {
+      if (!item.commodity || !PET_COMMODITIES.has(item.commodity)) return
+      const det = commoditiesEu[item.commodity]
+      const common = det ? (det.commonName || item.commodity) : item.commodity
+      const speciesList = item.commoditySpecies || []
+      if (speciesList.length === 0) {
+        petAnimalLines.push(common)
+        return
+      }
+      speciesList.forEach((s) => {
+        petAnimalLines.push(`${common} (${s})`)
+      })
+    })
+  } else {
+    const rawCommodity = data.commodity
+    if (rawCommodity && PET_COMMODITIES.has(rawCommodity)) {
+      const det = commoditiesEu[rawCommodity]
+      const common = det ? (det.commonName || rawCommodity) : rawCommodity
+      const speciesList = getCommoditySpeciesArray(data)
+      if (speciesList.length === 0) {
+        petAnimalLines.push(common)
+      } else {
+        speciesList.forEach((s) => {
+          petAnimalLines.push(`${common} (${s})`)
+        })
+      }
+    }
+  }
+  const animalLabel = petAnimalLines.length ? petAnimalLines.join('; ') : null
   const podParts = []
   if (data.placeOfDestinationName) podParts.push(data.placeOfDestinationName)
   if (data.placeOfDestinationAddress) {
@@ -34,7 +60,7 @@ function getPermanentAddressViewData (data) {
   if (data.placeOfDestinationCountry) podParts.push(data.placeOfDestinationCountry)
   const podAddressDisplay = podParts.length ? podParts.join(', ') : null
   const podAddressLines = podParts
-  return { animalLabel, podAddressDisplay, podAddressLines }
+  return { animalLabel, petAnimalLines, podAddressDisplay, podAddressLines }
 }
 
 function buildCheckYourAnswersData (data, base) {
@@ -667,6 +693,17 @@ function buildCheckYourAnswersData (data, base) {
     ]
   }
 
+  const selectedPlaceOfOrigin = data.placeOfOrigin || (data.placeOfOriginName && {
+    name: data.placeOfOriginName,
+    address: data.placeOfOriginAddress,
+    country: data.placeOfOriginCountry
+  })
+  const placeOfOriginAddr = formatAddressHtml(
+    selectedPlaceOfOrigin?.name || data.placeOfOriginName,
+    selectedPlaceOfOrigin?.address || data.placeOfOriginAddress,
+    selectedPlaceOfOrigin?.country || data.placeOfOriginCountry
+  ) || 'Not provided'
+
   const selectedConsignor = data.consignor || (data.consignorName && { name: data.consignorName, address: data.consignorAddress, country: data.consignorCountry })
   const consignorAddr = formatAddressHtml(selectedConsignor?.name || data.consignorName, selectedConsignor?.address || data.consignorAddress, selectedConsignor?.country || data.consignorCountry)
   const consigneeAddr = (() => {
@@ -690,6 +727,7 @@ function buildCheckYourAnswersData (data, base) {
     : formatAddressHtml(data.placeOfDestinationName, [data.placeOfDestinationAddressLine1, data.placeOfDestinationAddressLine2, data.placeOfDestinationTown, data.placeOfDestinationPostcode].filter(Boolean), null) || (data.placeOfDestinationName ? formatAddressHtml(data.placeOfDestinationName, null, null) : 'Not provided')
 
   const addressRows = [
+    rowHtml('Place of origin', placeOfOriginAddr),
     rowHtml('Consignee/exporter', consignorAddr),
     rowHtml('Consignee', consigneeAddr),
     rowHtml('Importer', importerAddr),
@@ -704,7 +742,11 @@ function buildCheckYourAnswersData (data, base) {
   const allContactAddresses = [...contactAddresses, ...additional]
   const selectedContact = data.contactAddressId && allContactAddresses.find(c => String(c.id) === String(data.contactAddressId))
   const contactAddrHtml = selectedContact
-    ? formatAddressHtml(selectedContact.name, selectedContact.addressLines || [], selectedContact.country)
+    ? (() => {
+        const rawLines = selectedContact.addressLines || (selectedContact.address ? [selectedContact.address] : [])
+        const addressOneLine = rawLines.filter(Boolean).join(', ')
+        return formatAddressHtml(selectedContact.name, addressOneLine ? [addressOneLine] : [], selectedContact.country)
+      })()
     : (data.consignorName ? formatAddressHtml(data.consignorName, data.consignorAddress, data.consignorCountry) : 'Not provided')
   addressRows.push(rowHtml('Contact details for consignment', contactAddrHtml))
 
@@ -1844,8 +1886,6 @@ function registerPostHubRoutes (router, base) {
 
   router.get(create('/accompanying-documents'), (req, res) => {
     storeReturnToIfPresent(req)
-    delete req.session.data.errors
-    delete req.session.data.errorList
     const documentTypes = require('../../data/document-types.js')
     const documentTypeItems = [{ value: '', text: 'Select document type' }].concat(documentTypes)
     const sessionDocuments = req.session.data.documents
@@ -1910,14 +1950,23 @@ function registerPostHubRoutes (router, base) {
     }
 
     data.documents = documents
-    data.accompanyingDocumentsConfirmed = true
+
+    if (documents.length === 0) {
+      errors.documentType_0 = 'Enter details for at least one document'
+      errorList.push({
+        href: '#document-type-0',
+        text: 'Enter details for at least one document'
+      })
+    }
 
     if (Object.keys(errors).length > 0) {
+      delete data.accompanyingDocumentsConfirmed
       req.session.data.errors = errors
       req.session.data.errorList = errorList
       return res.redirect(create('/accompanying-documents'))
     }
 
+    data.accompanyingDocumentsConfirmed = true
     delete data.errors
     delete data.errorList
     res.redirect(getRedirectPath(data, '/check-your-answers'))
@@ -1929,6 +1978,25 @@ function registerPostHubRoutes (router, base) {
     const data = req.session.data || {}
     delete data.errors
     delete data.errorList
+
+    const placeOfOriginPick = req.query.placeOfOrigin
+    if (req.query.removePlaceOfOrigin === '1') {
+      delete data.placeOfOriginId
+      delete data.placeOfOriginName
+      delete data.placeOfOriginAddress
+      delete data.placeOfOriginCountry
+      delete data.placeOfOrigin
+    } else if (placeOfOriginPick) {
+      const consignorsForOrigin = require('../../data/consignors.js')
+      const selectedOrigin = consignorsForOrigin.find(c => String(c.id) === String(placeOfOriginPick))
+      if (selectedOrigin) {
+        data.placeOfOriginId = selectedOrigin.id
+        data.placeOfOriginName = selectedOrigin.name
+        data.placeOfOriginAddress = selectedOrigin.address
+        data.placeOfOriginCountry = selectedOrigin.country
+        data.placeOfOrigin = selectedOrigin
+      }
+    }
 
     const consignorId = req.query.consignor
     if (req.query.removeConsignor === '1') {
@@ -1984,6 +2052,16 @@ function registerPostHubRoutes (router, base) {
         data.importerCountry = selectedImporter.country
       }
     }
+
+    const selectedPlaceOfOrigin = data.placeOfOrigin || (data.placeOfOriginName && {
+      name: data.placeOfOriginName,
+      address: data.placeOfOriginAddress,
+      country: data.placeOfOriginCountry
+    })
+    const placeOfOriginName = (selectedPlaceOfOrigin && selectedPlaceOfOrigin.name) || data.placeOfOriginName || ''
+    const placeOfOriginAddress = (selectedPlaceOfOrigin && selectedPlaceOfOrigin.address) || data.placeOfOriginAddress || ''
+    const placeOfOriginCountry = (selectedPlaceOfOrigin && selectedPlaceOfOrigin.country) || data.placeOfOriginCountry || ''
+    const hasPlaceOfOrigin = !!(selectedPlaceOfOrigin || data.placeOfOriginId)
 
     const selected = data.consignor || (data.consignorName && { name: data.consignorName, address: data.consignorAddress, country: data.consignorCountry })
     const consignorName = (selected && selected.name) || data.consignorName || ''
@@ -2125,13 +2203,20 @@ function registerPostHubRoutes (router, base) {
     const hasContactAddress = !!selectedContact
     let contactAddressLines = []
     if (hasContactAddress) {
-      contactAddressLines.push(selectedContact.name, ...(selectedContact.addressLines || [selectedContact.address] || []))
+      const rawLines = selectedContact.addressLines || (selectedContact.address ? [selectedContact.address] : [])
+      const addressOneLine = rawLines.filter(Boolean).join(', ')
+      contactAddressLines.push(selectedContact.name)
+      if (addressOneLine) contactAddressLines.push(addressOneLine)
       if (selectedContact.country) contactAddressLines.push(selectedContact.country)
     }
     const showBranchAddedSuccess = !!data.branchAddressAdded
     if (data.branchAddressAdded) delete data.branchAddressAdded
 
     res.render('v1-baseline/create/addresses', {
+      placeOfOriginName,
+      placeOfOriginAddress,
+      placeOfOriginCountry,
+      hasPlaceOfOrigin,
       consignorName,
       consignorAddress,
       consignorCountry,
@@ -2203,7 +2288,7 @@ function registerPostHubRoutes (router, base) {
       id: 'prefill-contact-1',
       name: 'Animal and Plant Health Agency',
       addressLines: ['Woodham Lane', 'New Haw', 'Surrey', 'Addlestone', 'KT15 3NB'],
-      country: 'United Kingdom of Great Britain and Northern Ireland'
+      country: 'United Kingdom'
     }
     if (!data.contactAddressesAdditional.find(a => a.id === prefillContact.id)) {
       data.contactAddressesAdditional.push(prefillContact)
@@ -2229,6 +2314,7 @@ function registerPostHubRoutes (router, base) {
     if (!viewData.animalLabel) {
       viewData = {
         animalLabel: 'Dog (Canis familiaris)',
+        petAnimalLines: ['Dog (Canis familiaris)'],
         podAddressDisplay: 'Greenfield Farm, Marsh Lane, Ashford, TN25 4PQ, United Kingdom',
         podAddressLines: ['Greenfield Farm', 'Marsh Lane, Ashford, TN25 4PQ', 'United Kingdom']
       }
@@ -2237,13 +2323,21 @@ function registerPostHubRoutes (router, base) {
   })
 
   router.post(create('/permanent-addresses-for-animals'), (req, res) => {
+    if (req.body && typeof req.body === 'object') {
+      Object.assign(req.session.data, req.body)
+    }
     const data = req.session.data || {}
     if (isLivestockConsignment(data)) return res.redirect(create('/address-cph'))
     if (!isPetConsignment(data)) return res.redirect(create('/addresses'))
-    const sameAsPOD = data.permanentAddressSameAsPOD === 'yes'
+    const choice = String(data.permanentAddressSameAsPOD || '').trim()
+    const sameAsPOD = choice === 'yes'
     const errors = {}
     const errorList = []
-    if (!sameAsPOD) {
+    if (choice !== 'yes' && choice !== 'no') {
+      errors.permanentAddressSameAsPOD = 'Select yes if this is the permanent address, or no if you need to use a different address'
+      errorList.push({ href: '#permanentAddressSameAsPOD', text: errors.permanentAddressSameAsPOD })
+    }
+    if (!sameAsPOD && choice === 'no') {
       const name = (data.permanentAddressName || '').trim()
       const line1 = (data.permanentAddressLine1 || '').trim()
       const town = (data.permanentAddressTown || '').trim()
@@ -2260,7 +2354,28 @@ function registerPostHubRoutes (router, base) {
     }
     delete data.errors
     delete data.errorList
+    if (sameAsPOD) {
+      delete data.permanentAddressName
+      delete data.permanentAddressLine1
+      delete data.permanentAddressLine2
+      delete data.permanentAddressLine3
+      delete data.permanentAddressTown
+      delete data.permanentAddressPostcode
+      delete data.permanentAddressTelephone
+      delete data.permanentAddressEmail
+    }
     res.redirect(getRedirectPath(data, '/transport-and-arrival'))
+  })
+
+  router.get(create('/permanent-addresses-for-animals-prefill'), (req, res) => {
+    const data = req.session.data || {}
+    if (!isPetConsignment(data)) {
+      return res.redirect(create('/permanent-addresses-for-animals'))
+    }
+    data.permanentAddressSameAsPOD = 'yes'
+    delete data.errors
+    delete data.errorList
+    res.redirect(create('/transport-and-arrival'))
   })
 
   // --- address-cph ---
@@ -2271,7 +2386,7 @@ function registerPostHubRoutes (router, base) {
       delete data.errors
       delete data.errorList
       if (!Array.isArray(data.contactAddressesAdditional)) data.contactAddressesAdditional = []
-      const prefillContact = { id: 'prefill-contact-1', name: 'Animal and Plant Health Agency', addressLines: ['Woodham Lane', 'New Haw', 'Surrey', 'Addlestone', 'KT15 3NB'], country: 'United Kingdom of Great Britain and Northern Ireland' }
+      const prefillContact = { id: 'prefill-contact-1', name: 'Animal and Plant Health Agency', addressLines: ['Woodham Lane', 'New Haw', 'Surrey', 'Addlestone', 'KT15 3NB'], country: 'United Kingdom' }
       if (!data.contactAddressesAdditional.find(a => a.id === prefillContact.id)) data.contactAddressesAdditional.push(prefillContact)
       data.contactAddressId = prefillContact.id
       return res.redirect(create('/transport-and-arrival'))
@@ -2373,7 +2488,7 @@ function registerPostHubRoutes (router, base) {
     delete data.errorList
     const euCountries = require('../../data/eu-countries.js')
     const euuCountries = ['Iceland', 'Liechtenstein', 'Norway', 'Switzerland']
-    const uk = 'United Kingdom of Great Britain and Northern Ireland'
+    const uk = 'United Kingdom'
     const allCountries = [...euCountries, ...euuCountries, uk].filter((c, i, arr) => arr.indexOf(c) === i).sort()
     const countryItems = [
       { value: '', text: 'Please select your country' },
@@ -2475,7 +2590,7 @@ function registerPostHubRoutes (router, base) {
       id: branchId,
       name: 'Sample Branch Office',
       addressLines: ['123 High Street', 'Manchester', 'M1 2AB'],
-      country: 'United Kingdom of Great Britain and Northern Ireland',
+      country: 'United Kingdom',
       telephone: '0161 123 4567',
       email: 'branch@example.com'
     })
@@ -2652,6 +2767,9 @@ function registerPostHubRoutes (router, base) {
       { type: 'commercial-invoice', reference: 'INV-7892', date: '2025-06-14', attachments: [] },
       { type: 'import-permit', reference: 'GB-IMP-2024-456', date: '2025-09-01', attachments: [{}, {}] }
     ]
+    d.placeOfOriginName = 'Bergerie du Nord SARL'
+    d.placeOfOriginAddress = 'Route de Lille 8, 59000 Lille'
+    d.placeOfOriginCountry = 'France'
     d.consignorName = 'Ferme Dupont SAS'
     d.consignorAddress = ['12 Rue de la Ferme', '75001 Paris']
     d.consignorCountry = 'France'
@@ -2867,6 +2985,51 @@ function registerPostHubRoutes (router, base) {
       page: pageNum,
       totalPages,
       total,
+      basePath: base
+    })
+  })
+
+  // --- address-place-of-origin-search ---
+  router.get(create('/address-place-of-origin-search'), (req, res) => {
+    const data = req.session.data || {}
+    const consignors = require('../../data/consignors.js')
+    const euCountries = require('../../data/eu-countries.js')
+    data.placeOfOriginSearchName = req.query.poSearchName !== undefined ? req.query.poSearchName : data.placeOfOriginSearchName
+    data.placeOfOriginSearchAddress = req.query.poSearchAddress !== undefined ? req.query.poSearchAddress : data.placeOfOriginSearchAddress
+    data.placeOfOriginSearchCountry = req.query.poSearchCountry !== undefined ? req.query.poSearchCountry : data.placeOfOriginSearchCountry
+
+    const searchName = (req.query.poSearchName || data.placeOfOriginSearchName || '').trim().toLowerCase()
+    const searchAddress = (req.query.poSearchAddress || data.placeOfOriginSearchAddress || '').trim().toLowerCase()
+    const searchCountry = (req.query.poSearchCountry || data.placeOfOriginSearchCountry || '').trim()
+    const page = parseInt(req.query.page, 10) || 1
+    const perPage = 10
+
+    let filtered = consignors
+    if (searchName) filtered = filtered.filter(c => c.name.toLowerCase().includes(searchName))
+    if (searchAddress) filtered = filtered.filter(c => c.address.toLowerCase().includes(searchAddress))
+    if (searchCountry) filtered = filtered.filter(c => c.country === searchCountry)
+
+    const total = filtered.length
+    const totalPages = Math.max(1, Math.ceil(total / perPage))
+    const pageNum = Math.max(1, Math.min(page, totalPages))
+    const start = (pageNum - 1) * perPage
+    const results = filtered.slice(start, start + perPage)
+    const countriesFromData = [...new Set(consignors.map(c => c.country))]
+    const countries = [...new Set([...euCountries, ...countriesFromData])].sort()
+
+    const poSearch = {
+      name: data.placeOfOriginSearchName,
+      address: data.placeOfOriginSearchAddress,
+      country: data.placeOfOriginSearchCountry
+    }
+
+    res.render('v1-baseline/create/address-place-of-origin-search', {
+      results,
+      countries,
+      page: pageNum,
+      totalPages,
+      total,
+      poSearch,
       basePath: base
     })
   })

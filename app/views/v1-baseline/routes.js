@@ -121,8 +121,7 @@ function getNotificationTaskListCompletion (data) {
   const importReasonDone = strOk(ir) &&
     (ir !== 'internal-market' || strOk(data.internalMarketPurpose))
   const docs = data.documents || []
-  const documentsDone = docs.some(d => d && strOk(d.reference) && strOk(d.type)) ||
-    !!data.accompanyingDocumentsConfirmed
+  const documentsDone = docs.some(d => d && strOk(d.reference) && strOk(d.type))
   const hasConsignee = !!(data.consigneeId || (strOk(data.consigneeName) &&
     (strOk(data.consigneeAddress) || strOk(data.consigneeAddressLine1))))
   const podAddr = data.placeOfDestinationAddress
@@ -203,6 +202,12 @@ function validateNotificationTaskListForSubmission (data) {
       text: 'You must complete the transport details section before being able to continue'
     })
   }
+  if (!t.documentsDone) {
+    errorList.push({
+      href: move,
+      text: 'You must complete the accompanying documents section before being able to continue'
+    })
+  }
   return { ok: errorList.length === 0, errorList }
 }
 
@@ -221,9 +226,8 @@ function buildExperimentalTaskListSections (data, basePath, opts) {
     transportDone
   } = getNotificationTaskListCompletion(data)
 
-  const statusCompleted = { text: 'Completed' }
-  const statusIncomplete = { tag: { text: 'Incomplete', classes: 'govuk-tag--blue' } }
-  const statusOptional = { tag: { text: 'Optional', classes: 'govuk-tag--grey' } }
+  const statusCompleted = { text: 'Done' }
+  const statusIncomplete = { tag: { text: 'To do', classes: 'govuk-tag--blue' } }
 
   function buildRow (key, titleText, href, done, incompleteStatus, inlineErrorText, hint) {
     const status = done ? statusCompleted : incompleteStatus
@@ -341,9 +345,8 @@ function buildExperimentalTaskListSections (data, basePath, opts) {
           'Accompanying documents',
           `${bp}/accompanying-documents`,
           documentsDone,
-          statusOptional,
-          null,
-          { html: '<span class="govuk-body-s">(Optional)</span>' }
+          statusIncomplete,
+          'You must complete the accompanying documents section before being able to continue'
         )
       ]
     }
@@ -620,6 +623,13 @@ module.exports = (router) => {
   })
 
   router.post(`${BASE}/create/commodity`, (req, res) => {
+    const rawSubmitted = String((req.body && req.body.commodity) || req.session.data.commodity || '')
+    const speciesChosenInTypeahead = rawSubmitted.includes('|')
+    if (speciesChosenInTypeahead) {
+      req.session.data.commoditySpecies = []
+    } else if (req.session.data.commodityEditIndex === undefined) {
+      req.session.data.commoditySpecies = []
+    }
     let commodity = req.session.data.commodity
     if (commodity && commodity.includes('|')) {
       const [c, s] = commodity.split('|')
@@ -633,8 +643,8 @@ module.exports = (router) => {
     const errors = {}
     const errorList = []
     if (!commodity || commodity.trim() === '') {
-      errors.commodity = 'Select a commodity, common name or species'
-      errorList.push({ href: '#commodity', text: 'Select a commodity, common name or species' })
+      errors.commodity = 'Select a common name, commodity code or species'
+      errorList.push({ href: '#commodity', text: 'Select a common name, commodity code or species' })
     }
     if (Object.keys(errors).length > 0) {
       req.session.data.errors = errors
@@ -658,13 +668,11 @@ module.exports = (router) => {
     req.session.data.commodityType = commodityType
     delete req.session.data.errors
     delete req.session.data.errorList
-    const fromHub = req.session.data.commodityFromHub
     const isEditing = req.session.data.commodityEditIndex !== undefined
-    const hasSpeciesSelection = req.session.data.commoditySpecies &&
-      (Array.isArray(req.session.data.commoditySpecies) ? req.session.data.commoditySpecies.length > 0 : !!req.session.data.commoditySpecies)
-    const skipSpeciesPage = hasSpeciesSelection && !isEditing
+    const skipSpeciesPage = speciesChosenInTypeahead && !isEditing
+    const fromAnimalQs = req.session.data.addSpeciesFromAnimalId ? '?from=animal-id' : ''
     if (speciesList.length > 0 && !skipSpeciesPage) {
-      res.redirect(`${BASE}/create/commodity-species`)
+      res.redirect(`${BASE}/create/commodity-species${fromAnimalQs}`)
     } else {
       res.redirect(`${BASE}/create/animal-identification`)
     }

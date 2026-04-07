@@ -10,7 +10,7 @@
     <form method="post" novalidate>
       <div class="govuk-form-group {% if data.errors and data.errors['commodity'] %}govuk-form-group--error{% endif %}">
         <label class="govuk-label" for="commodity">
-          Search for a commodity, common name or species
+          Search for a common name, commodity code or species
         </label>
         {% if data.errors and data.errors["commodity"] %}
           <p id="commodity-error" class="govuk-error-message">
@@ -18,7 +18,7 @@
           </p>
         {% endif %}
         <div id="commodity-hint" class="govuk-hint">
-          For example, Cattle, Horse, Bos taurus or 0102
+          For example, Cow, 0102, or Bos taurus
         </div>
         <div class="autocomplete-wrapper autocomplete-wrapper--42em">
           <input type="hidden" name="commodity" id="commodity-value" value="{{ data.commodity or '' }}">

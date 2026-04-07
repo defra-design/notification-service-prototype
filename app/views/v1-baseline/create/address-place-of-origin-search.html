@@ -1,0 +1,132 @@
+
+{% extends "layouts/v1-baseline.html" %}
+{% from "govuk/components/input/macro.njk" import govukInput %}
+{% from "govuk/components/select/macro.njk" import govukSelect %}
+{% from "govuk/components/button/macro.njk" import govukButton %}
+{% from "govuk/components/pagination/macro.njk" import govukPagination %}
+
+{% set title = "Search for a place of origin" %}
+{% set backLinkHref = (basePath or '/v1-baseline') + '/create/addresses#place-of-origin' %}
+
+{% block content %}
+
+{% from "includes/page-header.njk" import pageHeader %}
+{% call pageHeader(title, null, "full") %}
+    <p class="govuk-body govuk-!-margin-bottom-6">The address where the animals begin their journey to Great Britain</p>
+
+    <div class="search-panel">
+      <h2 class="govuk-heading-m govuk-!-margin-top-0">Search</h2>
+      <form method="get" novalidate>
+        <div class="govuk-grid-row">
+          <div class="govuk-grid-column-one-third">
+            <div class="govuk-form-group">
+              <label class="govuk-label" for="poSearchName">Name</label>
+              <input class="govuk-input" id="poSearchName" name="poSearchName" type="text" value="{{ poSearch.name or '' }}">
+            </div>
+          </div>
+          <div class="govuk-grid-column-one-third">
+            <div class="govuk-form-group">
+              <label class="govuk-label" for="poSearchAddress">Address</label>
+              <input class="govuk-input" id="poSearchAddress" name="poSearchAddress" type="text" value="{{ poSearch.address or '' }}">
+            </div>
+          </div>
+          <div class="govuk-grid-column-one-third">
+            <div class="govuk-form-group">
+              <label class="govuk-label" for="poSearchCountry">Country</label>
+              <div class="autocomplete-wrapper autocomplete-wrapper--full">
+                <select class="govuk-select" id="poSearchCountry" name="poSearchCountry">
+                  <option value="">Type country name</option>
+                  {% for country in countries %}
+                    <option value="{{ country }}" {% if poSearch.country == country %}selected{% endif %}>{{ country }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="govuk-button-group">
+          {{ govukButton({
+            text: "Search"
+          }) }}
+          <a href="{{ (basePath or '/v1-baseline') }}/create/address-place-of-origin-search?poSearchName=&poSearchAddress=&poSearchCountry=" class="govuk-link govuk-link--no-visited-state">Clear search</a>
+        </div>
+      </form>
+    </div>
+
+    {% if results %}
+    <table class="govuk-table govuk-!-margin-top-8 address-table">
+      <thead class="govuk-table__head">
+        <tr class="govuk-table__row">
+          <th scope="col" class="govuk-table__header">Name</th>
+          <th scope="col" class="govuk-table__header">Address</th>
+          <th scope="col" class="govuk-table__header"><span class="govuk-visually-hidden">Actions</span></th>
+        </tr>
+      </thead>
+      <tbody class="govuk-table__body">
+        {% for row in results %}
+        <tr class="govuk-table__row">
+          <td class="govuk-table__cell">{{ row.name }}</td>
+          <td class="govuk-table__cell">
+            <span>{{ row.address }}</span>
+            <br>
+            <span class="govuk-body-s govuk-!-display-block govuk-!-margin-top-1 address-country">{{ row.country }}</span>
+          </td>
+          <td class="govuk-table__cell">
+            <a href="#" class="govuk-link govuk-!-font-size-16">View</a>
+            <span aria-hidden="true"> | </span>
+            <a href="{{ (basePath or '/v1-baseline') }}/create/addresses?placeOfOrigin={{ row.id }}#place-of-origin" class="govuk-link govuk-!-font-size-16">Select</a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    {% if totalPages > 1 %}
+    <div class="govuk-!-margin-top-6">
+      {% set prevHref = "?page=" + (page - 1) + "&poSearchName=" + (poSearch.name or '') + "&poSearchAddress=" + (poSearch.address or '') + "&poSearchCountry=" + (poSearch.country or '') %}
+      {% set nextHref = "?page=" + (page + 1) + "&poSearchName=" + (poSearch.name or '') + "&poSearchAddress=" + (poSearch.address or '') + "&poSearchCountry=" + (poSearch.country or '') %}
+      {{ govukPagination({
+        landmarkLabel: "Results pagination",
+        classes: "govuk-!-margin-top-0",
+        previous: page > 1 and {
+          href: prevHref,
+          text: "Previous page",
+          labelText: (page - 1) + " of " + totalPages
+        } or null,
+        next: page < totalPages and {
+          href: nextHref,
+          text: "Next page",
+          labelText: (page + 1) + " of " + totalPages
+        } or null
+      }) }}
+    </div>
+    {% endif %}
+    {% endif %}
+
+    <div class="govuk-!-margin-top-8">
+      {{ govukButton({
+        text: "Create a new place of origin",
+        href: "#"
+      }) }}
+    </div>
+
+{% endcall %}
+
+{% endblock %}
+
+{% block pageScripts %}
+  <script src="https://cdn.jsdelivr.net/npm/accessible-autocomplete@2.0.4/dist/accessible-autocomplete.min.js"></script>
+  <script>
+    (function () {
+      var selectEl = document.querySelector('#poSearchCountry')
+      if (selectEl && typeof accessibleAutocomplete !== 'undefined') {
+        accessibleAutocomplete.enhanceSelectElement({
+          autoselect: true,
+          defaultValue: selectEl.options[selectEl.selectedIndex] ? selectEl.options[selectEl.selectedIndex].text : '',
+          minLength: 2,
+          selectElement: selectEl
+        })
+      }
+    })()
+  </script>
+{% endblock %}

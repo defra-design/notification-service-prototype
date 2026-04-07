@@ -7,13 +7,13 @@ module.exports = [
     id: '1',
     name: 'Animal and Plant Health Agency',
     addressLines: ['Woodham Lane', 'New Haw', 'Surrey', 'Addlestone', 'KT15 3NB'],
-    country: 'United Kingdom of Great Britain and Northern Ireland'
+    country: 'United Kingdom'
   },
   {
     id: '2',
     name: '100, Cathcart',
     addressLines: ['New Address Line2', 'Glasgow', 'GS09 3WQ'],
-    country: 'United Kingdom of Great Britain and Northern Ireland'
+    country: 'United Kingdom'
   },
   {
     id: '3',

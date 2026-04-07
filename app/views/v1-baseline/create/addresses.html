@@ -2,13 +2,13 @@
 {% extends "layouts/v1-baseline-forms.html" %}
 {% from "govuk/components/table/macro.njk" import govukTable %}
 {% from "govuk/components/notification-banner/macro.njk" import govukNotificationBanner %}
-{% set title = "Addresses" %}
+{% set title = "Consignment addresses" %}
 {% set backLinkHref = (basePath or '/v1-baseline') + '/create/import-reason' %}
 
 {% block formContent %}
 
 {% from "includes/page-header.njk" import pageHeader %}
-{% call pageHeader("Addresses", null, "two-thirds") %}
+{% call pageHeader("Consignment addresses", null, "two-thirds") %}
     {{ govukInsetText({
       text: "Providing a false address is an act of fraud."
     }) }}
@@ -21,6 +21,23 @@
     {% endif %}
 
     <form method="post" novalidate>
+
+      <div class="govuk-!-margin-bottom-6" id="place-of-origin">
+        <h2 class="govuk-heading-m govuk-!-margin-bottom-2">Place of origin</h2>
+        <p class="govuk-hint govuk-!-margin-bottom-2">The address where the animals begin their journey to Great Britain</p>
+        {% if hasPlaceOfOrigin %}
+        <div class="govuk-inset-text govuk-!-margin-top-2 govuk-!-margin-bottom-2 address-inset">
+          <p class="govuk-body govuk-!-margin-bottom-1"><strong>{{ placeOfOriginName }}</strong></p>
+          <p class="govuk-body govuk-!-margin-bottom-1">{{ placeOfOriginAddress }}</p>
+          <p class="govuk-body govuk-!-margin-bottom-0">{{ placeOfOriginCountry }}</p>
+        </div>
+        <p class="govuk-body govuk-!-margin-bottom-0">
+          <a href="{{ (basePath or '/v1-baseline') }}/create/address-place-of-origin-search" class="govuk-link govuk-!-font-size-16">Change place of origin</a>
+        </p>
+        {% else %}
+        <a href="{{ (basePath or '/v1-baseline') }}/create/address-place-of-origin-search" class="govuk-link govuk-link--secondary govuk-!-font-size-16">Add a place of origin</a>
+        {% endif %}
+      </div>
 
       <div class="govuk-!-margin-bottom-6">
         <h2 class="govuk-heading-m govuk-!-margin-bottom-2">Consignor or exporter</h2>
