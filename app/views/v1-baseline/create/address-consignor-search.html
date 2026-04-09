@@ -5,7 +5,7 @@
 {% from "govuk/components/button/macro.njk" import govukButton %}
 {% from "govuk/components/pagination/macro.njk" import govukPagination %}
 
-{% set title = "Search for an existing consignor or exporter" %}
+{% set title = "Search for an existing consignor" %}
 {% set backLinkHref = (basePath or '/v1-baseline') + '/create/addresses' %}
 
 {% block content %}
@@ -103,7 +103,7 @@
 
     <div class="govuk-!-margin-top-8">
       {{ govukButton({
-        text: "Create a new consignor or exporter",
+        text: "Create a new consignor",
         href: "#"
       }) }}
     </div>

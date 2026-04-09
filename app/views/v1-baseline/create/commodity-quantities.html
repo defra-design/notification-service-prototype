@@ -34,7 +34,7 @@
             <th scope="col" class="govuk-table__header">Species and type</th>
             <th scope="col" class="govuk-table__header">Number of animals</th>
             <th scope="col" class="govuk-table__header">
-              <span class="govuk-!-display-block govuk-!-margin-bottom-0">Number of packages</span>
+              <span class="govuk-!-display-block govuk-!-margin-bottom-0">Number of packages (when required)</span>
               <span class="govuk-hint govuk-!-font-size-16 govuk-!-display-block govuk-!-margin-0">such as crates, bags or boxes</span>
             </th>
           </tr>
@@ -54,7 +54,7 @@
             </td>
             <td class="govuk-table__cell">
               <div class="govuk-form-group {% if data.errors and data.errors[species.packagesKey] %}govuk-form-group--error{% endif %}">
-                <label class="govuk-label govuk-visually-hidden" for="packages-{{ species.key }}">Number of packages for {{ species.speciesAndType }}</label>
+                <label class="govuk-label govuk-visually-hidden" for="packages-{{ species.key }}">Number of packages (when required) for {{ species.speciesAndType }}</label>
                 {% if data.errors and data.errors[species.packagesKey] %}
                   <p class="govuk-error-message" id="packages-{{ species.key }}-error"><span class="govuk-visually-hidden">Error:</span> {{ data.errors[species.packagesKey] }}</p>
                 {% endif %}

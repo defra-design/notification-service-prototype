@@ -1,24 +1,20 @@
 //
-// Legacy URL support: the journey lives under /v1-baseline (merged from this sandbox).
+// Legacy /v1-experimental URLs redirect to /v1-baseline (merged journey).
 //
+
+const OLD = '/v1-experimental'
+const NEW = '/v1-baseline'
 
 module.exports = (router) => {
   router.use((req, res, next) => {
     const path = req.path || ''
-    if (!path.startsWith('/v1-experimental')) {
+    if (path !== OLD && !path.startsWith(OLD + '/')) {
       return next()
     }
-    if (req.method !== 'GET' && req.method !== 'HEAD') {
-      return next()
-    }
-    const url = req.originalUrl || req.url || ''
-    const q = url.indexOf('?')
-    const pathPart = q >= 0 ? url.slice(0, q) : url
-    const qs = q >= 0 ? url.slice(q) : ''
-    let rest = pathPart.replace(/^\/v1-experimental/, '')
-    if (!rest) {
-      rest = '/dashboard'
-    }
-    res.redirect(302, '/v1-baseline' + rest + qs)
+    const tail = path === OLD ? '' : path.slice(OLD.length)
+    const search = req.originalUrl && req.originalUrl.includes('?')
+      ? req.originalUrl.slice(req.originalUrl.indexOf('?'))
+      : ''
+    res.redirect(302, NEW + (tail || '/') + search)
   })
 }

@@ -37,7 +37,8 @@
         <tr class="govuk-table__row">
           <th scope="col" class="govuk-table__header">Commodity code</th>
           <th scope="col" class="govuk-table__header">Common name</th>
-          <th scope="col" class="govuk-table__header">Species (Quantity)</th>
+          <th scope="col" class="govuk-table__header">Species</th>
+          <th scope="col" class="govuk-table__header govuk-table__header--numeric">Quantity</th>
           <th scope="col" class="govuk-table__header govuk-table__header--numeric">Actions</th>
         </tr>
       </thead>
@@ -46,19 +47,47 @@
         <tr class="govuk-table__row">
           <td class="govuk-table__cell">{{ item.code }}</td>
           <td class="govuk-table__cell">{{ item.label }}</td>
+          {% if item.speciesWithQuantity and (item.speciesWithQuantity | length) > 0 %}
           <td class="govuk-table__cell">
-            {% if item.speciesWithQuantity and (item.speciesWithQuantity | length) > 0 %}
+            {% if (item.speciesWithQuantity | length) > 1 %}
             <ul class="species-quantity-list govuk-list">
               {% for swq in item.speciesWithQuantity %}
               <li class="species-quantity-list__item">
-                <span class="species-quantity-list__name">{{ swq.name }}</span><span class="species-quantity-list__qty" aria-label="{{ swq.quantity }} animal{% if swq.quantity != 1 %}s{% endif %}"> ({{ swq.quantity }})</span>
+                <span class="species-quantity-list__name">{{ swq.name }}</span>
               </li>
               {% endfor %}
             </ul>
             {% else %}
-            {{ item.species | join("<br>") | safe }}{% if item.totalAnimals %} <span class="govuk-body govuk-hint">({{ item.totalAnimals }} total)</span>{% endif %}
+            {% set oneSpecies = item.speciesWithQuantity | first %}
+            <span class="species-quantity-list__name">{{ oneSpecies.name }}</span>
             {% endif %}
           </td>
+          <td class="govuk-table__cell govuk-table__cell--numeric">
+            {% if (item.speciesWithQuantity | length) > 1 %}
+            <ul class="species-quantity-list species-quantity-list--hub-quantities govuk-list">
+              {% for swq in item.speciesWithQuantity %}
+              <li class="species-quantity-list__item">
+                <span class="species-quantity-list__hub-qty" aria-label="Number of {{ 'animal' if swq.quantity == 1 else 'animals' }} for {{ swq.name }}: {{ swq.quantity }}">{{ swq.quantity }}</span>
+              </li>
+              {% endfor %}
+            </ul>
+            {% else %}
+            {% set oneSpecies = item.speciesWithQuantity | first %}
+            <span class="species-quantity-list__hub-qty" aria-label="Number of {{ 'animal' if oneSpecies.quantity == 1 else 'animals' }} for {{ oneSpecies.name }}: {{ oneSpecies.quantity }}">{{ oneSpecies.quantity }}</span>
+            {% endif %}
+          </td>
+          {% else %}
+          <td class="govuk-table__cell">
+            {{ item.species | join("<br>") | safe }}
+          </td>
+          <td class="govuk-table__cell govuk-table__cell--numeric">
+            {% if item.totalAnimals %}
+            <span class="species-quantity-list__hub-qty" aria-label="Total number of {{ 'animal' if item.totalAnimals == 1 else 'animals' }}: {{ item.totalAnimals }}">{{ item.totalAnimals }}</span>
+            {% else %}
+            <span aria-hidden="true">—</span><span class="govuk-visually-hidden">Not provided</span>
+            {% endif %}
+          </td>
+          {% endif %}
           <td class="govuk-table__cell govuk-table__cell--numeric">
             <a href="{{ (basePath or '/v1-baseline') }}/create/commodity-edit/{{ item.index }}" class="govuk-link">Edit</a>
             <span class="govuk-body-s govuk-!-margin-left-1 govuk-!-margin-right-1" aria-hidden="true">|</span>

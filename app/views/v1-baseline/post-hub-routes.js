@@ -599,7 +599,7 @@ function buildCheckYourAnswersData (data, base) {
           packageCount: pkg,
           quantitySummaryRows: [
             { key: { text: 'Number of animals' }, value: { text: String(qty) } },
-            { key: { text: 'Number of packages' }, value: { text: String(pkg) } }
+            { key: { text: 'Number of packages (when required)' }, value: { text: String(pkg) } }
           ],
           idTableRows: group.tableRows || [],
           isEarTagOnly: group.isEarTagOnly,
@@ -638,7 +638,7 @@ function buildCheckYourAnswersData (data, base) {
         packageCount: pkg,
         quantitySummaryRows: [
           { key: { text: 'Number of animals' }, value: { text: String(qty) } },
-          { key: { text: 'Number of packages' }, value: { text: String(pkg) } }
+          { key: { text: 'Number of packages (when required)' }, value: { text: String(pkg) } }
         ],
         idTableRows: group.tableRows || [],
         isEarTagOnly: group.isEarTagOnly,
@@ -728,7 +728,7 @@ function buildCheckYourAnswersData (data, base) {
 
   const addressRows = [
     rowHtml('Place of origin', placeOfOriginAddr),
-    rowHtml('Consignee/exporter', consignorAddr),
+    rowHtml('Consignor', consignorAddr),
     rowHtml('Consignee', consigneeAddr),
     rowHtml('Importer', importerAddr),
     rowHtml('Place of destination', placeAddr)

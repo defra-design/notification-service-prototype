@@ -179,56 +179,7 @@
 }
 
 .species-section-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: govuk-spacing(3);
   margin-bottom: govuk-spacing(3);
-
-  @media (max-width: 40.0625em) {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-}
-
-.species-section-set-rows {
-  flex-shrink: 0;
-  text-align: right;
-  display: flex;
-  align-items: center;
-  flex-wrap: nowrap;
-  white-space: nowrap;
-
-  label {
-    margin-bottom: 0;
-    line-height: 40px;
-  }
-
-  .govuk-input {
-    margin-bottom: 0;
-    line-height: 1.2;
-  }
-
-  .govuk-button {
-    margin-bottom: 0;
-    line-height: 1.2;
-    min-height: 40px;
-  }
-
-  @media (max-width: 40.0625em) {
-    width: 100%;
-    justify-content: flex-start;
-    flex-wrap: wrap;
-    white-space: normal;
-    text-align: left;
-    gap: govuk-spacing(2);
-
-    label {
-      line-height: 1.5;
-      flex: 1 1 100%;
-    }
-  }
 }
 
 .species-section--bordered {
@@ -437,6 +388,11 @@
         word-wrap: break-word;
       }
 
+      .goods-summary-table__cell-value > .govuk-list {
+        text-align: left;
+        width: 100%;
+      }
+
       .govuk-table__cell--numeric {
         text-align: left;
       }
@@ -473,6 +429,15 @@
     @include govuk-typography-common;
     color: $govuk-secondary-text-colour;
     font-variant-numeric: tabular-nums;
+  }
+
+  &__hub-qty {
+    @include govuk-typography-common;
+    font-variant-numeric: tabular-nums;
+  }
+
+  &--hub-quantities {
+    text-align: right;
   }
 }
 

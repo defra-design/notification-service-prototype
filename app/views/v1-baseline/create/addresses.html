@@ -40,7 +40,7 @@
       </div>
 
       <div class="govuk-!-margin-bottom-6">
-        <h2 class="govuk-heading-m govuk-!-margin-bottom-2">Consignor or exporter</h2>
+        <h2 class="govuk-heading-m govuk-!-margin-bottom-2">Consignor</h2>
         <p class="govuk-hint govuk-!-margin-bottom-2">This is the sender of the consignment.</p>
         {% if hasConsignor %}
         <div class="govuk-inset-text govuk-!-margin-top-2 govuk-!-margin-bottom-2 address-inset">
@@ -49,10 +49,10 @@
           <p class="govuk-body govuk-!-margin-bottom-0">{{ consignorCountry }}</p>
         </div>
         <p class="govuk-body govuk-!-margin-bottom-0">
-          <a href="{{ (basePath or '/v1-baseline') }}/create/address-consignor-search" class="govuk-link govuk-!-font-size-16">Change consignor or exporter</a>
+          <a href="{{ (basePath or '/v1-baseline') }}/create/address-consignor-search" class="govuk-link govuk-!-font-size-16">Change consignor</a>
         </p>
         {% else %}
-        <a href="{{ (basePath or '/v1-baseline') }}/create/address-consignor-search" class="govuk-link govuk-link--secondary govuk-!-font-size-16">Add a consignor or exporter</a>
+        <a href="{{ (basePath or '/v1-baseline') }}/create/address-consignor-search" class="govuk-link govuk-link--secondary govuk-!-font-size-16">Add a consignor</a>
         {% endif %}
       </div>
 
