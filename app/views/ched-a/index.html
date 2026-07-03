@@ -1,0 +1,16 @@
+{% extends "layouts/ched-a.html" %}
+
+{% set showDashboard = false %}
+
+{% block content %}
+<div class="govuk-width-container">
+  <div class="govuk-grid-row">
+    <div class="govuk-grid-column-two-thirds">
+      <h1 class="govuk-heading-l">CHED-A - live animals import journey</h1>
+      <p class="govuk-body">This journey is built from the "Create a notification" Figma flow for importing live animals into Great Britain.</p>
+      <p class="govuk-body">A CHED-A (Common Health Entry Document for Animals) is a mandatory pre-notification document required by UK border authorities before a consignment of live animals arrives.</p>
+      <a href="/ched-a/01-what-are-you-importing" class="govuk-button" data-module="govuk-button">Start journey</a>
+    </div>
+  </div>
+</div>
+{% endblock %}

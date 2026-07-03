@@ -1,0 +1,59 @@
+{% extends "layouts/ched-a.html" %}
+{% from "govuk/components/radios/macro.njk" import govukRadios %}
+
+{% block content %}
+<div class="govuk-width-container">
+  <div class="govuk-grid-row">
+    <div class="govuk-grid-column-two-thirds">
+      <p class="chedd-ref">DRAFT.GB.2026.0900608 - CHED-A</p>
+      <span class="govuk-caption-l">About the consignment</span>
+      <h1 class="govuk-heading-l">Additional animal details</h1>
+
+      {{ govukRadios({
+        name: "animals-certified-for",
+        fieldset: {
+          legend: { text: "What are the animals certified for?", classes: "govuk-fieldset__legend--m" }
+        },
+        hint: { text: "You'll find this on the health certificate." },
+        items: [
+          { text: "Further keeping", value: "further-keeping" },
+          { text: "Slaughter", value: "slaughter" },
+          { text: "Confined establishment", value: "confined-establishment" },
+          { text: "Germinal products", value: "germinal-products" },
+          { text: "Registered equine animal", value: "registered-equine-animal" },
+          { text: "Travelling circus/animal act", value: "travelling-circus-or-animal-act" },
+          { text: "Exhibition", value: "exhibition" },
+          { text: "Event or activity near borders", value: "event-or-activity-near-borders" },
+          { text: "Release into the wild", value: "release-into-the-wild" },
+          { text: "Dispatch centre", value: "dispatch-centre" },
+          { text: "Relaying area / purification centre", value: "relaying-area-or-purification-centre" },
+          { text: "Ornamental aquaculture establishment", value: "ornamental-aquaculture-establishment" },
+          { text: "Technical use", value: "technical-use" },
+          { text: "Quarantine or similar establishment", value: "quarantine-or-similar-establishment" },
+          { text: "Live aquatic animals for human consumption", value: "live-aquatic-animals-for-human-consumption" },
+          { text: "Other", value: "other" }
+        ]
+      }) }}
+
+      {{ govukRadios({
+        name: "unweaned-animals",
+        fieldset: {
+          legend: { text: "Does the consignment contain any unweaned animals?", classes: "govuk-fieldset__legend--m" }
+        },
+        hint: { text: "These are animals that are still feeding from their mother." },
+        items: [
+          { text: "Yes", value: "yes" },
+          { text: "No", value: "no" }
+        ]
+      }) }}
+
+      <div class="chedd-actions">
+        <a href="/ched-a/08-notification-hub" class="govuk-button" data-module="govuk-button">Save and continue</a>
+        <a href="/ched-a/08-notification-hub" class="govuk-button govuk-button--secondary" data-module="govuk-button">Save and return to hub</a>
+      </div>
+
+      <p class="govuk-body"><a href="/ched-a/08-notification-hub" class="govuk-link">Cancel and return to hub</a></p>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,45 @@
+{% extends "layouts/ched-a.html" %}
+{% from "govuk/components/checkboxes/macro.njk" import govukCheckboxes %}
+
+{% block content %}
+<div class="govuk-width-container">
+  <div class="govuk-grid-row">
+    <div class="govuk-grid-column-two-thirds">
+      <p class="chedd-ref">DRAFT.GB.2026.0900608 - CHED-A</p>
+      <h1 class="govuk-heading-l">Declaration</h1>
+
+      <h2 class="govuk-heading-m">I am the contact for the authorities and located in the UK.</h2>
+      <p class="govuk-body">I am complying with the requirements of Regulation (EU) 2017/625 including on animal health and welfare.</p>
+
+      <h2 class="govuk-heading-m">I confirm I am responsible for this consignment.</h2>
+      <p class="govuk-body">I am responsible from the submission of this notification to when it enters Great Britain. And I am responsible until it has either:</p>
+      <ul class="govuk-list govuk-list--bullet">
+        <li>cleared official checks at the border</li>
+        <li>reached the Place of Destination as stated on the health certificate or notification</li>
+      </ul>
+
+      <h2 class="govuk-heading-m">I confirm that I am accountable for:</h2>
+      <ul class="govuk-list govuk-list--bullet">
+        <li>any payment for the official controls at the border</li>
+        <li>any arrangements to re-dispatch the consignment</li>
+        <li>any costs needed for quarantine or isolation of consignments</li>
+        <li>any costs needed for destruction and disposal of consignments, when instructed by the authorities</li>
+      </ul>
+
+      <p class="govuk-body">I am authorised as being accountable for these things if raising notifications on behalf of a third party.</p>
+      <p class="govuk-body">I can legally act on behalf of a third party in relation to the conditions of this declaration.</p>
+
+      {{ govukCheckboxes({
+        name: "declaration-confirmed",
+        items: [
+          { text: "I confirm that I have reviewed and comply with this declaration and that the information submitted in this notification is true and correct.", value: "confirmed" }
+        ]
+      }) }}
+
+      <p class="govuk-body">Date of declaration: <strong>3 July 2026</strong></p>
+
+      <a href="/ched-a/23-submission" class="govuk-button" data-module="govuk-button">Continue</a>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,95 @@
+{% extends "layouts/ched-a.html" %}
+{% from "govuk/components/table/macro.njk" import govukTable %}
+{% from "govuk/components/inset-text/macro.njk" import govukInsetText %}
+{% from "govuk/components/input/macro.njk" import govukInput %}
+
+{% block content %}
+<div class="govuk-width-container">
+  <div class="govuk-grid-row">
+    <div class="govuk-grid-column-two-thirds">
+      <p class="chedd-ref">DRAFT.GB.2026.0900608 - CHED-A</p>
+      <span class="govuk-caption-l">About the consignment</span>
+      <h1 class="govuk-heading-l">Animal identification details</h1>
+
+      {{ govukInsetText({
+        text: "You must add all animal identification details before the consignment arrives at the port of entry."
+      }) }}
+
+      <h2 class="govuk-heading-m">Selected commodities</h2>
+
+      {{ govukTable({
+        head: [
+          { text: "Commodity code" },
+          { text: "Common name" },
+          { text: "Number of animals" },
+          { text: "", classes: "govuk-!-text-align-right" }
+        ],
+        rows: [
+          [ { text: "010410" }, { text: "Sheep" }, { text: "2" }, { html: '<a class="govuk-link" href="/ched-a/05-commodity-details">Change</a>', classes: "govuk-!-text-align-right" } ],
+          [ { text: "010420" }, { text: "Goat" }, { text: "2" }, { html: '<a class="govuk-link" href="/ched-a/05-commodity-details">Change</a>', classes: "govuk-!-text-align-right" } ]
+        ]
+      }) }}
+
+      <p class="govuk-body"><a href="/ched-a/04-search-commodity" class="govuk-link">Add another commodity</a></p>
+
+      <h2 class="govuk-heading-l">Sheep (010410)</h2>
+      <div class="chedd-card">
+        <div class="chedd-row">
+          <span class="govuk-body govuk-!-font-weight-bold govuk-!-margin-bottom-0">Ovis aries</span>
+          <a href="/ched-a/05-commodity-details" class="govuk-link">Change number of animals</a>
+        </div>
+
+        <h3 class="govuk-heading-s govuk-!-margin-top-4">Enter details for Ovis aries 2 of 2</h3>
+
+        {{ govukInput({
+          label: { text: "Ear tag", classes: "govuk-label--s" },
+          id: "sheep-ear-tag",
+          name: "sheep-ear-tag",
+          classes: "govuk-input--width-20",
+          spellcheck: false
+        }) }}
+
+        <button type="button" class="govuk-button" data-module="govuk-button">Save and finish</button>
+
+        {{ govukTable({
+          head: [
+            { text: "Animal" },
+            { text: "Ear tag" },
+            { text: "" }
+          ],
+          rows: [
+            [ { text: "Ovis aries 1" }, { text: "201948201" }, { html: '<a class="govuk-link" href="#">Remove</a>' } ]
+          ]
+        }) }}
+      </div>
+
+      <h2 class="govuk-heading-l">Goat (010420)</h2>
+      <div class="chedd-card">
+        <div class="chedd-row">
+          <span class="govuk-body govuk-!-font-weight-bold govuk-!-margin-bottom-0">Capra hircus</span>
+          <a href="/ched-a/05-commodity-details" class="govuk-link">Change number of animals</a>
+        </div>
+
+        <h3 class="govuk-heading-s govuk-!-margin-top-4">Enter details for Capra hircus 1 of 2</h3>
+
+        {{ govukInput({
+          label: { text: "Ear tag", classes: "govuk-label--s" },
+          id: "goat-ear-tag",
+          name: "goat-ear-tag",
+          classes: "govuk-input--width-20",
+          spellcheck: false
+        }) }}
+
+        <button type="button" class="govuk-button" data-module="govuk-button">Save and add another</button>
+      </div>
+
+      <div class="chedd-actions">
+        <a href="/ched-a/07-additional-animal-details" class="govuk-button" data-module="govuk-button">Save and continue</a>
+        <a href="/ched-a/08-notification-hub" class="govuk-button govuk-button--secondary" data-module="govuk-button">Save and return to hub</a>
+      </div>
+
+      <p class="govuk-body"><a href="/ched-a/08-notification-hub" class="govuk-link">Cancel and return to hub</a></p>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,55 @@
+{% extends "layouts/ched-a.html" %}
+
+{% block content %}
+<div class="govuk-width-container">
+  <div class="govuk-grid-row">
+    <div class="govuk-grid-column-two-thirds">
+      <p class="chedd-ref">DRAFT.GB.2026.0900608 - CHED-A</p>
+      <span class="govuk-caption-l">Movement</span>
+      <h1 class="govuk-heading-l">Transit countries</h1>
+
+      <p class="govuk-body">Countries the consignment will travel through are countries between the country of origin and the destination country. This does not include the United Kingdom.</p>
+
+      <div class="govuk-form-group">
+        <label class="govuk-label govuk-label--m" for="transit-country">Add a country the consignment will travel through</label>
+        <div class="autocomplete-wrapper autocomplete-wrapper--30em">
+          <select class="govuk-select" id="transit-country" name="transit-country">
+            <option value="" disabled selected></option>
+            {% for country in tracesCountries() %}
+            <option value="{{ country.value }}">{{ country.text }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+
+      <p class="govuk-body"><a href="#" class="govuk-link">Add another country</a></p>
+
+      <div class="chedd-actions">
+        <a href="/ched-a/11-transporter-details" class="govuk-button" data-module="govuk-button">Save and continue</a>
+        <a href="/ched-a/08-notification-hub" class="govuk-button govuk-button--secondary" data-module="govuk-button">Save and return to hub</a>
+      </div>
+
+      <p class="govuk-body"><a href="/ched-a/08-notification-hub" class="govuk-link">Cancel and return to hub</a></p>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block pageScripts %}
+  {{ super() }}
+  <script src="https://cdn.jsdelivr.net/npm/accessible-autocomplete@2.0.4/dist/accessible-autocomplete.min.js"></script>
+  <script>
+    (function () {
+      var selectEl = document.querySelector('#transit-country')
+      if (selectEl && typeof accessibleAutocomplete !== 'undefined') {
+        accessibleAutocomplete.enhanceSelectElement({
+          autoselect: true,
+          showAllValues: false,
+          placeholder: 'Type to search',
+          minLength: 1,
+          selectElement: selectEl
+        })
+      }
+    })()
+  </script>
+{% endblock %}

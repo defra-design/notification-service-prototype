@@ -1,0 +1,65 @@
+{% extends "layouts/ched-a.html" %}
+{% from "govuk/components/inset-text/macro.njk" import govukInsetText %}
+{% from "govuk/components/details/macro.njk" import govukDetails %}
+
+{% block content %}
+<div class="govuk-width-container">
+  <div class="govuk-grid-row">
+    <div class="govuk-grid-column-two-thirds">
+      <p class="chedd-ref">DRAFT.GB.2026.0900608 - CHED-A</p>
+      <span class="govuk-caption-l">About the consignment</span>
+      <h1 class="govuk-heading-l">What are you importing?</h1>
+
+      {{ govukInsetText({
+        text: "Each health certificate requires a separate notification."
+      }) }}
+
+      <div class="govuk-form-group">
+        <label class="govuk-label govuk-label--m" for="commodity-search">Search for a common name, commodity code or scientific name</label>
+        <div id="commodity-search-hint" class="govuk-hint">
+          For example, Cow, 0102, or Bos taurus
+        </div>
+        <div class="autocomplete-wrapper autocomplete-wrapper--42em">
+          <select class="govuk-select" id="commodity-search" name="commodity-search" aria-describedby="commodity-search-hint">
+            <option value="">Start typing to search</option>
+            {% for name in commodityNames %}
+            <option value="{{ name }}">{{ name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+
+      {{ govukDetails({
+        summaryText: "Help with commodity codes",
+        html: "<p class='govuk-body'>A commodity code identifies the species or product you're importing. If you cannot find the exact code, search by common name or scientific name instead.</p>"
+      }) }}
+
+      <div class="chedd-actions">
+        <a href="/ched-a/05-commodity-details" class="govuk-button" data-module="govuk-button">Save and continue</a>
+        <a href="/ched-a/08-notification-hub" class="govuk-button govuk-button--secondary" data-module="govuk-button">Save and return to hub</a>
+      </div>
+
+      <p class="govuk-body"><a href="/ched-a/08-notification-hub" class="govuk-link">Cancel and return to hub</a></p>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block pageScripts %}
+  {{ super() }}
+  <script src="https://cdn.jsdelivr.net/npm/accessible-autocomplete@2.0.4/dist/accessible-autocomplete.min.js"></script>
+  <script>
+    (function () {
+      var selectEl = document.querySelector('#commodity-search')
+      if (selectEl && typeof accessibleAutocomplete !== 'undefined') {
+        accessibleAutocomplete.enhanceSelectElement({
+          autoselect: true,
+          showAllValues: false,
+          placeholder: 'Type to search',
+          minLength: 1,
+          selectElement: selectEl
+        })
+      }
+    })()
+  </script>
+{% endblock %}

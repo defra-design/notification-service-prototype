@@ -9,24 +9,26 @@
       <h1 class="govuk-heading-l">Commodity</h1>
 
       <div class="chedd-card">
-        <div class="govuk-form-group">
-          <label class="govuk-label govuk-label--m" for="commodity">
-            Search for a commodity code or description
-          </label>
-          <div id="commodity-hint" class="govuk-hint">
-            For example, Cow, 0102, or Bos taurus
+        <form method="post" novalidate>
+          <div class="govuk-form-group">
+            <label class="govuk-label govuk-label--m" for="commodity">
+              Search for a commodity code or description
+            </label>
+            <div id="commodity-hint" class="govuk-hint">
+              For example, Groundnuts, 1202, or Pistachios
+            </div>
+            <div class="autocomplete-wrapper autocomplete-wrapper--42em">
+              <input type="hidden" name="commodity" id="commodity-value" value="">
+              <select class="govuk-select" id="commodity" aria-describedby="commodity-hint">
+                <option value="">Start typing to search</option>
+                {% for opt in commodityOptions %}
+                  <option value="{{ opt.value }}">{{ opt.text }}</option>
+                {% endfor %}
+              </select>
+            </div>
           </div>
-          <div class="autocomplete-wrapper autocomplete-wrapper--42em">
-            <input type="hidden" name="commodity" id="commodity-value" value="">
-            <select class="govuk-select" id="commodity" aria-describedby="commodity-hint">
-              <option value="">Start typing to search</option>
-              {% for opt in commodityOptions %}
-                <option value="{{ opt.value }}">{{ opt.text }}</option>
-              {% endfor %}
-            </select>
-          </div>
-        </div>
-        <a href="/chedd-traces/05-commodity-add-another" class="govuk-button" data-module="govuk-button">Save and continue</a>
+          <button type="submit" class="govuk-button" data-module="govuk-button">Save and continue</button>
+        </form>
       </div>
 
     </div>

@@ -1,0 +1,32 @@
+{% extends "layouts/ched-a.html" %}
+{% from "govuk/components/radios/macro.njk" import govukRadios %}
+
+{% block content %}
+<div class="govuk-width-container">
+  <div class="govuk-grid-row">
+    <div class="govuk-grid-column-two-thirds">
+      <p class="chedd-ref">DRAFT.GB.2026.0900608 - CHED-A</p>
+      <span class="govuk-caption-l">About the consignment</span>
+      <h1 class="govuk-heading-l">What is the main reason for importing the animals?</h1>
+
+      {{ govukRadios({
+        name: "main-reason-for-import",
+        items: [
+          { text: "Internal market", hint: { text: "For imports of animals intended for sale or use in Great Britain (England, Scotland or Wales)." }, value: "internal-market" },
+          { text: "Transhipment or onward travel", hint: { text: "For animals intended for direct travel to a third country, that will stay only within the same port or airport in Great Britain while moving to another means of transport." }, value: "transhipment-or-onward-travel" },
+          { text: "Transit", hint: { text: "For animals moving through Great Britain for direct travel to a third country, that will enter Great Britain at one port or airport and leave from a different one within England, Scotland or Wales." }, value: "transit" },
+          { text: "Re-entry", hint: { text: "For animals authorised for re-entry, or rejected exports re-entering Great Britain." }, value: "re-entry" },
+          { text: "Temporary admission horses", hint: { text: "For horses authorised for temporary entry." }, value: "temporary-admission-horses" }
+        ]
+      }) }}
+
+      <div class="chedd-actions">
+        <a href="/ched-a/04-search-commodity" class="govuk-button" data-module="govuk-button">Save and continue</a>
+        <a href="/ched-a/08-notification-hub" class="govuk-button govuk-button--secondary" data-module="govuk-button">Save and return to hub</a>
+      </div>
+
+      <p class="govuk-body"><a href="/ched-a/08-notification-hub" class="govuk-link">Cancel and return to hub</a></p>
+    </div>
+  </div>
+</div>
+{% endblock %}
