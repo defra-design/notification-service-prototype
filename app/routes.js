@@ -40,3 +40,4 @@ router.get('/clear-data', (req, res) => {
 require('./views/v1-experimental/routes')(router)
 require('./views/v1-baseline/routes')(router)
 require('./views/chedd-traces/routes')(router)
+require('./views/ched-a/routes')(router)

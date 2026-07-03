@@ -1,0 +1,91 @@
+{% extends "layouts/ched-a.html" %}
+{% from "govuk/components/tag/macro.njk" import govukTag %}
+
+{% block content %}
+<div class="govuk-width-container">
+  <div class="govuk-grid-row">
+    <div class="govuk-grid-column-two-thirds">
+      <p class="chedd-ref">DRAFT.GB.2026.0900608 - CHED-A</p>
+      <h1 class="govuk-heading-l">Overview</h1>
+
+      <h2 class="govuk-heading-m">Your commodities</h2>
+      <div class="govuk-grid-row">
+        <div class="govuk-grid-column-one-half">
+          <div class="chedd-card">
+            <p class="govuk-!-font-size-36 govuk-!-font-weight-bold govuk-!-margin-bottom-0" style="color: #1d70b8;">8</p>
+            <p class="govuk-body govuk-!-font-weight-bold">Animals</p>
+            <p class="govuk-body-s chedd-muted">Total number of animals in this consignment</p>
+          </div>
+        </div>
+        <div class="govuk-grid-column-one-half">
+          <div class="chedd-card">
+            <p class="govuk-!-font-size-36 govuk-!-font-weight-bold govuk-!-margin-bottom-0" style="color: #1d70b8;">0</p>
+            <p class="govuk-body govuk-!-font-weight-bold">Packages/boxes</p>
+            <p class="govuk-body-s chedd-muted">Total number of packages in this consignment</p>
+          </div>
+        </div>
+      </div>
+
+      <h2 class="govuk-heading-l">Notification tasklist</h2>
+
+      <h3 class="govuk-heading-m">1. About the consignment</h3>
+      <div class="chedd-row">
+        <a href="/ched-a/02-origin-of-import" class="govuk-link">Where is this consignment coming from?</a>
+        {{ govukTag({ text: "Complete", classes: "govuk-tag--green" }) }}
+      </div>
+      <div class="chedd-row">
+        <a href="/ched-a/01-what-are-you-importing" class="govuk-link">What are you importing?</a>
+        {{ govukTag({ text: "Complete", classes: "govuk-tag--green" }) }}
+      </div>
+      <div class="chedd-row">
+        <a href="/ched-a/03-main-reason-for-import" class="govuk-link">Main reason for importing the consignment</a>
+        {{ govukTag({ text: "Complete", classes: "govuk-tag--green" }) }}
+      </div>
+
+      <h3 class="govuk-heading-m">2. Commodity details</h3>
+      <div class="chedd-row">
+        <a href="/ched-a/06-animal-identifiers" class="govuk-link">Animal identification details</a>
+        {{ govukTag({ text: "To do", classes: "govuk-tag--grey" }) }}
+      </div>
+      <div class="chedd-row">
+        <a href="/ched-a/07-additional-animal-details" class="govuk-link">Additional commodity details</a>
+        {{ govukTag({ text: "Complete", classes: "govuk-tag--green" }) }}
+      </div>
+
+      <h3 class="govuk-heading-m">3. Transport and arrival</h3>
+      <div class="chedd-row">
+        <a href="/ched-a/09-arrival-details" class="govuk-link">Arrival details</a>
+        {{ govukTag({ text: "To do", classes: "govuk-tag--grey" }) }}
+      </div>
+      <div class="chedd-row">
+        <a href="/ched-a/11-transporter-details" class="govuk-link">Transport details</a>
+        {{ govukTag({ text: "To do", classes: "govuk-tag--grey" }) }}
+      </div>
+
+      <h3 class="govuk-heading-m">4. Consignment parties</h3>
+      <div class="chedd-row">
+        <div>
+          <a href="/ched-a/13-place-of-origin" class="govuk-link">Roles and addresses</a>
+          <p class="govuk-body-s chedd-muted govuk-!-margin-bottom-0">Consignor or Exporter, Consignee, Importer and Place of Destination</p>
+        </div>
+        {{ govukTag({ text: "To do", classes: "govuk-tag--grey" }) }}
+      </div>
+      <div class="chedd-row">
+        <a href="/ched-a/18-contact-address" class="govuk-link">Contact address for this consignment</a>
+        {{ govukTag({ text: "To do", classes: "govuk-tag--grey" }) }}
+      </div>
+
+      <h3 class="govuk-heading-m">5. Documents</h3>
+      <div class="chedd-row">
+        <a href="/ched-a/19-upload-documents" class="govuk-link">Uploaded documents</a>
+        {{ govukTag({ text: "To do", classes: "govuk-tag--grey" }) }}
+      </div>
+
+      <div class="chedd-actions govuk-!-margin-top-6">
+        <a href="/ched-a/20-review-and-submit" class="govuk-button" data-module="govuk-button">Review and submit</a>
+        <a href="/ched-a/index" class="govuk-button govuk-button--secondary" data-module="govuk-button">Return to dashboard</a>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,125 @@
+{% extends "layouts/ched-a.html" %}
+{% from "govuk/components/summary-list/macro.njk" import govukSummaryList %}
+{% from "govuk/components/table/macro.njk" import govukTable %}
+
+{% block content %}
+<div class="govuk-width-container">
+  <div class="govuk-grid-row">
+    <div class="govuk-grid-column-two-thirds">
+      <p class="chedd-ref">DRAFT.GB.2026.0900608 - CHED-A</p>
+      <h1 class="govuk-heading-l">Review your notification</h1>
+
+      <h2 class="govuk-heading-m">1. About the consignment</h2>
+
+      <h3 class="govuk-heading-s">Consignment details</h3>
+      {{ govukSummaryList({
+        rows: [
+          { key: { text: "Country of origin" }, value: { text: "France" }, actions: { items: [{ href: "/ched-a/02-origin-of-import", text: "Change", visuallyHiddenText: "country of origin" }] } },
+          { key: { text: "Region of origin code" }, value: { text: "FR-020202" }, actions: { items: [{ href: "/ched-a/02-origin-of-import", text: "Change", visuallyHiddenText: "region of origin code" }] } },
+          { key: { text: "Internal reference number" }, value: { text: "Not provided" }, actions: { items: [{ href: "/ched-a/02-origin-of-import", text: "Change", visuallyHiddenText: "internal reference number" }] } }
+        ]
+      }) }}
+
+      <h3 class="govuk-heading-s">Commodity details</h3>
+      {{ govukSummaryList({
+        rows: [
+          { key: { text: "Reason for import" }, value: { text: "Internal market" }, actions: { items: [{ href: "/ched-a/03-main-reason-for-import", text: "Change", visuallyHiddenText: "reason for import" }] } },
+          { key: { text: "Certified for" }, value: { text: "Slaughter" }, actions: { items: [{ href: "/ched-a/07-additional-animal-details", text: "Change", visuallyHiddenText: "certified for" }] } },
+          { key: { text: "Includes unweaned animals" }, value: { text: "No" }, actions: { items: [{ href: "/ched-a/07-additional-animal-details", text: "Change", visuallyHiddenText: "unweaned animals" }] } }
+        ]
+      }) }}
+
+      <h3 class="govuk-heading-s">Species</h3>
+      {{ govukSummaryList({
+        card: { title: { text: "Sheep (010410)" }, actions: { items: [{ href: "/ched-a/05-commodity-details", text: "Change", visuallyHiddenText: "sheep details" }] } },
+        rows: [
+          { key: { text: "Number of animals" }, value: { text: "2" } },
+          { key: { text: "Number of packages" }, value: { text: "2" } }
+        ]
+      }) }}
+      {{ govukSummaryList({
+        card: { title: { text: "Goat (010420)" }, actions: { items: [{ href: "/ched-a/05-commodity-details", text: "Change", visuallyHiddenText: "goat details" }] } },
+        rows: [
+          { key: { text: "Number of animals" }, value: { text: "2" } },
+          { key: { text: "Number of packages" }, value: { text: "2" } }
+        ]
+      }) }}
+
+      <h3 class="govuk-heading-s">Animal identifiers</h3>
+      {{ govukTable({
+        caption: "Sheep and goat ear tags",
+        captionClasses: "govuk-visually-hidden",
+        head: [
+          { text: "Animal" }, { text: "Ear tag" }
+        ],
+        rows: [
+          [ { text: "Ovis aries 1" }, { text: "201948201" } ],
+          [ { text: "Ovis aries 2" }, { text: "201948202" } ],
+          [ { text: "Capra hircus 1" }, { text: "301884401" } ],
+          [ { text: "Capra hircus 2" }, { text: "301884402" } ]
+        ]
+      }) }}
+
+      <h2 class="govuk-heading-m">2. Movement</h2>
+
+      <h3 class="govuk-heading-s">Arrival details</h3>
+      {{ govukSummaryList({
+        rows: [
+          { key: { text: "Port of entry" }, value: { text: "Port of Liverpool (GBLIV)" }, actions: { items: [{ href: "/ched-a/09-arrival-details", text: "Change", visuallyHiddenText: "port of entry" }] } },
+          { key: { text: "Arrival date at port of entry" }, value: { text: "12/2/2026" }, actions: { items: [{ href: "/ched-a/09-arrival-details", text: "Change", visuallyHiddenText: "arrival date" }] } },
+          { key: { text: "Means of transport" }, value: { text: "Road" }, actions: { items: [{ href: "/ched-a/09-arrival-details", text: "Change", visuallyHiddenText: "means of transport" }] } },
+          { key: { text: "Countries the consignment will travel through" }, value: { text: "Spain, France" }, actions: { items: [{ href: "/ched-a/10-transited-countries", text: "Change", visuallyHiddenText: "transit countries" }] } },
+          { key: { text: "Transport identification" }, value: { text: "AB23 4CD" }, actions: { items: [{ href: "/ched-a/09-arrival-details", text: "Change", visuallyHiddenText: "transport identification" }] } },
+          { key: { text: "Transport document reference" }, value: { text: "Not provided" }, actions: { items: [{ href: "/ched-a/09-arrival-details", text: "Change", visuallyHiddenText: "transport document reference" }] } }
+        ]
+      }) }}
+
+      <h3 class="govuk-heading-s">Transporter details</h3>
+      {{ govukSummaryList({
+        rows: [
+          { key: { text: "Name" }, value: { text: "Aberdeen Livestock Ltd" }, actions: { items: [{ href: "/ched-a/11-transporter-details", text: "Change", visuallyHiddenText: "transporter name" }] } },
+          { key: { text: "Address" }, value: { text: "15 Union Street, Aberdeen, AB11 5BN" }, actions: { items: [{ href: "/ched-a/11-transporter-details", text: "Change", visuallyHiddenText: "transporter address" }] } },
+          { key: { text: "Approval number" }, value: { text: "UK/ABERDEEN/T1/00092001" }, actions: { items: [{ href: "/ched-a/11-transporter-details", text: "Change", visuallyHiddenText: "transporter approval number" }] } },
+          { key: { text: "Type" }, value: { text: "Commercial" }, actions: { items: [{ href: "/ched-a/11-transporter-details", text: "Change", visuallyHiddenText: "transporter type" }] } }
+        ]
+      }) }}
+
+      <h2 class="govuk-heading-m">3. Addresses</h2>
+
+      <h3 class="govuk-heading-s">Roles and addresses</h3>
+      {{ govukSummaryList({
+        rows: [
+          { key: { text: "Place of origin" }, value: { text: "Danish Meat Export ApS, Vesterbrogade 12, 1620 Copenhagen" }, actions: { items: [{ href: "/ched-a/13-place-of-origin", text: "Change", visuallyHiddenText: "place of origin" }] } },
+          { key: { text: "Consignor or exporter" }, value: { text: "Danish Meat Export ApS, Vesterbrogade 12, 1620 Copenhagen" }, actions: { items: [{ href: "/ched-a/14-consignor-or-exporter", text: "Change", visuallyHiddenText: "consignor" }] } },
+          { key: { text: "Consignee" }, value: { text: "Danish Meat Export ApS, Vesterbrogade 12, 1620 Copenhagen" }, actions: { items: [{ href: "/ched-a/15-consignee", text: "Change", visuallyHiddenText: "consignee" }] } },
+          { key: { text: "Importer" }, value: { text: "Danish Meat Export ApS, Vesterbrogade 12, 1620 Copenhagen" }, actions: { items: [{ href: "/ched-a/16-importer", text: "Change", visuallyHiddenText: "importer" }] } },
+          { key: { text: "Place of destination" }, value: { text: "Danish Meat Export ApS, Vesterbrogade 12, 1620 Copenhagen" }, actions: { items: [{ href: "/ched-a/17-place-of-destination", text: "Change", visuallyHiddenText: "place of destination" }] } },
+          { key: { text: "County Parish Holding number (CPH)" }, value: { text: "12/345/6789" }, actions: { items: [{ href: "/ched-a/18-cph-number", text: "Change", visuallyHiddenText: "CPH number" }] } }
+        ]
+      }) }}
+
+      <h3 class="govuk-heading-s">Contact address for this consignment</h3>
+      {{ govukSummaryList({
+        rows: [
+          { key: { text: "Address" }, value: { text: "Aberdeen Livestock Ltd, 15 Union Street, Aberdeen, AB11 5BN" }, actions: { items: [{ href: "/ched-a/19-contact-address", text: "Change", visuallyHiddenText: "contact address" }] } }
+        ]
+      }) }}
+
+      <h2 class="govuk-heading-m">4. Documents</h2>
+
+      <h3 class="govuk-heading-s">Uploaded documents</h3>
+      {{ govukSummaryList({
+        card: { title: { text: "Document 1" }, actions: { items: [{ href: "/ched-a/20-upload-documents", text: "Change", visuallyHiddenText: "document 1" }] } },
+        rows: [
+          { key: { text: "Document reference" }, value: { text: "AHC-2026-00931" } },
+          { key: { text: "Document type" }, value: { text: "ITAHC (health certificate)" } },
+          { key: { text: "Date of issue" }, value: { text: "19/3/2026" } },
+          { key: { text: "Attachment" }, value: { text: "health-certificate.pdf" } }
+        ]
+      }) }}
+
+      <a href="/ched-a/22-declaration" class="govuk-button" data-module="govuk-button">Continue</a>
+    </div>
+  </div>
+</div>
+{% endblock %}

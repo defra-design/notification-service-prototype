@@ -1,0 +1,80 @@
+{% extends "layouts/ched-a.html" %}
+{% from "govuk/components/details/macro.njk" import govukDetails %}
+{% from "govuk/components/input/macro.njk" import govukInput %}
+{% from "govuk/components/select/macro.njk" import govukSelect %}
+{% from "govuk/components/file-upload/macro.njk" import govukFileUpload %}
+
+{% block content %}
+<div class="govuk-width-container">
+  <div class="govuk-grid-row">
+    <div class="govuk-grid-column-two-thirds">
+      <p class="chedd-ref">DRAFT.GB.2026.0900608 - CHED-A</p>
+      <span class="govuk-caption-l">Documents</span>
+      <h1 class="govuk-heading-l">Upload documents</h1>
+
+      <p class="govuk-body">You must attach an ITAHC if this consignment requires one. If you do not have it now, you can add it later. All documents should be uploaded before the consignment arrives at the UK port. Documents must be in English and you must upload all pages.</p>
+
+      <p class="govuk-body">Other documents you may need to attach include:</p>
+      <ul class="govuk-list govuk-list--bullet">
+        <li>import licences or authorisations</li>
+        <li>commercial documents or invoices</li>
+      </ul>
+
+      {{ govukDetails({
+        summaryText: "Check which additional documents you must upload",
+        html: "<p class='govuk-body'>The documents you need depend on the commodity, its purpose and its country of origin. Check the guidance for your specific commodity if you're unsure.</p>"
+      }) }}
+
+      <div class="chedd-card">
+        <h2 class="govuk-heading-m">Document 1</h2>
+
+        {{ govukInput({
+          label: { text: "Document reference" },
+          id: "document-1-reference",
+          name: "document-1-reference",
+          classes: "govuk-input--width-20",
+          spellcheck: false
+        }) }}
+
+        {{ govukSelect({
+          id: "document-1-type",
+          name: "document-1-type",
+          label: { text: "Document type" },
+          items: [
+            { value: "", text: "Select one" },
+            { value: "itahc", text: "ITAHC (health certificate)" },
+            { value: "import-licence", text: "Import licence or authorisation" },
+            { value: "commercial-document", text: "Commercial document or invoice" },
+            { value: "other", text: "Other" }
+          ]
+        }) }}
+
+        {{ govukInput({
+          label: { text: "Date of issue" },
+          hint: { text: "For example, 27/3/2026" },
+          id: "document-1-date-of-issue",
+          name: "document-1-date-of-issue",
+          classes: "govuk-input--width-10",
+          spellcheck: false
+        }) }}
+
+        {{ govukFileUpload({
+          id: "document-1-attachment",
+          name: "document-1-attachment",
+          label: { text: "Attachment" },
+          hint: { html: "Your file must be:<ul class='govuk-list govuk-list--bullet govuk-!-margin-top-2'><li>smaller than 50MB</li><li>file type must be a PDF, DOC, DOCX, JPEG, PNG, XLS or XLSX</li><li>ZIP files are not allowed for security reasons</li></ul>" }
+        }) }}
+      </div>
+
+      <p class="govuk-body"><a href="#" class="govuk-link">Add another document</a></p>
+
+      <div class="chedd-actions">
+        <a href="/ched-a/21-review-and-submit" class="govuk-button" data-module="govuk-button">Save and continue</a>
+        <a href="/ched-a/08-notification-hub" class="govuk-button govuk-button--secondary" data-module="govuk-button">Save and return to hub</a>
+      </div>
+
+      <p class="govuk-body"><a href="/ched-a/08-notification-hub" class="govuk-link">Cancel and return to hub</a></p>
+    </div>
+  </div>
+</div>
+{% endblock %}

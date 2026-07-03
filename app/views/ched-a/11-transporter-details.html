@@ -1,0 +1,80 @@
+{% extends "layouts/ched-a.html" %}
+{% from "govuk/components/table/macro.njk" import govukTable %}
+{% from "govuk/components/tag/macro.njk" import govukTag %}
+
+{% block content %}
+<div class="govuk-width-container">
+  <div class="govuk-grid-row">
+    <div class="govuk-grid-column-two-thirds">
+      <p class="chedd-ref">DRAFT.GB.2026.0900608 - CHED-A</p>
+      <span class="govuk-caption-l">Movement</span>
+      <h1 class="govuk-heading-l">Transporter details</h1>
+
+      <p class="govuk-body">This is the person or company responsible for transporting the consignment.</p>
+
+      <p class="govuk-body">Your transporter must hold a valid transporter authorisation, issued by DAERA or APHA in the UK if they are:</p>
+      <ul class="govuk-list govuk-list--bullet">
+        <li>transporting any live vertebrate animals in, to, from or through Great Britain (GB)</li>
+        <li>travelling on journeys of over 65 km</li>
+        <li>transporting as part of an economic (commercial) activity</li>
+      </ul>
+
+      <p class="govuk-body"><a href="#" class="govuk-link">Find out how to transport animals in connection with an economic activity (opens in a new tab)</a>.</p>
+
+      <p class="govuk-body">Documents issued by DAERA are valid for use in GB.</p>
+      <p class="govuk-body">Documents issued in any EU member state are not valid for use in GB.</p>
+
+      <h2 class="govuk-heading-m">Select a transporter</h2>
+
+      <div class="govuk-form-group">
+        <label class="govuk-label govuk-label--s" for="transporter-search">Search</label>
+        <div class="govuk-hint">Name, address or approval number</div>
+        <input class="govuk-input govuk-input--width-20" id="transporter-search" name="transporter-search" type="text">
+      </div>
+
+      {% set transporters = [
+        { name: "Aberdeen Livestock Ltd", address: "15 Union Street, Aberdeen, AB11 5BN", approval: "UK/ABERDEEN/T1/00092001", type: "Commercial", status: "Approved" },
+        { name: "Danish Meat Export ApS", address: "Vesterbrogade 12, 1620 Copenhagen", approval: "DK/COPENHAGEN/T1/00081002", type: "Commercial", status: "Approved" },
+        { name: "Portuguese Livestock Lda", address: "Rua Augusta 250, 1100-053 Lisbon", approval: "PT/LISBON/T1/00071003", type: "Commercial", status: "Approved" },
+        { name: "Romanian Agri Exports SRL", address: "Bulevardul Unirii 22, 03083 Bucharest", approval: "RO/BUCHAREST/T1/00061004", type: "Private", status: "New" },
+        { name: "Slovak Farm Export", address: "Obchodná 2, 811 06 Bratislava", approval: "SK/BRATISLAVA/T1/00051005", type: "Commercial", status: "Approved" },
+        { name: "Finnish Livestock Oy", address: "Mannerheimintie 10, 00100 Helsinki", approval: "FI/HELSINKI/T1/00041006", type: "Private", status: "New" }
+      ] %}
+
+      <table class="govuk-table">
+        <thead class="govuk-table__head">
+          <tr class="govuk-table__row">
+            <th class="govuk-table__header" scope="col"></th>
+            <th class="govuk-table__header" scope="col">Name</th>
+            <th class="govuk-table__header" scope="col">Address</th>
+            <th class="govuk-table__header" scope="col">Approval number</th>
+            <th class="govuk-table__header" scope="col">Type</th>
+            <th class="govuk-table__header" scope="col">Status</th>
+            <th class="govuk-table__header" scope="col"></th>
+          </tr>
+        </thead>
+        <tbody class="govuk-table__body">
+          {% for t in transporters %}
+          <tr class="govuk-table__row">
+            <td class="govuk-table__cell"><input class="govuk-radios__input" type="radio" name="transporter" id="transporter-{{ loop.index }}" value="{{ t.name }}" style="position: static; opacity: 1;"></td>
+            <td class="govuk-table__cell">{{ t.name }}</td>
+            <td class="govuk-table__cell">{{ t.address }}</td>
+            <td class="govuk-table__cell">{{ t.approval }}</td>
+            <td class="govuk-table__cell">{{ t.type }}</td>
+            <td class="govuk-table__cell">{{ govukTag({ text: t.status, classes: "govuk-tag--green" if t.status == "Approved" else "govuk-tag--purple" }) }}</td>
+            <td class="govuk-table__cell"><a class="govuk-link" href="#">View details</a></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+
+      <div class="chedd-actions">
+        <a href="/ched-a/13-place-of-origin" class="govuk-button" data-module="govuk-button">Save and continue</a>
+        <a href="/ched-a/08-notification-hub" class="govuk-button govuk-button--secondary" data-module="govuk-button">Save and return to hub</a>
+      </div>
+
+      <p class="govuk-body"><a href="/ched-a/08-notification-hub" class="govuk-link">Cancel and return to hub</a></p>
+    </div>
+  </div>
+</div>
+{% endblock %}

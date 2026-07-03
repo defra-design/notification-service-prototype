@@ -1,0 +1,25 @@
+{% extends "layouts/ched-a.html" %}
+{% from "govuk/components/radios/macro.njk" import govukRadios %}
+
+{% block content %}
+<div class="govuk-width-container">
+  <div class="govuk-grid-row">
+    <div class="govuk-grid-column-two-thirds">
+      <span class="govuk-caption-l">About the consignment</span>
+      <h1 class="govuk-heading-l">What are you importing?</h1>
+
+      {{ govukRadios({
+        name: "what-are-you-importing",
+        items: [
+          { text: "Live animals or germinal products", value: "live-animals-or-germinal-products" },
+          { text: "Products of animal origin or animal by-products", value: "products-of-animal-origin" },
+          { text: "High-risk food or feed of non-animal origin", value: "high-risk-food-or-feed" },
+          { text: "Plants, plant products or other objects", value: "plants-or-plant-products" }
+        ]
+      }) }}
+
+      <a href="/ched-a/02-origin-of-import" class="govuk-button" data-module="govuk-button">Continue</a>
+    </div>
+  </div>
+</div>
+{% endblock %}

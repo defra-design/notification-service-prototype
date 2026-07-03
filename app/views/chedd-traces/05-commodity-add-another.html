@@ -16,21 +16,26 @@
           </tr>
         </thead>
         <tbody class="govuk-table__body">
+          {% for item in data.commodities %}
           <tr class="govuk-table__row">
-            <td class="govuk-table__cell">10086000</td>
-            <td class="govuk-table__cell">Peppers of the Capsicum species (sweet or other than sweet)</td>
+            <td class="govuk-table__cell">{{ item.code }}</td>
+            <td class="govuk-table__cell">{{ item.description }}</td>
           </tr>
+          {% endfor %}
         </tbody>
       </table>
 
-      {{ govukRadios({
-        name: "add-another-commodity",
-        fieldset: { legend: { text: "Do you want to add another commodity?", classes: "govuk-fieldset__legend--m" } },
-        hint: { text: "You can only add another commodity if it has the same country of origin. If not, create a separate notification." },
-        items: [{ text: "Yes" }, { text: "No" }]
-      }) }}
+      <form method="post" novalidate>
+        {{ govukRadios({
+          name: "add-another-commodity",
+          value: data['add-another-commodity'],
+          fieldset: { legend: { text: "Do you want to add another commodity?", classes: "govuk-fieldset__legend--m" } },
+          hint: { text: "You can only add another commodity if it has the same country of origin. If not, create a separate notification." },
+          items: [{ text: "Yes", value: "yes" }, { text: "No", value: "no" }]
+        }) }}
 
-      <a href="/chedd-traces/06-main-reason-importing" class="govuk-button" data-module="govuk-button">Save and continue</a>
+        <button type="submit" class="govuk-button" data-module="govuk-button">Save and continue</button>
+      </form>
     </div>
   </div>
 </div>

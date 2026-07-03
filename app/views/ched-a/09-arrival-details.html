@@ -1,0 +1,93 @@
+{% extends "layouts/ched-a.html" %}
+{% from "govuk/components/input/macro.njk" import govukInput %}
+{% from "govuk/components/select/macro.njk" import govukSelect %}
+
+{% block content %}
+<div class="govuk-width-container">
+  <div class="govuk-grid-row">
+    <div class="govuk-grid-column-two-thirds">
+      <p class="chedd-ref">DRAFT.GB.2026.0900608 - CHED-A</p>
+      <span class="govuk-caption-l">Movement</span>
+      <h1 class="govuk-heading-l">Arrival details</h1>
+
+      {{ govukInput({
+        label: { text: "Arrival date at port of entry", classes: "govuk-label--m" },
+        hint: { text: "The expected date of arrival at the port of entry. For example, 27/3/2026" },
+        id: "arrival-date",
+        name: "arrival-date",
+        classes: "govuk-input--width-10",
+        spellcheck: false
+      }) }}
+
+      <div class="govuk-form-group">
+        <label class="govuk-label govuk-label--m" for="port-of-entry">Port of entry</label>
+        <div class="govuk-hint">Choose where the transporter will enter with the consignment. Start typing to search by port or airport name or code.</div>
+        <div class="autocomplete-wrapper autocomplete-wrapper--30em">
+          {{ govukSelect({
+            id: "port-of-entry",
+            name: "port-of-entry",
+            items: ukBorderPorts
+          }) }}
+        </div>
+      </div>
+
+      {{ govukSelect({
+        id: "means-of-transport",
+        name: "means-of-transport",
+        label: { text: "Means of transport to the port of entry", classes: "govuk-label--m" },
+        items: [
+          { value: "", text: "Select one" },
+          { value: "air", text: "Air" },
+          { value: "rail", text: "Rail" },
+          { value: "road", text: "Road" },
+          { value: "sea", text: "Sea" }
+        ]
+      }) }}
+
+      {{ govukInput({
+        label: { text: "Transport identification", classes: "govuk-label--m" },
+        hint: { html: "To identify the means of transport, enter (one of the following):<ul class='govuk-list govuk-list--bullet govuk-!-margin-top-2'><li>flight number</li><li>train number</li><li>road vehicle registration number</li><li>vessel name (for ferries, also the road vehicle registration number)</li></ul>" },
+        id: "transport-identification",
+        name: "transport-identification",
+        classes: "govuk-input--width-20",
+        spellcheck: false
+      }) }}
+
+      {{ govukInput({
+        label: { text: "Transport document reference", classes: "govuk-label--m" },
+        hint: { text: "Enter the reference number on the air waybill, bill of lading, sea waybill, road consignment note (CMR) or other transport document." },
+        id: "transport-document-reference",
+        name: "transport-document-reference",
+        classes: "govuk-input--width-20",
+        spellcheck: false
+      }) }}
+
+      <div class="chedd-actions">
+        <a href="/ched-a/10-transited-countries" class="govuk-button" data-module="govuk-button">Save and continue</a>
+        <a href="/ched-a/08-notification-hub" class="govuk-button govuk-button--secondary" data-module="govuk-button">Save and return to hub</a>
+      </div>
+
+      <p class="govuk-body"><a href="/ched-a/08-notification-hub" class="govuk-link">Cancel and return to hub</a></p>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block pageScripts %}
+  {{ super() }}
+  <script src="https://cdn.jsdelivr.net/npm/accessible-autocomplete@2.0.4/dist/accessible-autocomplete.min.js"></script>
+  <script>
+    (function () {
+      var selectEl = document.querySelector('#port-of-entry')
+      if (selectEl && typeof accessibleAutocomplete !== 'undefined') {
+        accessibleAutocomplete.enhanceSelectElement({
+          autoselect: true,
+          showAllValues: false,
+          placeholder: 'Type to search',
+          minLength: 1,
+          selectElement: selectEl
+        })
+      }
+    })()
+  </script>
+{% endblock %}
