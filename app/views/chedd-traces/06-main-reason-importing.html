@@ -8,10 +8,29 @@
       <span class="govuk-caption-l">About the consignment</span>
       <h1 class="govuk-heading-l">What is the main reason for importing the consignment?</h1>
 
+      {% set facilityCountryOptions %}{% for country in tracesCountries() %}<option value="{{ country.value }}">{{ country.text }}</option>{% endfor %}{% endset %}
+
       {{ govukRadios({
         name: "reason",
         items: [
-          { text: "Internal market", hint: { text: "The consignment is intended for sale or use in Great Britain (England, Scotland or Wales)." } },
+          {
+            text: "Internal market",
+            hint: { text: "The consignment is intended for sale or use in Great Britain (England, Scotland or Wales)." },
+            conditional: {
+              html: govukInput({
+                label: { text: "Preferred onward transportation facility", classes: "govuk-label--s" },
+                hint: { text: "Provide name in case of a pending laboratory test result" },
+                id: "onward-facility-name",
+                name: "onward-facility-name"
+              }) + '<div class="govuk-form-group"><label class="govuk-label govuk-label--s" for="onward-facility-country">Country</label><div class="autocomplete-wrapper autocomplete-wrapper--20em"><select class="govuk-select" id="onward-facility-country" name="onward-facility-country"><option value="" disabled selected></option>' + facilityCountryOptions + '</select></div></div>' + govukInput({
+                label: { text: "ISO code", classes: "govuk-label--s" },
+                id: "onward-facility-iso-code",
+                name: "onward-facility-iso-code",
+                classes: "govuk-input--width-4",
+                spellcheck: false
+              })
+            }
+          },
           {
             text: "Non-internal market",
             checked: true,
@@ -39,4 +58,30 @@
     </div>
   </div>
 </div>
+{% endblock %}
+
+{% block pageScripts %}
+  {{ super() }}
+  <script src="https://cdn.jsdelivr.net/npm/accessible-autocomplete@2.0.4/dist/accessible-autocomplete.min.js"></script>
+  <script>
+    (function () {
+      function enhance (id) {
+        var selectEl = document.querySelector('#' + id)
+        if (!selectEl || typeof accessibleAutocomplete === 'undefined') return
+        accessibleAutocomplete.enhanceSelectElement({
+          autoselect: true,
+          showAllValues: false,
+          placeholder: 'Type to search',
+          defaultValue: (function () {
+            var opt = selectEl.options[selectEl.options.selectedIndex]
+            if (!opt || !opt.value) return ''
+            return opt.text
+          })(),
+          minLength: 1,
+          selectElement: selectEl
+        })
+      }
+      enhance('onward-facility-country')
+    })()
+  </script>
 {% endblock %}
