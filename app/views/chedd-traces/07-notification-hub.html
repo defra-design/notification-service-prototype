@@ -1,38 +1,151 @@
 {% extends "layouts/_base.html" %}
+{% from "govuk/components/task-list/macro.njk" import govukTaskList %}
 
 {% block content %}
 <div class="govuk-width-container">
   <div class="govuk-grid-row">
     <div class="govuk-grid-column-two-thirds">
       <p class="chedd-ref">DRAFT.GB.2024.7006103 - CHEDD</p>
-      <h1 class="govuk-heading-l">Notification Hub</h1>
-      <p class="govuk-body">These sections can be completed in any order. You can save your progress and return at any time.</p>
 
-      <h2 class="govuk-heading-m">About the consignment</h2>
-      <div class="chedd-row"><a href="/chedd-traces/02-origin-animal-or-product" class="govuk-link">Origin of the import</a><strong class="govuk-tag govuk-tag--blue">Started</strong></div>
-      <div class="chedd-row"><a href="/chedd-traces/04-main-reason-importing" class="govuk-link">Main reason for importing the consignment</a><strong class="govuk-tag govuk-tag--blue">Started</strong></div>
+      <h1 class="govuk-heading-l">Overview</h1>
+      
+      <h2 class="govuk-heading-m">Your commodities</h2>
+      <div class="govuk-grid-row">
+        <div class="govuk-grid-column-one-half">
+          <div class="chedd-stat-card">
+            <div class="chedd-stat-card__top">
+              <p class="chedd-stat-card__value">8</p>
+              <p class="chedd-stat-card__label">Animals</p>
+            </div>
+            <div class="chedd-stat-card__bottom">
+              <p>Total number of animals in this consignment</p>
+            </div>
+          </div>
+        </div>
+        <div class="govuk-grid-column-one-half">
+          <div class="chedd-stat-card">
+            <div class="chedd-stat-card__top">
+              <p class="chedd-stat-card__value">0</p>
+              <p class="chedd-stat-card__label">Packages/boxes</p>
+            </div>
+            <div class="chedd-stat-card__bottom">
+              <p>Total number of packages in this consignment</p>
+            </div>
+          </div>
+        </div>
+      </div>
 
-      <h2 class="govuk-heading-m govuk-!-margin-top-6">Description of the goods</h2>
-      <div class="chedd-row"><a href="/chedd-traces/08-commodity" class="govuk-link">Commodity</a><strong class="govuk-tag govuk-tag--grey">To do</strong></div>
-      <div class="chedd-row"><a href="/chedd-traces/09-additional-details" class="govuk-link">Additional details</a><strong class="govuk-tag govuk-tag--grey">To do</strong></div>
+      <h2 class="govuk-heading-m govuk-!-margin-top-4">Notification tasklist</h2>
+      {# <p class="govuk-body">These sections can be completed in any order. You can save your progress and return at any time.</p> #}
 
-      <h2 class="govuk-heading-m govuk-!-margin-top-6">Documents</h2>
-      <div class="chedd-row"><a href="/chedd-traces/10-accompanying-documents-upload" class="govuk-link">Accompanying documents</a><strong class="govuk-tag govuk-tag--grey">To do</strong></div>
+      <h3 class="govuk-heading-s">About the consignment</h3>
+      {{ govukTaskList({
+        idPrefix: "about-consignment",
+        items: [
+          {
+            title: { text: "Origin of the import" },
+            href: "/chedd-traces/02-origin-animal-or-product",
+            status: { tag: { text: "Started", classes: "govuk-tag--blue" } }
+          },
+          {
+            title: { text: "Main reason for importing the consignment" },
+            href: "/chedd-traces/04-main-reason-importing",
+            status: { tag: { text: "Started", classes: "govuk-tag--blue" } }
+          }
+        ]
+      }) }}
 
-      <h2 class="govuk-heading-m govuk-!-margin-top-6">Traders</h2>
-      <div class="chedd-row"><a href="/chedd-traces/13-addresses" class="govuk-link">Addresses</a><strong class="govuk-tag govuk-tag--grey">To do</strong></div>
+      <h3 class="govuk-heading-s govuk-!-margin-top-6">Description of the goods</h3>
+      {{ govukTaskList({
+        idPrefix: "description-of-goods",
+        items: [
+          {
+            title: { text: "Commodity" },
+            href: "/chedd-traces/08-commodity",
+            status: { tag: { text: "To do", classes: "govuk-tag--grey" } }
+          },
+          {
+            title: { text: "Additional details" },
+            href: "/chedd-traces/09-additional-details",
+            status: { tag: { text: "To do", classes: "govuk-tag--grey" } }
+          }
+        ]
+      }) }}
 
-      <h2 class="govuk-heading-m govuk-!-margin-top-6">Transport</h2>
-      <div class="chedd-row"><a href="/chedd-traces/14-transport-to-port" class="govuk-link">Transport to the port of entry</a><strong class="govuk-tag govuk-tag--grey">To do</strong></div>
-      <div class="chedd-row"><a href="/chedd-traces/15-goods-movement-services" class="govuk-link">Goods movement services</a><strong class="govuk-tag govuk-tag--grey">To do</strong></div>
+      <h3 class="govuk-heading-s govuk-!-margin-top-6">Documents</h3>
+      {{ govukTaskList({
+        idPrefix: "documents",
+        items: [
+          {
+            title: { text: "Accompanying documents" },
+            href: "/chedd-traces/10-accompanying-documents-upload",
+            status: { tag: { text: "To do", classes: "govuk-tag--grey" } }
+          }
+        ]
+      }) }}
 
-      <h2 class="govuk-heading-m govuk-!-margin-top-6">Contacts</h2>
-      <div class="chedd-row"><a href="/chedd-traces/16-contact-details" class="govuk-link">Contact details</a><strong class="govuk-tag govuk-tag--grey">To do</strong></div>
-      <div class="chedd-row"><a href="/chedd-traces/17-nominated-contacts" class="govuk-link">Nominated contacts (optional)</a><strong class="govuk-tag govuk-tag--grey">To do</strong></div>
-      <div class="chedd-row"><a href="/chedd-traces/18-contact-address-consignment" class="govuk-link">Contact address for consignment</a><strong class="govuk-tag govuk-tag--grey">To do</strong></div>
+      <h3 class="govuk-heading-s govuk-!-margin-top-6">Traders</h3>
+      {{ govukTaskList({
+        idPrefix: "traders",
+        items: [
+          {
+            title: { text: "Addresses" },
+            href: "/chedd-traces/13-addresses",
+            status: { tag: { text: "To do", classes: "govuk-tag--grey" } }
+          }
+        ]
+      }) }}
 
-      <h2 class="govuk-heading-m govuk-!-margin-top-6">Complete notification</h2>
-      <div class="chedd-row"><a href="/chedd-traces/20-review-notification-draft" class="govuk-link">Review and submit</a><strong class="govuk-tag govuk-tag--grey">To do</strong></div>
+      <h3 class="govuk-heading-s govuk-!-margin-top-6">Transport</h3>
+      {{ govukTaskList({
+        idPrefix: "transport",
+        items: [
+          {
+            title: { text: "Transport to the port of entry" },
+            href: "/chedd-traces/14-transport-to-port",
+            status: { tag: { text: "To do", classes: "govuk-tag--grey" } }
+          },
+          {
+            title: { text: "Goods movement services" },
+            href: "/chedd-traces/15-goods-movement-services",
+            status: { tag: { text: "To do", classes: "govuk-tag--grey" } }
+          }
+        ]
+      }) }}
+
+      <h3 class="govuk-heading-s govuk-!-margin-top-6">Contacts</h3>
+      {{ govukTaskList({
+        idPrefix: "contacts",
+        items: [
+          {
+            title: { text: "Contact details" },
+            href: "/chedd-traces/16-contact-details",
+            status: { tag: { text: "To do", classes: "govuk-tag--grey" } }
+          },
+          {
+            title: { text: "Nominated contacts (optional)" },
+            href: "/chedd-traces/17-nominated-contacts",
+            status: { tag: { text: "To do", classes: "govuk-tag--grey" } }
+          },
+          {
+            title: { text: "Contact address for consignment" },
+            href: "/chedd-traces/18-contact-address-consignment",
+            status: { tag: { text: "To do", classes: "govuk-tag--grey" } }
+          }
+        ]
+      }) }}
+
+      <h3 class="govuk-heading-s govuk-!-margin-top-6">Complete notification</h3>
+      {{ govukTaskList({
+        idPrefix: "complete-notification",
+        items: [
+          {
+            title: { text: "Review and submit" },
+            href: "/chedd-traces/20-review-notification-draft",
+            status: { tag: { text: "To do", classes: "govuk-tag--grey" } }
+          }
+        ]
+      }) }}
 
       <div class="govuk-!-margin-top-6">
         <a href="/chedd-traces/08-commodity" class="govuk-button" data-module="govuk-button">Continue journey</a>
