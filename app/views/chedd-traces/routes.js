@@ -1,4 +1,23 @@
+const originHeadingsByImportType = {
+  'live-animal-or-germinal-products': 'Origin of the live animal or germinal products',
+  'products-of-animal-origin-or-animal-by-products': 'Origin of the product of animal origin or animal by-product',
+  'high-risk-food-or-feed-of-non-animal-origin': 'Origin of the high risk food or feed of non-animal origin',
+  'plants-plant-products-and-other-objects': 'Origin of the plants, plant products and other objects'
+}
+
 module.exports = function (router) {
+  router.post('/chedd-traces/01-what-are-you-importing', (req, res) => {
+    req.session.data['import-type'] = req.body['import-type']
+    res.redirect('/chedd-traces/02-origin-animal-or-product')
+  })
+
+  router.get('/chedd-traces/02-origin-animal-or-product', (req, res) => {
+    const importType = req.session.data['import-type']
+    res.render('chedd-traces/02-origin-animal-or-product', {
+      originHeading: originHeadingsByImportType[importType] || 'Origin of the animal or product'
+    })
+  })
+
   router.get('/chedd-traces/04-commodity-search', (req, res) => {
     const commoditiesData = require('../../data/commodities-ched-d.js')
 
