@@ -3,40 +3,86 @@
 {% block content %}
 <div class="govuk-width-container">
   <div class="govuk-grid-row">
-    <div class="govuk-grid-column-two-thirds">
+    <div class="govuk-grid-column-full-width">
       <p class="chedd-ref">DRAFT.GB.2024.7006103 - CHEDD</p>
       <span class="govuk-caption-l">Documents</span>
       <h1 class="govuk-heading-l">Accompanying documents</h1>
 
       <p class="govuk-body">Upload any other required documents. This may include:</p>
       <ul class="govuk-list govuk-list--bullet">
-        <li>a health or phytosanitary certificate and laboratory sample results</li>
-        <li>transport documents, such as road consignment notes (CMR), air, sea or rail waybills</li>
+        <li>if applicable, laboratory sample or analytical test results (also known as the &lsquo;official certificate&rsquo;)</li>
+        <li>transport documents, such as a road consignment (CMR) note or air, sea or rail waybills</li>
         <li>commercial documents, such as bill of lading, invoice and packing list</li>
       </ul>
 
-      <table class="govuk-table">
-        <caption class="govuk-table__caption govuk-table__caption--s">Showing 1 additional document</caption>
+      <table class="govuk-table chedd-documents-table">
+        <caption class="govuk-table__caption govuk-table__caption--s govuk-!-margin-bottom-4 govuk-!-margin-top-2">Showing 1 additional document</caption>
         <thead class="govuk-table__head">
           <tr class="govuk-table__row">
-            <th class="govuk-table__header">Document type</th>
+            <th class="govuk-table__header chedd-doc-type-column">Document type</th>
             <th class="govuk-table__header">Document reference</th>
-            <th class="govuk-table__header">Date of issue</th>
+            <th class="govuk-table__header">Date of issue<br><span class="govuk-body-s chedd-muted">Day Month Year</span></th>
             <th class="govuk-table__header">Attachments</th>
           </tr>
         </thead>
         <tbody class="govuk-table__body">
           <tr class="govuk-table__row">
-            <td class="govuk-table__cell">Veterinary health certificate</td>
-            <td class="govuk-table__cell">12</td>
+            <td class="govuk-table__cell">
+              Veterinary health certificate<br>
+              <a href="#" class="govuk-link">Remove row</a>
+            </td>
+            <td class="govuk-table__cell">
+              12<br>
+              <a href="/chedd-traces/12-delete-file" class="govuk-link">Remove attachment</a>
+            </td>
             <td class="govuk-table__cell">9 September 2024</td>
-            <td class="govuk-table__cell"><a class="govuk-link" href="#">file.pdf</a></td>
+            <td class="govuk-table__cell">
+              <a class="govuk-link" href="#">file.pdf</a>
+            </td>
+          </tr>
+          <tr class="govuk-table__row">
+            <td class="govuk-table__cell">
+              <div class="govuk-form-group">
+                <label class="govuk-label govuk-visually-hidden" for="new-document-type">Document type</label>
+                <div class="autocomplete-wrapper autocomplete-wrapper--full">
+                  <select class="govuk-select" id="new-document-type" name="new-document-type">
+                    <option value="" disabled selected></option>
+                    {% for item in documentTypeItems %}
+                      {% if item.value %}
+                      <option value="{{ item.value }}">{{ item.text }}</option>
+                      {% endif %}
+                    {% endfor %}
+                  </select>
+                </div>
+              </div>
+            </td>
+            <td class="govuk-table__cell">
+              {{ govukInput({
+                id: "new-document-reference",
+                name: "new-document-reference",
+                label: { text: "Document reference", classes: "govuk-visually-hidden" }
+              }) }}
+            </td>
+            <td class="govuk-table__cell">
+              <div class="chedd-date-input">
+                <label class="govuk-visually-hidden" for="new-document-date-day">Day</label>
+                <input class="govuk-input govuk-input--width-2" id="new-document-date-day" name="new-document-date-day" type="text" inputmode="numeric">
+                <label class="govuk-visually-hidden" for="new-document-date-month">Month</label>
+                <input class="govuk-input govuk-input--width-2" id="new-document-date-month" name="new-document-date-month" type="text" inputmode="numeric">
+                <label class="govuk-visually-hidden" for="new-document-date-year">Year</label>
+                <input class="govuk-input govuk-input--width-4" id="new-document-date-year" name="new-document-date-year" type="text" inputmode="numeric">
+              </div>
+            </td>
+            <td class="govuk-table__cell">
+              <a href="#" class="govuk-link">Add attachment</a>
+            </td>
           </tr>
         </tbody>
       </table>
 
-      <p class="govuk-body"><a href="/chedd-traces/12-delete-file" class="govuk-link">Remove attachment</a></p>
       <p class="govuk-body"><a href="#" class="govuk-link">Add a document</a></p>
+      <br>
+      
 
       <div class="chedd-actions">
         <a href="/chedd-traces/05-notification-hub" class="govuk-button govuk-button--secondary" data-module="govuk-button">Save and return to hub</a>
@@ -46,4 +92,23 @@
     </div>
   </div>
 </div>
+{% endblock %}
+
+{% block pageScripts %}
+  {{ super() }}
+  <script src="https://cdn.jsdelivr.net/npm/accessible-autocomplete@2.0.4/dist/accessible-autocomplete.min.js"></script>
+  <script>
+    (function () {
+      var selectEl = document.querySelector('#new-document-type')
+      if (selectEl && typeof accessibleAutocomplete !== 'undefined') {
+        accessibleAutocomplete.enhanceSelectElement({
+          autoselect: true,
+          showAllValues: false,
+          placeholder: 'Type to search',
+          minLength: 1,
+          selectElement: selectEl
+        })
+      }
+    })()
+  </script>
 {% endblock %}
