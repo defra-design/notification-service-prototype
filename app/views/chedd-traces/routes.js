@@ -5,6 +5,16 @@ const originHeadingsByImportType = {
   'plants-plant-products-and-other-objects': 'Origin of the plants, plant products and other objects'
 }
 
+const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
+
+function formatDayMonthYear (day, month, year) {
+  const d = parseInt(day, 10)
+  const m = parseInt(month, 10)
+  const y = parseInt(year, 10)
+  if (!d || !m || !y || !monthNames[m - 1]) return ''
+  return `${d} ${monthNames[m - 1]} ${y}`
+}
+
 module.exports = function (router) {
   router.post('/chedd-traces/01-what-are-you-importing', (req, res) => {
     req.session.data['import-type'] = req.body['import-type']
@@ -118,9 +128,45 @@ module.exports = function (router) {
   router.get('/chedd-traces/10-accompanying-documents', (req, res) => {
     const attachmentTypes = require('../../data/traces-attachment-types.js')
 
+    if (!req.session.data.accompanyingDocuments) {
+      req.session.data.accompanyingDocuments = [
+        { type: 'Veterinary health certificate', reference: '12', date: '9 September 2024', attachment: 'file.pdf' }
+      ]
+    }
+
     res.render('chedd-traces/10-accompanying-documents', {
+      documents: req.session.data.accompanyingDocuments,
       documentTypeItems: [{ value: '', text: 'Select document type' }].concat(attachmentTypes)
     })
+  })
+
+  router.post('/chedd-traces/10-accompanying-documents', (req, res) => {
+    const attachmentTypes = require('../../data/traces-attachment-types.js')
+    const match = attachmentTypes.find(t => t.value === req.body['new-document-type'])
+
+    req.session.data.pendingDocument = {
+      type: match ? match.text : req.body['new-document-type'],
+      reference: req.body['new-document-reference'],
+      date: formatDayMonthYear(req.body['new-document-date-day'], req.body['new-document-date-month'], req.body['new-document-date-year'])
+    }
+
+    res.redirect('/chedd-traces/11-accompanying-documents-upload')
+  })
+
+  router.post('/chedd-traces/11-accompanying-documents-upload', (req, res) => {
+    const pending = req.session.data.pendingDocument || {}
+
+    req.session.data.accompanyingDocuments = req.session.data.accompanyingDocuments || []
+    req.session.data.accompanyingDocuments.push({
+      type: pending.type || '',
+      reference: pending.reference || '',
+      date: pending.date || '',
+      attachment: req.body['attachment-filename'] || 'Not provided'
+    })
+
+    delete req.session.data.pendingDocument
+
+    res.redirect('/chedd-traces/10-accompanying-documents')
   })
 
   router.post('/chedd-traces/05-commodity-add-another', (req, res) => {

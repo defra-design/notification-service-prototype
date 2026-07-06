@@ -15,8 +15,9 @@
         <li>commercial documents, such as bill of lading, invoice and packing list</li>
       </ul>
 
+      <form method="post" novalidate>
       <table class="govuk-table chedd-documents-table">
-        <caption class="govuk-table__caption govuk-table__caption--s govuk-!-margin-bottom-4 govuk-!-margin-top-2">Showing 1 additional document</caption>
+        <caption class="govuk-table__caption govuk-table__caption--s govuk-!-margin-bottom-4 govuk-!-margin-top-2">Showing {{ documents.length }} additional document{{ 's' if documents.length != 1 else '' }}</caption>
         <thead class="govuk-table__head">
           <tr class="govuk-table__row">
             <th class="govuk-table__header chedd-doc-type-column">Document type</th>
@@ -26,20 +27,22 @@
           </tr>
         </thead>
         <tbody class="govuk-table__body">
+          {% for doc in documents %}
           <tr class="govuk-table__row">
             <td class="govuk-table__cell">
-              Veterinary health certificate<br>
+              {{ doc.type }}<br>
               <a href="#" class="govuk-link">Remove row</a>
             </td>
             <td class="govuk-table__cell">
-              12<br>
+              {{ doc.reference }}<br>
               <a href="/chedd-traces/12-delete-file" class="govuk-link">Remove attachment</a>
             </td>
-            <td class="govuk-table__cell">9 September 2024</td>
+            <td class="govuk-table__cell">{{ doc.date }}</td>
             <td class="govuk-table__cell">
-              <a class="govuk-link" href="#">file.pdf</a>
+              <a class="govuk-link" href="#">{{ doc.attachment }}</a>
             </td>
           </tr>
+          {% endfor %}
           <tr class="govuk-table__row">
             <td class="govuk-table__cell">
               <div class="govuk-form-group">
@@ -74,11 +77,12 @@
               </div>
             </td>
             <td class="govuk-table__cell">
-              <a href="#" class="govuk-link">Add attachment</a>
+              <button type="submit" class="quick-fill-btn">Add attachment</button>
             </td>
           </tr>
         </tbody>
       </table>
+      </form>
 
       <p class="govuk-body"><a href="#" class="govuk-link">Add a document</a></p>
       <br>
