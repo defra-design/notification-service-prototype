@@ -9,31 +9,33 @@
       <span class="govuk-caption-l">About the consignment</span>
       <h1 class="govuk-heading-l">{{ originHeading }}</h1>
 
-      <div class="govuk-form-group">
-        <label class="govuk-label govuk-label--m" for="origin-country">Country of origin</label>
-        <div class="autocomplete-wrapper autocomplete-wrapper--20em">
-        <select class="govuk-select" id="origin-country" name="origin-country">
-          <option value="" disabled selected></option>
-          {% for country in tracesCountries() %}
-          <option value="{{ country.value }}">{{ country.text }}</option>
-          {% endfor %}
-        </select>
+      <form method="post" novalidate>
+        <div class="govuk-form-group">
+          <label class="govuk-label govuk-label--m" for="origin-country">Country of origin</label>
+          <div class="autocomplete-wrapper autocomplete-wrapper--20em">
+          <select class="govuk-select" id="origin-country" name="origin-country">
+            <option value="" disabled selected></option>
+            {% for country in tracesCountries() %}
+            <option value="{{ country.value }}" {% if data.countryOfOrigin == country.value %}selected{% endif %}>{{ country.text }}</option>
+            {% endfor %}
+          </select>
+          </div>
         </div>
-      </div>
 
-      <details class="govuk-details">
-        <summary class="govuk-details__summary">
-          <span class="govuk-details__summary-text">
-            If the country of origin is not listed
-          </span>
-        </summary>
-        <div class="govuk-details__text">
-          <p>You can no longer select EU and European Free Trade Association (EFTA) countries from this list.</p>
-          <p><a href="#" target="_blank" rel="noopener noreferrer">Read more on EU and EFTA countries</a>.</p>
-        </div>
-      </details>
+        <details class="govuk-details">
+          <summary class="govuk-details__summary">
+            <span class="govuk-details__summary-text">
+              If the country of origin is not listed
+            </span>
+          </summary>
+          <div class="govuk-details__text">
+            <p>You can no longer select EU and European Free Trade Association (EFTA) countries from this list.</p>
+            <p><a href="#" target="_blank" rel="noopener noreferrer">Read more on EU and EFTA countries</a>.</p>
+          </div>
+        </details>
 
-      <a href="/chedd-traces/03-origin-import" class="govuk-button" data-module="govuk-button">Save and continue</a>
+        <button type="submit" class="govuk-button" data-module="govuk-button">Save and continue</button>
+      </form>
     </div>
   </div>
 </div>

@@ -8,13 +8,14 @@
       <span class="govuk-caption-l">About the consignment</span>
       <h1 class="govuk-heading-l">Origin of the import</h1>
 
+      <form method="post" novalidate>
       <div class="govuk-form-group">
         <label class="govuk-label govuk-label--m" for="origin-country">Country of origin</label>
         <div class="autocomplete-wrapper autocomplete-wrapper--20em">
         <select class="govuk-select" id="origin-country" name="origin-country">
           <option value="" disabled selected></option>
           {% for country in tracesCountries() %}
-          <option value="{{ country.value }}">{{ country.text }}</option>
+          <option value="{{ country.value }}" {% if data.countryOfOrigin == country.value %}selected{% endif %}>{{ country.text }}</option>
           {% endfor %}
         </select>
         </div>
@@ -123,7 +124,8 @@
         classes: "govuk-input govuk-input--width-40"
       }) }}
 
-      <a href="/chedd-traces/04-commodity-search" class="govuk-button" data-module="govuk-button">Save and continue</a>
+      <button type="submit" class="govuk-button" data-module="govuk-button">Save and continue</button>
+      </form>
     </div>
   </div>
 </div>
