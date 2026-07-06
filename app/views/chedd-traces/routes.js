@@ -18,8 +18,34 @@ module.exports = function (router) {
     })
   })
 
+  router.post('/chedd-traces/02-origin-animal-or-product', (req, res) => {
+    const tracesCountries = require('../../data/traces-countries.js')
+    const value = req.body['origin-country']
+    const match = tracesCountries.find(country => country.value === value)
+
+    req.session.data.countryOfOrigin = value
+    req.session.data.countryOfOriginText = match ? match.text : value
+
+    res.redirect('/chedd-traces/03-origin-import')
+  })
+
+  router.post('/chedd-traces/03-origin-import', (req, res) => {
+    const tracesCountries = require('../../data/traces-countries.js')
+    const value = req.body['origin-country']
+    const match = tracesCountries.find(country => country.value === value)
+
+    req.session.data.countryOfOrigin = value
+    req.session.data.countryOfOriginText = match ? match.text : value
+
+    res.redirect('/chedd-traces/04-commodity-search')
+  })
+
   router.get('/chedd-traces/04-commodity-search', (req, res) => {
     const commoditiesData = require('../../data/commodities-ched-d.js')
+
+    if (req.query.returnTo === '08-commodity') {
+      req.session.data.commodityReturnTo = '08-commodity'
+    }
 
     const commodityOptions = Object.entries(commoditiesData)
       .map(([key, details]) => ({
@@ -48,7 +74,45 @@ module.exports = function (router) {
       description: details.description
     })
 
+    if (req.session.data.commodityReturnTo === '08-commodity') {
+      delete req.session.data.commodityReturnTo
+      return res.redirect('/chedd-traces/08-commodity')
+    }
+
     res.redirect('/chedd-traces/05-commodity-add-another')
+  })
+
+  router.get('/chedd-traces/07-notification-hub', (req, res) => {
+    res.render('chedd-traces/07-notification-hub', {
+      commodityCount: (req.session.data.commodities || []).length
+    })
+  })
+
+  router.get('/chedd-traces/08-commodity', (req, res) => {
+    const commoditiesData = require('../../data/commodities-ched-d.js')
+    const regionRules = require('../../data/region-of-origin-rules.js')
+    const packageTypes = require('../../data/package-types.js')
+    const countryOfOriginText = req.session.data.countryOfOriginText
+
+    const commodities = (req.session.data.commodities || []).map(item => {
+      const details = commoditiesData[item.commodity] || {}
+      const rule = regionRules.find(r => r.commodity === item.commodity && r.country === countryOfOriginText)
+
+      return {
+        ...item,
+        commonName: details.commonName || item.commodity,
+        unit: details.unit || 'kg',
+        regionOfOriginRequired: !!rule,
+        regionOfOriginLabel: rule ? rule.label : null,
+        regionOfOriginHint: rule ? rule.hint : null
+      }
+    })
+
+    res.render('chedd-traces/08-commodity', {
+      commodities,
+      countryOfOriginText,
+      packageTypeItems: [{ value: '', text: 'Select type of package' }].concat(packageTypes)
+    })
   })
 
   router.post('/chedd-traces/05-commodity-add-another', (req, res) => {
