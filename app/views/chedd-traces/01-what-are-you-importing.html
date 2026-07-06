@@ -9,17 +9,20 @@
       <span class="govuk-caption-l">About the consignment</span>
       <h1 class="govuk-heading-l">What are you importing?</h1>
 
-      {{ govukRadios({
-        name: "import-type",
-        items: [
-          { text: "Live animal or germinal products" },
-          { text: "Products of animal origin or animal by-products" },
-          { text: "High risk food or feed of non-animal origin" },
-          { text: "Plants, plant products and other objects" }
-        ]
-      }) }}
+      <form method="post" novalidate>
+        {{ govukRadios({
+          name: "import-type",
+          value: data['import-type'],
+          items: [
+            { text: "Live animal or germinal products", value: "live-animal-or-germinal-products" },
+            { text: "Products of animal origin or animal by-products", value: "products-of-animal-origin-or-animal-by-products" },
+            { text: "High risk food or feed of non-animal origin", value: "high-risk-food-or-feed-of-non-animal-origin" },
+            { text: "Plants, plant products and other objects", value: "plants-plant-products-and-other-objects" }
+          ]
+        }) }}
 
-      <a href="/chedd-traces/02-origin-animal-or-product" class="govuk-button" data-module="govuk-button">Save and continue</a>
+        <button type="submit" class="govuk-button" data-module="govuk-button">Save and continue</button>
+      </form>
     </div>
   </div>
 </div>
