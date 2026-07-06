@@ -115,6 +115,14 @@ module.exports = function (router) {
     })
   })
 
+  router.get('/chedd-traces/10-accompanying-documents', (req, res) => {
+    const attachmentTypes = require('../../data/traces-attachment-types.js')
+
+    res.render('chedd-traces/10-accompanying-documents', {
+      documentTypeItems: [{ value: '', text: 'Select document type' }].concat(attachmentTypes)
+    })
+  })
+
   router.post('/chedd-traces/05-commodity-add-another', (req, res) => {
     const addAnother = req.session.data['add-another-commodity']
 
