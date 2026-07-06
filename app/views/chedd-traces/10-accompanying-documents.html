@@ -31,15 +31,21 @@
           <tr class="govuk-table__row">
             <td class="govuk-table__cell">
               {{ doc.type }}<br>
-              <a href="#" class="govuk-link">Remove row</a>
+              <a href="/chedd-traces/10-accompanying-documents/remove-row?index={{ loop.index0 }}" class="govuk-link">Remove row</a>
             </td>
             <td class="govuk-table__cell">
               {{ doc.reference }}<br>
-              <a href="/chedd-traces/12-delete-file" class="govuk-link">Remove attachment</a>
+              {% if doc.attachment %}
+              <a href="/chedd-traces/12-delete-file?index={{ loop.index0 }}" class="govuk-link">Remove attachment</a>
+              {% endif %}
             </td>
             <td class="govuk-table__cell">{{ doc.date }}</td>
             <td class="govuk-table__cell">
+              {% if doc.attachment %}
               <a class="govuk-link" href="#">{{ doc.attachment }}</a>
+              {% else %}
+              No attachment
+              {% endif %}
             </td>
           </tr>
           {% endfor %}
@@ -84,9 +90,7 @@
       </table>
       </form>
 
-      <p class="govuk-body"><a href="#" class="govuk-link">Add a document</a></p>
-      <br>
-      
+      {# <p class="govuk-body"><a href="#" class="govuk-link">Add a document</a></p> #}    
 
       <div class="chedd-actions">
         <a href="/chedd-traces/05-notification-hub" class="govuk-button govuk-button--secondary" data-module="govuk-button">Save and return to hub</a>

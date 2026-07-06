@@ -140,6 +140,17 @@ module.exports = function (router) {
     })
   })
 
+  router.get('/chedd-traces/10-accompanying-documents/remove-row', (req, res) => {
+    const index = parseInt(req.query.index, 10)
+    const documents = req.session.data.accompanyingDocuments || []
+
+    if (!isNaN(index) && documents[index]) {
+      documents.splice(index, 1)
+    }
+
+    res.redirect('/chedd-traces/10-accompanying-documents')
+  })
+
   router.post('/chedd-traces/10-accompanying-documents', (req, res) => {
     const attachmentTypes = require('../../data/traces-attachment-types.js')
     const match = attachmentTypes.find(t => t.value === req.body['new-document-type'])
@@ -151,6 +162,31 @@ module.exports = function (router) {
     }
 
     res.redirect('/chedd-traces/11-accompanying-documents-upload')
+  })
+
+  router.get('/chedd-traces/12-delete-file', (req, res) => {
+    const index = parseInt(req.query.index, 10)
+    const documents = req.session.data.accompanyingDocuments || []
+    const doc = documents[index]
+
+    req.session.data.deleteFileIndex = index
+
+    res.render('chedd-traces/12-delete-file', {
+      filename: doc ? doc.attachment : 'file.pdf'
+    })
+  })
+
+  router.post('/chedd-traces/12-delete-file', (req, res) => {
+    const index = req.session.data.deleteFileIndex
+    const documents = req.session.data.accompanyingDocuments || []
+
+    if (documents[index]) {
+      documents[index].attachment = ''
+    }
+
+    delete req.session.data.deleteFileIndex
+
+    res.redirect('/chedd-traces/10-accompanying-documents')
   })
 
   router.post('/chedd-traces/11-accompanying-documents-upload', (req, res) => {
