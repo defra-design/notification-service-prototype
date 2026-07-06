@@ -8,13 +8,15 @@
       <h1 class="govuk-heading-l">Delete file</h1>
 
       <h2 class="govuk-heading-m">Are you sure you want to delete this file?</h2>
-      <p class="govuk-body">file.pdf</p>
+      <p class="govuk-body">{{ filename }}</p>
       <p class="govuk-body">Once deleted, you will be unable to retrieve this file.</p>
 
-      <div class="chedd-actions">
-        <a href="/chedd-traces/13-addresses" class="govuk-button" data-module="govuk-button">Yes, delete this file</a>
-      </div>
-      <p class="govuk-body"><a href="/chedd-traces/13-addresses" class="govuk-link">No, do not delete this file</a></p>
+      <form method="post" novalidate>
+        <div class="chedd-actions">
+          <button type="submit" class="govuk-button" data-module="govuk-button">Yes, delete this file</button>
+        </div>
+      </form>
+      <p class="govuk-body"><a href="/chedd-traces/10-accompanying-documents" class="govuk-link">No, do not delete this file</a></p>
     </div>
   </div>
 </div>
