@@ -5,6 +5,45 @@ const originHeadingsByImportType = {
   'plants-plant-products-and-other-objects': 'Origin of the plants, plant products and other objects'
 }
 
+const importTypeLabelsByImportType = {
+  'live-animal-or-germinal-products': 'Live animal or germinal products',
+  'products-of-animal-origin-or-animal-by-products': 'Products of animal origin or animal by-products',
+  'high-risk-food-or-feed-of-non-animal-origin': 'High risk food or feed of non-animal origin',
+  'plants-plant-products-and-other-objects': 'Plants, plant products and other objects'
+}
+
+const reasonLabelsByReason = {
+  'internal-market': 'Internal market',
+  'non-internal-market': 'Non-internal market'
+}
+
+const commodityIntendedLabels = {
+  feedstuff: 'Feedstuff',
+  'further-process': 'Further process',
+  'human-consumption': 'Human consumption',
+  'human-consumption-after-further-treatment': 'Human consumption after further treatment',
+  other: 'Other',
+  sample: 'Sample',
+  'trade-sample': 'Trade Sample'
+}
+
+const transportConditionsLabels = { ambient: 'Ambient', chilled: 'Chilled', frozen: 'Frozen' }
+
+const trailersLabels = { yes: 'Yes', no: 'No' }
+
+const transportTypeLabels = { airplane: 'Airplane', railway: 'Railway', 'road-vehicle': 'Road vehicle', vessel: 'Vessel' }
+
+function transportIdentifier (transport) {
+  if (!transport) return 'Not provided'
+  switch (transport.type) {
+    case 'airplane': return transport['flight-number'] || 'Not provided'
+    case 'railway': return transport.identifier || 'Not provided'
+    case 'road-vehicle': return transport['vehicle-registration'] || 'Not provided'
+    case 'vessel': return transport['ship-name'] || 'Not provided'
+    default: return 'Not provided'
+  }
+}
+
 const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
 
 function formatDayMonthYear (day, month, year) {
@@ -92,9 +131,73 @@ module.exports = function (router) {
     res.redirect('/chedd-traces/05-commodity-add-another')
   })
 
+  router.post('/chedd-traces/06-main-reason-importing', (req, res) => {
+    res.redirect('/chedd-traces/07-notification-hub')
+  })
+
   router.get('/chedd-traces/07-notification-hub', (req, res) => {
     res.render('chedd-traces/07-notification-hub', {
       commodityCount: (req.session.data.commodities || []).length
+    })
+  })
+
+  router.post('/chedd-traces/14-transport-to-port', (req, res) => {
+    const typeFieldPattern = /^transport-(\d+)-type$/
+    const indices = Object.keys(req.body)
+      .map(key => key.match(typeFieldPattern))
+      .filter(Boolean)
+      .map(match => match[1])
+      .sort((a, b) => Number(a) - Number(b))
+
+    req.session.data.transports = indices.map(index => {
+      const prefix = 'transport-' + index + '-'
+      const values = { type: req.body[prefix + 'type'] }
+
+      Object.keys(req.body).forEach(fieldKey => {
+        if (fieldKey.indexOf(prefix) === 0 && fieldKey !== prefix + 'type') {
+          values[fieldKey.slice(prefix.length)] = req.body[fieldKey]
+        }
+      })
+
+      return values
+    })
+
+    res.redirect('/chedd-traces/20-review-notification-draft')
+  })
+
+  router.get('/chedd-traces/20-review-notification-draft', (req, res) => {
+    const data = req.session.data
+    const { getBcpLabel } = require('../../data/border-control-posts-ched-d.js')
+    const tracesCountries = require('../../data/traces-countries.js')
+
+    const countryText = (value) => {
+      const match = tracesCountries.find(country => country.value === value)
+      return match ? match.text : (value || 'Not provided')
+    }
+
+    const commodities = data.commodities || []
+    const totalNetWeight = commodities.reduce((sum, item) => sum + (parseFloat(item.netWeight) || 0), 0)
+    const totalPackages = commodities.reduce((sum, item) => sum + (parseInt(item.packages, 10) || 0), 0)
+
+    const transports = (data.transports || []).map(transport => ({
+      typeLabel: transportTypeLabels[transport.type] || transport.type,
+      identifier: transportIdentifier(transport),
+      document: transport.document || 'Not provided'
+    }))
+
+    res.render('chedd-traces/20-review-notification-draft', {
+      importTypeText: importTypeLabelsByImportType[data['import-type']] || 'Not provided',
+      reasonText: reasonLabelsByReason[data.reason] || 'Not provided',
+      commodityIntendedText: commodityIntendedLabels[data['commodity-intended']] || 'Not provided',
+      totalNetWeight,
+      totalPackages,
+      bcpText: getBcpLabel(data['border-control-post']),
+      transports,
+      trailersText: trailersLabels[data.trailers] || 'Not provided',
+      transportConditionsText: transportConditionsLabels[data['transport-conditions']] || 'Not provided',
+      dispatchCountryText: countryText(data['dispatch-country']),
+      arrivalDateText: formatDayMonthYear(data['arrival-date-day'], data['arrival-date-month'], data['arrival-date-year']) || 'Not provided',
+      arrivalTimeText: (data['arrival-hour'] && data['arrival-minute']) ? `${data['arrival-hour']}:${data['arrival-minute']}` : 'Not provided'
     })
   })
 
@@ -123,6 +226,28 @@ module.exports = function (router) {
       countryOfOriginText,
       packageTypeItems: [{ value: '', text: 'Select type of package' }].concat(packageTypes)
     })
+  })
+
+  router.post('/chedd-traces/08-commodity', (req, res) => {
+    const packageTypes = require('../../data/package-types.js')
+    const commodities = req.session.data.commodities || []
+
+    commodities.forEach((item, index) => {
+      item.netWeight = req.body['net-weight-' + index]
+      item.packages = req.body['packages-' + index]
+      item.packageType = req.body['type-package-' + index]
+      const packageType = packageTypes.find(p => p.value === item.packageType)
+      item.packageTypeText = packageType ? packageType.text : item.packageType
+      item.regionOfOrigin = req.body['region-of-origin-' + index]
+    })
+
+    req.session.data.grossWeight = req.body['gross-weight']
+
+    res.redirect('/chedd-traces/09-additional-details')
+  })
+
+  router.post('/chedd-traces/09-additional-details', (req, res) => {
+    res.redirect('/chedd-traces/10-accompanying-documents')
   })
 
   router.get('/chedd-traces/10-accompanying-documents', (req, res) => {

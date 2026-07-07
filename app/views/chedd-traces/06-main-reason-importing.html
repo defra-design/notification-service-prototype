@@ -10,11 +10,14 @@
 
       {% set facilityCountryOptions %}{% for country in tracesCountries() %}<option value="{{ country.value }}">{{ country.text }}</option>{% endfor %}{% endset %}
 
+      <form method="post" novalidate>
       {{ govukRadios({
         name: "reason",
+        value: data.reason,
         items: [
           {
             text: "Internal market",
+            value: "internal-market",
             hint: { text: "The consignment is intended for sale or use in Great Britain (England, Scotland or Wales)." },
             conditional: {
               html: govukInput({
@@ -33,6 +36,7 @@
           },
           {
             text: "Non-internal market",
+            value: "non-internal-market",
             hint: { text: "The consignment is not intended for sale or use in Great Britain and will be exported to another country." },
             conditional: {
               html: govukInput({
@@ -53,7 +57,8 @@
         ]
       }) }}
 
-      <a href="/chedd-traces/07-notification-hub" class="govuk-button" data-module="govuk-button">Save and continue</a>
+      <button type="submit" class="govuk-button" data-module="govuk-button">Save and continue</button>
+      </form>
     </div>
   </div>
 </div>
