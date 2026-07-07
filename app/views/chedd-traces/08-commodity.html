@@ -36,6 +36,7 @@
 
       <p class="govuk-body"><a href="/chedd-traces/04-commodity-search?returnTo=08-commodity" class="govuk-link">Add commodity</a></p>
 
+      <form method="post" novalidate>
       {% for item in commodities %}
       <h2 class="govuk-heading-m">{{ item.commonName }}</h2>
       <div class="govuk-grid-row">
@@ -46,16 +47,17 @@
             classes: "govuk-input--width-5",
             id: "net-weight-" + loop.index0,
             name: "net-weight-" + loop.index0,
+            value: item.netWeight,
             suffix: { text: "kg" },
             spellcheck: false,
             inputmode: "decimal"
           }) }}
           {% else %}
-          {{ govukInput({ label: { text: "Net weight (" + item.unit + ")", classes: "govuk-label--s" }, id: "net-weight-" + loop.index0, name: "net-weight-" + loop.index0 }) }}
+          {{ govukInput({ label: { text: "Net weight (" + item.unit + ")", classes: "govuk-label--s" }, id: "net-weight-" + loop.index0, name: "net-weight-" + loop.index0, value: item.netWeight }) }}
           {% endif %}
         </div>
-        <div class="govuk-grid-column-one-third">{{ govukInput({ label: { text: "Number of packages", classes: "govuk-label--s" }, id: "packages-" + loop.index0, name: "packages-" + loop.index0 }) }}</div>
-        <div class="govuk-grid-column-one-third">{{ govukSelect({ id: "type-package-" + loop.index0, name: "type-package-" + loop.index0, label: { text: "Type of package", classes: "govuk-label--s" }, items: packageTypeItems }) }}</div>
+        <div class="govuk-grid-column-one-third">{{ govukInput({ label: { text: "Number of packages", classes: "govuk-label--s" }, id: "packages-" + loop.index0, name: "packages-" + loop.index0, value: item.packages }) }}</div>
+        <div class="govuk-grid-column-one-third">{{ govukSelect({ id: "type-package-" + loop.index0, name: "type-package-" + loop.index0, label: { text: "Type of package", classes: "govuk-label--s" }, items: packageTypeItems, value: item.packageType }) }}</div>
       </div>
 
       {% if item.regionOfOriginRequired %}
@@ -64,6 +66,7 @@
         hint: { text: item.regionOfOriginHint },
         id: "region-of-origin-" + loop.index0,
         name: "region-of-origin-" + loop.index0,
+        value: item.regionOfOrigin,
         classes: "govuk-input--width-20"
       }) }}
       {% endif %}
@@ -90,15 +93,17 @@
         classes: "govuk-input--width-5",
         id: "gross-weight",
         name: "gross-weight",
+        value: data.grossWeight,
         suffix: { text: "kg" },
         spellcheck: false,
         inputmode: "decimal"
       }) }}
 
       <div class="chedd-actions">
-        <a href="/chedd-traces/07-notification-hub" class="govuk-button govuk-button--secondary" data-module="govuk-button">Save and return to hub</a>
-        <a href="/chedd-traces/09-additional-details" class="govuk-button" data-module="govuk-button">Save and continue</a>
+        <button type="submit" class="govuk-button govuk-button--secondary" data-module="govuk-button" formaction="/chedd-traces/07-notification-hub">Save and return to hub</button>
+        <button type="submit" class="govuk-button" data-module="govuk-button">Save and continue</button>
       </div>
+      </form>
       <p class="govuk-body"><a href="/chedd-traces/05-notification-hub" class="govuk-link">Cancel and return to hub</a></p>
     </div>
   </div>

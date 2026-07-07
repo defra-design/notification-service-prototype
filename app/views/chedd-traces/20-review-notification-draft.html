@@ -39,44 +39,50 @@
       <dl class="govuk-summary-list govuk-!-margin-bottom-9">
         <div class="govuk-summary-list__row">
           <dt class="govuk-summary-list__key">Import type</dt>
-          <dd class="govuk-summary-list__value">High risk food of non-animal origin</dd>
-          <dd class="govuk-summary-list__actions"><a class="govuk-link" href="#">Change<span class="govuk-visually-hidden"> import type</span></a></dd>
+          <dd class="govuk-summary-list__value">{{ importTypeText }}</dd>
+          <dd class="govuk-summary-list__actions"><a class="govuk-link" href="/chedd-traces/01-what-are-you-importing">Change<span class="govuk-visually-hidden"> import type</span></a></dd>
         </div>
         <div class="govuk-summary-list__row">
           <dt class="govuk-summary-list__key">Country of origin</dt>
-          <dd class="govuk-summary-list__value">Austria</dd>
-          <dd class="govuk-summary-list__actions"></dd>
-        </div>
-        <div class="govuk-summary-list__row">
-          <dt class="govuk-summary-list__key">Country from where consigned</dt>
-          <dd class="govuk-summary-list__value">Austria</dd>
+          <dd class="govuk-summary-list__value">{{ data.countryOfOriginText or 'Not provided' }}</dd>
           <dd class="govuk-summary-list__actions"></dd>
         </div>
         <div class="govuk-summary-list__row">
           <dt class="govuk-summary-list__key">Consignment reference number</dt>
-          <dd class="govuk-summary-list__value">No</dd>
-          <dd class="govuk-summary-list__actions"><a class="govuk-link" href="#">Change<span class="govuk-visually-hidden"> consignment reference number</span></a></dd>
+          <dd class="govuk-summary-list__value">{{ data['consignment-ref'] or 'Not provided' }}</dd>
+          <dd class="govuk-summary-list__actions"><a class="govuk-link" href="/chedd-traces/03-origin-import">Change<span class="govuk-visually-hidden"> consignment reference number</span></a></dd>
         </div>
         <div class="govuk-summary-list__row">
           <dt class="govuk-summary-list__key">Main reason for importing the consignment</dt>
-          <dd class="govuk-summary-list__value">Free Zone or Free Warehouse</dd>
-          <dd class="govuk-summary-list__actions"><a class="govuk-link" href="#">Change<span class="govuk-visually-hidden"> main reason for importing the consignment</span></a></dd>
+          <dd class="govuk-summary-list__value">{{ reasonText }}</dd>
+          <dd class="govuk-summary-list__actions"><a class="govuk-link" href="/chedd-traces/06-main-reason-importing">Change<span class="govuk-visually-hidden"> main reason for importing the consignment</span></a></dd>
         </div>
       </dl>
 
       <h2 class="govuk-heading-m">Description of the goods</h2>
-      <dl class="govuk-summary-list govuk-!-margin-bottom-9">
-        <div class="govuk-summary-list__row">
-          <dt class="govuk-summary-list__key">Commodity code</dt>
-          <dd class="govuk-summary-list__value">09081100</dd>
-          <dd class="govuk-summary-list__actions"><a class="govuk-link" href="#">Change<span class="govuk-visually-hidden"> commodity code</span></a></dd>
-        </div>
-        <div class="govuk-summary-list__row">
-          <dt class="govuk-summary-list__key">Description</dt>
-          <dd class="govuk-summary-list__value">Domestic</dd>
-          <dd class="govuk-summary-list__actions"></dd>
-        </div>
-      </dl>
+      <table class="govuk-table govuk-!-margin-bottom-6">
+        <caption class="govuk-table__caption govuk-visually-hidden">Commodities in this consignment</caption>
+        <thead class="govuk-table__head">
+          <tr class="govuk-table__row">
+            <th scope="col" class="govuk-table__header">Commodity code</th>
+            <th scope="col" class="govuk-table__header">Description</th>
+            <th scope="col" class="govuk-table__header govuk-!-text-align-right"><span class="govuk-visually-hidden">Change</span></th>
+          </tr>
+        </thead>
+        <tbody class="govuk-table__body">
+          {% for item in data.commodities %}
+          <tr class="govuk-table__row">
+            <td class="govuk-table__cell">{{ item.code }}</td>
+            <td class="govuk-table__cell">{{ item.description }}</td>
+            <td class="govuk-table__cell govuk-!-text-align-right"><a class="govuk-link" href="/chedd-traces/08-commodity">Change<span class="govuk-visually-hidden"> {{ item.description }}</span></a></td>
+          </tr>
+          {% else %}
+          <tr class="govuk-table__row">
+            <td class="govuk-table__cell" colspan="3">Not provided</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
 
       <table class="govuk-table govuk-!-margin-bottom-6">
         <thead class="govuk-table__head">
@@ -87,38 +93,41 @@
           </tr>
         </thead>
         <tbody class="govuk-table__body">
+          {% for item in data.commodities %}
           <tr class="govuk-table__row">
-            <td class="govuk-table__cell">2 kg/units</td>
-            <td class="govuk-table__cell">1</td>
-            <td class="govuk-table__cell">Bag</td>
+            <td class="govuk-table__cell">{{ (item.netWeight + ' kg') if item.netWeight else 'Not provided' }}</td>
+            <td class="govuk-table__cell">{{ item.packages or 'Not provided' }}</td>
+            <td class="govuk-table__cell">{{ item.packageTypeText or 'Not provided' }}</td>
           </tr>
+          {% else %}
           <tr class="govuk-table__row">
-            <td class="govuk-table__cell">1 kg/units</td>
-            <td class="govuk-table__cell">1</td>
-            <td class="govuk-table__cell">Block</td>
+            <td class="govuk-table__cell" colspan="3">Not provided</td>
           </tr>
+          {% endfor %}
+          {% if data.commodities.length %}
           <tr class="govuk-table__row">
             <td class="govuk-table__cell"><strong>Subtotal</strong></td>
-            <td class="govuk-table__cell">3 kg/units</td>
-            <td class="govuk-table__cell">2</td>
+            <td class="govuk-table__cell">{{ totalNetWeight }} kg</td>
+            <td class="govuk-table__cell">{{ totalPackages }}</td>
           </tr>
+          {% endif %}
         </tbody>
       </table>
 
       <dl class="govuk-summary-list govuk-!-margin-bottom-9">
         <div class="govuk-summary-list__row">
           <dt class="govuk-summary-list__key">Total net weight</dt>
-          <dd class="govuk-summary-list__value">2 kg/units</dd>
+          <dd class="govuk-summary-list__value">{{ totalNetWeight }} kg</dd>
           <dd class="govuk-summary-list__actions"></dd>
         </div>
         <div class="govuk-summary-list__row">
           <dt class="govuk-summary-list__key">Total packages</dt>
-          <dd class="govuk-summary-list__value">2</dd>
+          <dd class="govuk-summary-list__value">{{ totalPackages }}</dd>
           <dd class="govuk-summary-list__actions"></dd>
         </div>
         <div class="govuk-summary-list__row">
           <dt class="govuk-summary-list__key">Total gross weight</dt>
-          <dd class="govuk-summary-list__value">3 kg/units</dd>
+          <dd class="govuk-summary-list__value">{{ (data.grossWeight + ' kg') if data.grossWeight else 'Not provided' }}</dd>
           <dd class="govuk-summary-list__actions"></dd>
         </div>
       </dl>
@@ -127,22 +136,17 @@
       <dl class="govuk-summary-list govuk-!-margin-bottom-9">
         <div class="govuk-summary-list__row">
           <dt class="govuk-summary-list__key">Commodity intended for</dt>
-          <dd class="govuk-summary-list__value">Feedingstuff</dd>
-          <dd class="govuk-summary-list__actions"><a class="govuk-link" href="#">Change<span class="govuk-visually-hidden"> commodity intended for</span></a></dd>
-        </div>
-        <div class="govuk-summary-list__row">
-          <dt class="govuk-summary-list__key">Temperature</dt>
-          <dd class="govuk-summary-list__value">Ambient</dd>
-          <dd class="govuk-summary-list__actions"></dd>
+          <dd class="govuk-summary-list__value">{{ commodityIntendedText }}</dd>
+          <dd class="govuk-summary-list__actions"><a class="govuk-link" href="/chedd-traces/09-additional-details">Change<span class="govuk-visually-hidden"> commodity intended for</span></a></dd>
         </div>
       </dl>
 
       <h2 class="govuk-heading-m">Documents</h2>
       <dl class="govuk-summary-list govuk-!-margin-bottom-4">
         <div class="govuk-summary-list__row">
-          <dt class="govuk-summary-list__key">Showing 1 additional document</dt>
+          <dt class="govuk-summary-list__key">Showing {{ data.accompanyingDocuments.length or 0 }} document{{ 's' if data.accompanyingDocuments.length != 1 else '' }}</dt>
           <dd class="govuk-summary-list__value"></dd>
-          <dd class="govuk-summary-list__actions"><a class="govuk-link" href="#">Change<span class="govuk-visually-hidden"> document</span></a></dd>
+          <dd class="govuk-summary-list__actions"><a class="govuk-link" href="/chedd-traces/10-accompanying-documents">Change<span class="govuk-visually-hidden"> documents</span></a></dd>
         </div>
       </dl>
 
@@ -156,12 +160,18 @@
           </tr>
         </thead>
         <tbody class="govuk-table__body">
+          {% for doc in data.accompanyingDocuments %}
           <tr class="govuk-table__row">
-            <td class="govuk-table__cell">Phytosanitary certificate</td>
-            <td class="govuk-table__cell">PTES55786</td>
-            <td class="govuk-table__cell">28 September 2024</td>
-            <td class="govuk-table__cell"><a class="govuk-link" href="#">sample.pdf</a></td>
+            <td class="govuk-table__cell">{{ doc.type or 'Not provided' }}</td>
+            <td class="govuk-table__cell">{{ doc.reference or 'Not provided' }}</td>
+            <td class="govuk-table__cell">{{ doc.date or 'Not provided' }}</td>
+            <td class="govuk-table__cell">{{ doc.attachment or 'Not provided' }}</td>
           </tr>
+          {% else %}
+          <tr class="govuk-table__row">
+            <td class="govuk-table__cell" colspan="4">Not provided</td>
+          </tr>
+          {% endfor %}
         </tbody>
       </table>
 
@@ -169,22 +179,23 @@
       <dl class="govuk-summary-list govuk-!-margin-bottom-9">
         <div class="govuk-summary-list__row">
           <dt class="govuk-summary-list__key">Consignor or exporter</dt>
-          <dd class="govuk-summary-list__value">Defra Test BIP<br>Animal and Plant Health Agency, Woodham Lane, New Haw, Addlestone, KT15 3NB, United Kingdom of Great Britain and Northern Ireland, 020 8252 7295, DefraTestBIP@anthunt3.33mail.com</dd>
-          <dd class="govuk-summary-list__actions"><a class="govuk-link" href="#">Change<span class="govuk-visually-hidden"> consignor or exporter</span></a></dd>
+          <dd class="govuk-summary-list__value">
+            {% if data.consignorOrExporter %}{{ data.consignorOrExporter.name }}<br>{{ data.consignorOrExporter.address }}<br>{{ data.consignorOrExporter.country }}{% else %}Not provided{% endif %}
+          </dd>
+          <dd class="govuk-summary-list__actions"><a class="govuk-link" href="/chedd-traces/13a-consignor-or-exporter">Change<span class="govuk-visually-hidden"> consignor or exporter</span></a></dd>
         </div>
         <div class="govuk-summary-list__row">
-          <dt class="govuk-summary-list__key">Consignee</dt>
-          <dd class="govuk-summary-list__value">XYZ LIMITED<br>55786 Park Close, Austria, 55786, Austria, 07932955786, performerance@ptest.com</dd>
-          <dd class="govuk-summary-list__actions"></dd>
-        </div>
-        <div class="govuk-summary-list__row">
-          <dt class="govuk-summary-list__key">Importer</dt>
-          <dd class="govuk-summary-list__value">YUT Limited<br>55786 Park Avenue, Bushey, WD23 2BH, England, 07939955786, ptest@performance.com</dd>
+          <dt class="govuk-summary-list__key">Consignee or importer</dt>
+          <dd class="govuk-summary-list__value">
+            {% if data.consigneeOrImporter %}{{ data.consigneeOrImporter.name }}<br>{{ data.consigneeOrImporter.address }}<br>{{ data.consigneeOrImporter.country }}{% else %}Not provided{% endif %}
+          </dd>
           <dd class="govuk-summary-list__actions"></dd>
         </div>
         <div class="govuk-summary-list__row">
           <dt class="govuk-summary-list__key">Place of destination</dt>
-          <dd class="govuk-summary-list__value">Austria AWED<br>125576 Park Avenue, Austria, 55786, Austria, 07938955786, ptest@performance.com</dd>
+          <dd class="govuk-summary-list__value">
+            {% if data.placeOfDestination %}{{ data.placeOfDestination.name }}<br>{{ data.placeOfDestination.address }}<br>{{ data.placeOfDestination.country }}{% else %}Not provided{% endif %}
+          </dd>
           <dd class="govuk-summary-list__actions"></dd>
         </div>
       </dl>
@@ -192,130 +203,72 @@
       <h2 class="govuk-heading-m">Transport</h2>
       <dl class="govuk-summary-list govuk-!-margin-bottom-9">
         <div class="govuk-summary-list__row">
-          <dt class="govuk-summary-list__key">Transport to the port of entry</dt>
-          <dd class="govuk-summary-list__value"></dd>
-          <dd class="govuk-summary-list__actions"><a class="govuk-link" href="#">Change<span class="govuk-visually-hidden"> transport to the port of entry</span></a></dd>
+          <dt class="govuk-summary-list__key">Border Control Post</dt>
+          <dd class="govuk-summary-list__value">{{ bcpText }}</dd>
+          <dd class="govuk-summary-list__actions"><a class="govuk-link" href="/chedd-traces/14-transport-to-port">Change<span class="govuk-visually-hidden"> transport details</span></a></dd>
         </div>
-        <div class="govuk-summary-list__row">
-          <dt class="govuk-summary-list__key">Port of entry</dt>
-          <dd class="govuk-summary-list__value">DOVER EAST (SEVINGTON BCP) (GBSEV)</dd>
-          <dd class="govuk-summary-list__actions"></dd>
-        </div>
-        <div class="govuk-summary-list__row">
-          <dt class="govuk-summary-list__key">Means of transport to port of entry</dt>
-          <dd class="govuk-summary-list__value">Road vehicle</dd>
-          <dd class="govuk-summary-list__actions"></dd>
-        </div>
-        <div class="govuk-summary-list__row">
-          <dt class="govuk-summary-list__key">Transport identification</dt>
-          <dd class="govuk-summary-list__value">AI55786</dd>
-          <dd class="govuk-summary-list__actions"></dd>
-        </div>
+      </dl>
+
+      <table class="govuk-table govuk-!-margin-bottom-6">
+        <caption class="govuk-table__caption govuk-visually-hidden">Means of transport</caption>
+        <thead class="govuk-table__head">
+          <tr class="govuk-table__row">
+            <th scope="col" class="govuk-table__header">Means of transport</th>
+            <th scope="col" class="govuk-table__header">Identification</th>
+            <th scope="col" class="govuk-table__header">Document reference</th>
+          </tr>
+        </thead>
+        <tbody class="govuk-table__body">
+          {% for t in transports %}
+          <tr class="govuk-table__row">
+            <td class="govuk-table__cell">{{ t.typeLabel }}</td>
+            <td class="govuk-table__cell">{{ t.identifier }}</td>
+            <td class="govuk-table__cell">{{ t.document }}</td>
+          </tr>
+          {% else %}
+          <tr class="govuk-table__row">
+            <td class="govuk-table__cell" colspan="3">Not provided</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+
+      <dl class="govuk-summary-list govuk-!-margin-bottom-9">
         <div class="govuk-summary-list__row">
           <dt class="govuk-summary-list__key">Using road trailers or containers?</dt>
-          <dd class="govuk-summary-list__value">No</dd>
+          <dd class="govuk-summary-list__value">{{ trailersText }}</dd>
+          <dd class="govuk-summary-list__actions"></dd>
+        </div>
+        {% if data.trailers == 'yes' %}
+        <div class="govuk-summary-list__row">
+          <dt class="govuk-summary-list__key">Container or trailer number</dt>
+          <dd class="govuk-summary-list__value">{{ data['container-number'] or 'Not provided' }}</dd>
           <dd class="govuk-summary-list__actions"></dd>
         </div>
         <div class="govuk-summary-list__row">
-          <dt class="govuk-summary-list__key">Transport document reference</dt>
-          <dd class="govuk-summary-list__value">Air Waybill</dd>
+          <dt class="govuk-summary-list__key">Seal number</dt>
+          <dd class="govuk-summary-list__value">{{ data['seal-number'] or 'Not provided' }}</dd>
+          <dd class="govuk-summary-list__actions"></dd>
+        </div>
+        {% endif %}
+        <div class="govuk-summary-list__row">
+          <dt class="govuk-summary-list__key">Transport conditions</dt>
+          <dd class="govuk-summary-list__value">{{ transportConditionsText }}</dd>
+          <dd class="govuk-summary-list__actions"></dd>
+        </div>
+        <div class="govuk-summary-list__row">
+          <dt class="govuk-summary-list__key">Country of dispatch</dt>
+          <dd class="govuk-summary-list__value">{{ dispatchCountryText }}</dd>
           <dd class="govuk-summary-list__actions"></dd>
         </div>
         <div class="govuk-summary-list__row">
           <dt class="govuk-summary-list__key">Estimated arrival date at port of entry</dt>
-          <dd class="govuk-summary-list__value">31 December 2024</dd>
+          <dd class="govuk-summary-list__value">{{ arrivalDateText }}</dd>
           <dd class="govuk-summary-list__actions"></dd>
         </div>
         <div class="govuk-summary-list__row">
           <dt class="govuk-summary-list__key">Estimated arrival time at port of entry</dt>
-          <dd class="govuk-summary-list__value">10:10</dd>
-          <dd class="govuk-summary-list__actions"></dd>
-        </div>
-      </dl>
-
-      <h2 class="govuk-heading-m">Goods movement services</h2>
-      <dl class="govuk-summary-list govuk-!-margin-bottom-9">
-        <div class="govuk-summary-list__row">
-          <dt class="govuk-summary-list__key">Add a reference number for this consignment</dt>
-          <dd class="govuk-summary-list__value">No</dd>
-          <dd class="govuk-summary-list__actions"></dd>
-        </div>
-        <div class="govuk-summary-list__row">
-          <dt class="govuk-summary-list__key">Using the Goods Vehicle Movement Service (GVMS)</dt>
-          <dd class="govuk-summary-list__value">Yes</dd>
-          <dd class="govuk-summary-list__actions"><a class="govuk-link" href="#">Change<span class="govuk-visually-hidden"> GVMS answer</span></a></dd>
-        </div>
-      </dl>
-
-      <h2 class="govuk-heading-m">Contacts</h2>
-      <h3 class="govuk-heading-s govuk-!-margin-bottom-2">Contact details</h3>
-      <dl class="govuk-summary-list govuk-!-margin-bottom-6">
-        <div class="govuk-summary-list__row">
-          <dt class="govuk-summary-list__key">Name</dt>
-          <dd class="govuk-summary-list__value">John Smith</dd>
-          <dd class="govuk-summary-list__actions"><a class="govuk-link" href="#">Change<span class="govuk-visually-hidden"> contact details</span></a></dd>
-        </div>
-        <div class="govuk-summary-list__row">
-          <dt class="govuk-summary-list__key">Email address</dt>
-          <dd class="govuk-summary-list__value">johnsmith@companyname.com</dd>
-          <dd class="govuk-summary-list__actions"></dd>
-        </div>
-        <div class="govuk-summary-list__row">
-          <dt class="govuk-summary-list__key">Phone number</dt>
-          <dd class="govuk-summary-list__value">07827666172</dd>
-          <dd class="govuk-summary-list__actions"></dd>
-        </div>
-      </dl>
-
-      <h3 class="govuk-heading-s govuk-!-margin-bottom-2">Nominated contacts</h3>
-      <table class="govuk-table govuk-!-margin-bottom-6">
-        <thead class="govuk-table__head">
-          <tr class="govuk-table__row">
-            <th scope="col" class="govuk-table__header">Name</th>
-            <th scope="col" class="govuk-table__header">Email address</th>
-            <th scope="col" class="govuk-table__header">Mobile number</th>
-            <th scope="col" class="govuk-table__header"><a class="govuk-link" href="#">Change<span class="govuk-visually-hidden"> nominated contacts</span></a></th>
-          </tr>
-        </thead>
-        <tbody class="govuk-table__body">
-          <tr class="govuk-table__row">
-            <td class="govuk-table__cell">John Smith</td>
-            <td class="govuk-table__cell">smith@trader.com</td>
-            <td class="govuk-table__cell">074403119813</td>
-            <td class="govuk-table__cell"></td>
-          </tr>
-        </tbody>
-      </table>
-
-      <h3 class="govuk-heading-s govuk-!-margin-bottom-2">Contact address for consignment</h3>
-      <dl class="govuk-summary-list govuk-!-margin-bottom-9">
-        <div class="govuk-summary-list__row">
-          <dt class="govuk-summary-list__key">Contact address</dt>
-          <dd class="govuk-summary-list__value">Animal and Plant Health Agency, Woodham Lane, New Haw, Surrey, Addlestone, KT15 3NB</dd>
-          <dd class="govuk-summary-list__actions"><a class="govuk-link" href="#">Change<span class="govuk-visually-hidden"> contact address for consignment</span></a></dd>
-        </div>
-      </dl>
-
-      <h2 class="govuk-heading-m">Billing details</h2>
-      <dl class="govuk-summary-list govuk-!-margin-bottom-9">
-        <div class="govuk-summary-list__row">
-          <dt class="govuk-summary-list__key">Organisation</dt>
-          <dd class="govuk-summary-list__value">Plant company</dd>
-          <dd class="govuk-summary-list__actions"><a class="govuk-link" href="#">Change<span class="govuk-visually-hidden"> organisation</span></a></dd>
-        </div>
-        <div class="govuk-summary-list__row">
-          <dt class="govuk-summary-list__key">Address</dt>
-          <dd class="govuk-summary-list__value">21-23<br>BAKERS LANE<br>STAFFORDSHIRE<br>LICHFIELD<br>WS13 6NF</dd>
-          <dd class="govuk-summary-list__actions"></dd>
-        </div>
-        <div class="govuk-summary-list__row">
-          <dt class="govuk-summary-list__key">Email address</dt>
-          <dd class="govuk-summary-list__value">cidesu@mail.com</dd>
-          <dd class="govuk-summary-list__actions"></dd>
-        </div>
-        <div class="govuk-summary-list__row">
-          <dt class="govuk-summary-list__key">Phone number</dt>
-          <dd class="govuk-summary-list__value">074403119813</dd>
+          <dd class="govuk-summary-list__value">{{ arrivalTimeText }}</dd>
           <dd class="govuk-summary-list__actions"></dd>
         </div>
       </dl>
