@@ -3,7 +3,7 @@
 {% block content %}
 <div class="govuk-width-container">
   <div class="govuk-grid-row">
-    <div class="govuk-grid-column-full-width">
+    <div class="govuk-grid-column-two-thirds">
       <p class="chedd-ref">DRAFT.GB.2024.7006103 - CHEDD</p>
       <span class="govuk-caption-l">Documents</span>
       <h1 class="govuk-heading-l">Accompanying documents</h1>
@@ -16,81 +16,98 @@
       </ul>
 
       <form method="post" novalidate>
-      <table class="govuk-table chedd-documents-table">
-        <caption class="govuk-table__caption govuk-table__caption--s govuk-!-margin-bottom-4 govuk-!-margin-top-2">Showing {{ documents.length }} additional document{{ 's' if documents.length != 1 else '' }}</caption>
-        <thead class="govuk-table__head">
-          <tr class="govuk-table__row">
-            <th class="govuk-table__header chedd-doc-type-column">Document type</th>
-            <th class="govuk-table__header">Document reference</th>
-            <th class="govuk-table__header">Date of issue<br><span class="govuk-body-s chedd-muted">Day Month Year</span></th>
-            <th class="govuk-table__header">Attachments</th>
-          </tr>
-        </thead>
-        <tbody class="govuk-table__body">
-          {% for doc in documents %}
-          <tr class="govuk-table__row">
-            <td class="govuk-table__cell">
-              {{ doc.type }}<br>
-              <a href="/chedd-traces/10-accompanying-documents/remove-row?index={{ loop.index0 }}" class="govuk-link">Remove row</a>
-            </td>
-            <td class="govuk-table__cell">
-              {{ doc.reference }}<br>
-              {% if doc.attachment %}
-              <a href="/chedd-traces/12-delete-file?index={{ loop.index0 }}" class="govuk-link">Remove attachment</a>
-              {% endif %}
-            </td>
-            <td class="govuk-table__cell">{{ doc.date }}</td>
-            <td class="govuk-table__cell">
-              {% if doc.attachment %}
-              <a class="govuk-link" href="#">{{ doc.attachment }}</a>
-              {% else %}
-              No attachment
-              {% endif %}
-            </td>
-          </tr>
-          {% endfor %}
-          <tr class="govuk-table__row">
-            <td class="govuk-table__cell">
-              <div class="govuk-form-group">
-                <label class="govuk-label govuk-visually-hidden" for="new-document-type">Document type</label>
-                <div class="autocomplete-wrapper autocomplete-wrapper--full">
-                  <select class="govuk-select" id="new-document-type" name="new-document-type">
-                    <option value="" disabled selected></option>
-                    {% for item in documentTypeItems %}
-                      {% if item.value %}
-                      <option value="{{ item.value }}">{{ item.text }}</option>
-                      {% endif %}
-                    {% endfor %}
-                  </select>
-                </div>
-              </div>
-            </td>
-            <td class="govuk-table__cell">
-              {{ govukInput({
-                id: "new-document-reference",
-                name: "new-document-reference",
-                label: { text: "Document reference", classes: "govuk-visually-hidden" }
-              }) }}
-            </td>
-            <td class="govuk-table__cell">
-              <div class="chedd-date-input">
-                <label class="govuk-visually-hidden" for="new-document-date-day">Day</label>
-                <input class="govuk-input govuk-input--width-2" id="new-document-date-day" name="new-document-date-day" type="text" inputmode="numeric">
-                <label class="govuk-visually-hidden" for="new-document-date-month">Month</label>
-                <input class="govuk-input govuk-input--width-2" id="new-document-date-month" name="new-document-date-month" type="text" inputmode="numeric">
-                <label class="govuk-visually-hidden" for="new-document-date-year">Year</label>
-                <input class="govuk-input govuk-input--width-4" id="new-document-date-year" name="new-document-date-year" type="text" inputmode="numeric">
-              </div>
-            </td>
-            <td class="govuk-table__cell">
-              <button type="submit" class="quick-fill-btn">Add attachment</button>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-      </form>
 
-      {# <p class="govuk-body"><a href="#" class="govuk-link">Add a document</a></p> #}    
+      <div id="document-cards">
+      <div class="chedd-document-card">
+        <div class="chedd-document-card__header">
+          <h2 class="govuk-heading-m govuk-!-margin-bottom-0">Document 1</h2>
+          <a href="#" class="govuk-link chedd-remove-document-link chedd-hidden">Remove</a>
+        </div>
+        <div class="chedd-document-card__body">
+
+        {{ govukInput({
+          label: { text: "Document number" },
+          id: "document-1-reference",
+          name: "document-1-reference",
+          classes: "govuk-input--width-20",
+          spellcheck: false
+        }) }}
+
+        <div class="govuk-form-group">
+          <label class="govuk-label" for="document-1-type">Document type</label>
+          <div class="autocomplete-wrapper autocomplete-wrapper--full">
+            <select class="govuk-select" id="document-1-type" name="document-1-type">
+              <option value="" disabled selected></option>
+              {% for item in documentTypeItems %}
+                {% if item.value %}
+                <option value="{{ item.value }}">{{ item.text }}</option>
+                {% endif %}
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+
+        <div class="govuk-form-group">
+          <label class="govuk-label" for="document-1-country">Country of issue</label>
+          <div class="autocomplete-wrapper autocomplete-wrapper--full">
+            <select class="govuk-select" id="document-1-country" name="document-1-country">
+              <option value="" disabled selected></option>
+              {% for country in tracesCountries() %}
+              <option value="{{ country.value }}">{{ country.text }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+
+        {{ govukInput({
+          label: { text: "Place of issue (optional)" },
+          hint: { text: "The city, town or region where the document was issued" },
+          id: "document-1-place-of-issue",
+          name: "document-1-place-of-issue",
+          classes: "govuk-input--width-20",
+          spellcheck: false
+        }) }}
+
+        {{ govukDateInput({
+          id: "document-1-date-of-issue",
+          namePrefix: "document-1-date-of-issue",
+          fieldset: { legend: { text: "Date of issue (optional)", classes: "govuk-fieldset__legend--s" } },
+          hint: { text: "For example, 27 3 2026" },
+          items: [
+            { name: "day", classes: "govuk-input--width-2" },
+            { name: "month", classes: "govuk-input--width-2" },
+            { name: "year", classes: "govuk-input--width-4" }
+          ]
+        }) }}
+
+        <div class="govuk-form-group">
+          <label class="govuk-label" for="document-1-attachment">Attachment</label>
+          <div class="govuk-hint">
+            Your file must be:
+            <ul class="govuk-list govuk-list--bullet govuk-!-margin-top-2">
+              <li>smaller than 50MB</li>
+              <li>file type must be a PDF, DOC, DOCX, JPEG, PNG, XLS or XLSX</li>
+              <li>ZIP files are not allowed for security reasons</li>
+            </ul>
+          </div>
+          <div class="chedd-upload-dropzone" id="document-1-dropzone">
+            <div class="chedd-upload-dropzone__status" id="document-1-attachment-status">No file chosen</div>
+            <div class="chedd-upload-dropzone__controls">
+              <label class="govuk-button govuk-button--secondary govuk-!-margin-bottom-0" for="document-1-attachment">Choose file</label>
+              <span class="govuk-body govuk-!-margin-bottom-0">or drop file</span>
+            </div>
+            <input class="govuk-file-upload attachment-input-hidden" id="document-1-attachment" name="document-1-attachment" type="file">
+          </div>
+        </div>
+
+        </div>
+      </div>
+      </div>
+
+      <p class="govuk-body"><a href="#" class="govuk-link" id="add-another-document">Add another document</a></p>
+      <br>
+
+    </form>
 
       <div class="chedd-actions">
         <a href="/chedd-traces/07-notification-hub" class="govuk-button govuk-button--secondary" data-module="govuk-button">Save and return to hub</a>
@@ -107,8 +124,9 @@
   <script src="https://cdn.jsdelivr.net/npm/accessible-autocomplete@2.0.4/dist/accessible-autocomplete.min.js"></script>
   <script>
     (function () {
-      var selectEl = document.querySelector('#new-document-type')
-      if (selectEl && typeof accessibleAutocomplete !== 'undefined') {
+      function enhanceAutocomplete (id) {
+        var selectEl = document.getElementById(id)
+        if (!selectEl || typeof accessibleAutocomplete === 'undefined') return
         accessibleAutocomplete.enhanceSelectElement({
           autoselect: true,
           showAllValues: false,
@@ -117,6 +135,98 @@
           selectElement: selectEl
         })
       }
+
+      function initDropzone (dropzoneId) {
+        var dropzone = document.getElementById(dropzoneId)
+        if (!dropzone) return
+        var input = dropzone.querySelector('input[type="file"]')
+        var status = dropzone.querySelector('.chedd-upload-dropzone__status')
+
+        function setFilename (name) {
+          status.textContent = name || 'No file chosen'
+        }
+
+        input.addEventListener('change', function () {
+          setFilename(input.files.length ? input.files[0].name : '')
+        })
+
+        dropzone.addEventListener('dragover', function (e) {
+          e.preventDefault()
+          dropzone.classList.add('chedd-upload-dropzone--dragover')
+        })
+
+        dropzone.addEventListener('dragleave', function () {
+          dropzone.classList.remove('chedd-upload-dropzone--dragover')
+        })
+
+        dropzone.addEventListener('drop', function (e) {
+          e.preventDefault()
+          dropzone.classList.remove('chedd-upload-dropzone--dragover')
+          if (e.dataTransfer.files.length) {
+            input.files = e.dataTransfer.files
+            setFilename(e.dataTransfer.files[0].name)
+          }
+        })
+      }
+
+      var cardsContainer = document.getElementById('document-cards')
+      var addLink = document.getElementById('add-another-document')
+      var cardCount = 1
+
+      function updateRemoveLinksVisibility () {
+        var totalCards = cardsContainer.querySelectorAll('.chedd-document-card').length
+        cardsContainer.querySelectorAll('.chedd-remove-document-link').forEach(function (link) {
+          link.classList.toggle('chedd-hidden', totalCards <= 1)
+        })
+      }
+
+      // Captured before enhanceAutocomplete mutates card 1's selects, so clones
+      // are always built from pristine markup rather than an already-enhanced one.
+      var originalCardHtml = cardsContainer.querySelector('.chedd-document-card').outerHTML
+
+      initDropzone('document-1-dropzone')
+      enhanceAutocomplete('document-1-type')
+      enhanceAutocomplete('document-1-country')
+      updateRemoveLinksVisibility()
+
+      if (addLink && cardsContainer) {
+        addLink.addEventListener('click', function (e) {
+          e.preventDefault()
+          cardCount++
+
+          var html = originalCardHtml
+            .replace(/document-1-/g, 'document-' + cardCount + '-')
+            .replace(/Document 1/g, 'Document ' + cardCount)
+
+          cardsContainer.insertAdjacentHTML('beforeend', html)
+
+          var newCard = cardsContainer.lastElementChild
+          newCard.querySelectorAll('input[type="text"], input:not([type])').forEach(function (input) {
+            input.value = ''
+          })
+          newCard.querySelectorAll('select').forEach(function (select) {
+            select.selectedIndex = 0
+          })
+          var statusEl = newCard.querySelector('.chedd-upload-dropzone__status')
+          if (statusEl) statusEl.textContent = 'No file chosen'
+
+          initDropzone('document-' + cardCount + '-dropzone')
+          enhanceAutocomplete('document-' + cardCount + '-type')
+          enhanceAutocomplete('document-' + cardCount + '-country')
+          updateRemoveLinksVisibility()
+        })
+      }
+
+      cardsContainer.addEventListener('click', function (e) {
+        var link = e.target.closest('.chedd-remove-document-link')
+        if (!link) return
+        e.preventDefault()
+
+        var card = link.closest('.chedd-document-card')
+        if (card) card.remove()
+
+        updateRemoveLinksVisibility()
+      })
     })()
   </script>
 {% endblock %}
