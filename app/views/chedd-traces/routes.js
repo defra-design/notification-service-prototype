@@ -140,6 +140,14 @@ module.exports = function (router) {
     })
   })
 
+  router.get('/chedd-traces/10-accompanying-documents-v2', (req, res) => {
+    const attachmentTypes = require('../../data/traces-attachment-types.js')
+
+    res.render('chedd-traces/10-accompanying-documents-v2', {
+      documentTypeItems: [{ value: '', text: 'Select document type' }].concat(attachmentTypes)
+    })
+  })
+
   router.get('/chedd-traces/10-accompanying-documents/remove-row', (req, res) => {
     const index = parseInt(req.query.index, 10)
     const documents = req.session.data.accompanyingDocuments || []
