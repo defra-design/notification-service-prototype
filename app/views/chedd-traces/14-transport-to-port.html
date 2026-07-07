@@ -6,37 +6,163 @@
     <div class="govuk-grid-column-two-thirds">
       <p class="chedd-ref">DRAFT.GB.2024.7006103 - CHEDD</p>
       <span class="govuk-caption-l">Transport</span>
-      <h1 class="govuk-heading-l">Transport to the port of entry</h1>
+      <h1 class="govuk-heading-l">Transport</h1>
 
-      {{ govukInput({ label: { text: "Port of entry", classes: "govuk-label--m" }, id: "port-entry", name: "port-entry", value: "Entry port of entry" }) }}
-      {{ govukSelect({ id: "transport-means", name: "transport-means", label: { text: "Means of transport to port of entry", classes: "govuk-label--m" }, items: [{ value: "", text: "Select means of transport to port of entry" }, { value: "road", text: "Road vehicle" }, { value: "air", text: "Air" }] }) }}
+      <div class="govuk-form-group">
+        <label class="govuk-label govuk-label--m" for="border-control-post">Border Control Post</label>
+        <div class="govuk-hint">The Border Control Post (BCP) that will carry out checks on this consignment. Only BCPs authorised for high-risk food and feed of non-animal origin are listed.</div>
+        <div class="autocomplete-wrapper autocomplete-wrapper--30em">
+          <select class="govuk-select" id="border-control-post" name="border-control-post">
+            <option value="" disabled selected></option>
+            {% for bcp in chedDBorderControlPosts() %}
+            <option value="{{ bcp.value }}">{{ bcp.text }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
 
-      {{ govukInput({ label: { text: "Transport identification", classes: "govuk-label--m" }, id: "transport-id", name: "transport-id" }) }}
-      <p class="govuk-body chedd-muted">To identify the means of transport, enter (one of the following):</p>
-      <ul class="govuk-list govuk-list--bullet chedd-muted">
-        <li>flight number</li>
-        <li>train number</li>
-        <li>road vehicle registration number</li>
-        <li>vessel name (for ferries, also the road vehicle registration number)</li>
-      </ul>
+      <h2 class="govuk-heading-m">Means of transport</h2>
+      <p class="govuk-hint">Add each stage of the journey, in the order the consignment will travel. For example, if the consignment travels by road then by ferry, add the road vehicle first, then the vessel.</p>
+
+      <div id="transport-cards"></div>
+
+      <div class="chedd-hidden" id="transport-templates">
+        <div class="govuk-summary-card" data-template="airplane">
+          <div class="govuk-summary-card__title-wrapper">
+            <h3 class="govuk-summary-card__title">Airplane</h3>
+            <div class="govuk-summary-card__actions">
+              <a href="#" class="govuk-link chedd-remove-transport-link">Remove</a>
+            </div>
+          </div>
+          <div class="govuk-summary-card__content">
+            {{ govukInput({ label: { text: "Flight number" }, id: "transport-__N__-flight-number", name: "transport-__N__-flight-number", classes: "govuk-input--width-10", spellcheck: false }) }}
+            {{ govukInput({ label: { text: "International transport document" }, hint: { text: "For example, the reference on an air waybill" }, id: "transport-__N__-document", name: "transport-__N__-document", classes: "govuk-input--width-20", spellcheck: false }) }}
+          </div>
+        </div>
+
+        <div class="govuk-summary-card" data-template="railway">
+          <div class="govuk-summary-card__title-wrapper">
+            <h3 class="govuk-summary-card__title">Railway</h3>
+            <div class="govuk-summary-card__actions">
+              <a href="#" class="govuk-link chedd-remove-transport-link">Remove</a>
+            </div>
+          </div>
+          <div class="govuk-summary-card__content">
+            {{ govukInput({ label: { text: "Identifier" }, hint: { text: "The train number" }, id: "transport-__N__-identifier", name: "transport-__N__-identifier", classes: "govuk-input--width-10", spellcheck: false }) }}
+            {{ govukInput({ label: { text: "International transport document" }, hint: { text: "For example, the reference on a rail waybill" }, id: "transport-__N__-document", name: "transport-__N__-document", classes: "govuk-input--width-20", spellcheck: false }) }}
+          </div>
+        </div>
+
+        <div class="govuk-summary-card" data-template="road-vehicle">
+          <div class="govuk-summary-card__title-wrapper">
+            <h3 class="govuk-summary-card__title">Road vehicle</h3>
+            <div class="govuk-summary-card__actions">
+              <a href="#" class="govuk-link chedd-remove-transport-link">Remove</a>
+            </div>
+          </div>
+          <div class="govuk-summary-card__content">
+            {{ govukInput({ label: { text: "Vehicle registration number" }, id: "transport-__N__-vehicle-registration", name: "transport-__N__-vehicle-registration", classes: "govuk-input--width-10", spellcheck: false }) }}
+            <div class="govuk-form-group">
+              <label class="govuk-label" for="transport-__N__-country">Country of registration</label>
+              <div class="autocomplete-wrapper autocomplete-wrapper--full">
+                <select class="govuk-select" id="transport-__N__-country" name="transport-__N__-country">
+                  <option value="" disabled selected></option>
+                  {% for country in tracesCountries() %}
+                  <option value="{{ country.value }}">{{ country.text }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+            </div>
+            {{ govukInput({ label: { text: "International transport document" }, hint: { text: "For example, the reference on a road consignment note (CMR)" }, id: "transport-__N__-document", name: "transport-__N__-document", classes: "govuk-input--width-20", spellcheck: false }) }}
+          </div>
+        </div>
+
+        <div class="govuk-summary-card" data-template="vessel">
+          <div class="govuk-summary-card__title-wrapper">
+            <h3 class="govuk-summary-card__title">Vessel</h3>
+            <div class="govuk-summary-card__actions">
+              <a href="#" class="govuk-link chedd-remove-transport-link">Remove</a>
+            </div>
+          </div>
+          <div class="govuk-summary-card__content">
+            <div class="govuk-form-group">
+              <label class="govuk-label" for="transport-__N__-ship-type">Ship type</label>
+              <select class="govuk-select" id="transport-__N__-ship-type" name="transport-__N__-ship-type">
+                <option value="" disabled selected></option>
+                <option value="ro-ro">Ro-Ro ferry</option>
+                <option value="container">Container ship</option>
+                <option value="bulk-carrier">Bulk carrier</option>
+                <option value="tanker">Tanker</option>
+                <option value="general-cargo">General cargo</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+            {{ govukInput({ label: { text: "Ship's name" }, id: "transport-__N__-ship-name", name: "transport-__N__-ship-name", classes: "govuk-input--width-20", spellcheck: false }) }}
+            <div class="govuk-form-group">
+              <label class="govuk-label" for="transport-__N__-flag-state">Flag state</label>
+              <div class="autocomplete-wrapper autocomplete-wrapper--full">
+                <select class="govuk-select" id="transport-__N__-flag-state" name="transport-__N__-flag-state">
+                  <option value="" disabled selected></option>
+                  {% for country in tracesCountries() %}
+                  <option value="{{ country.value }}">{{ country.text }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+            </div>
+            {{ govukInput({ label: { text: "IMO number" }, hint: { text: "The 7-digit IMO ship identification number" }, id: "transport-__N__-imo-number", name: "transport-__N__-imo-number", classes: "govuk-input--width-10", spellcheck: false }) }}
+            {{ govukInput({ label: { text: "Voyage number" }, id: "transport-__N__-voyage-number", name: "transport-__N__-voyage-number", classes: "govuk-input--width-10", spellcheck: false }) }}
+            {{ govukInput({ label: { text: "International transport document" }, hint: { text: "For example, the reference on a sea waybill or bill of lading" }, id: "transport-__N__-document", name: "transport-__N__-document", classes: "govuk-input--width-20", spellcheck: false }) }}
+          </div>
+        </div>
+      </div>
+
+      <div class="govuk-form-group govuk-!-margin-top-4">
+        <label class="govuk-label govuk-label--s" for="add-transport-type">Add a means of transport</label>
+        <div class="chedd-add-transport-row">
+          <select class="govuk-select" id="add-transport-type">
+            <option value="" disabled selected>Select a means of transport</option>
+            <option value="airplane">Airplane</option>
+            <option value="railway">Railway</option>
+            <option value="road-vehicle">Road vehicle</option>
+            <option value="vessel">Vessel</option>
+          </select>
+          <button type="button" class="govuk-button govuk-button--secondary govuk-!-margin-bottom-0" id="add-transport-button">Add</button>
+        </div>
+      </div>
+
+      {{ govukRadios({
+        name: "transport-conditions",
+        fieldset: { legend: { text: "Transport conditions", classes: "govuk-fieldset__legend--m" } },
+        items: [{ text: "Ambient" }, { text: "Chilled" }, { text: "Frozen" }]
+      }) }}
+
+      <div class="govuk-form-group">
+        <label class="govuk-label govuk-label--m" for="dispatch-country">Country of dispatch</label>
+        <div class="govuk-hint">The country the consignment was loaded onto its final means of transport for the journey to Great Britain. This may be different from the country of origin.</div>
+        <div class="autocomplete-wrapper autocomplete-wrapper--30em">
+          <select class="govuk-select" id="dispatch-country" name="dispatch-country">
+            <option value="" disabled selected></option>
+            {% for country in tracesCountries() %}
+            <option value="{{ country.value }}">{{ country.text }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
 
       {{ govukRadios({
         name: "trailers",
         fieldset: { legend: { text: "Are any road trailers or shipping containers being used to transport the consignment?", classes: "govuk-fieldset__legend--m" } },
         hint: { text: "Provide details of all road trailers and containers or your consignment may be delayed. You may need to contact your haulier for this." },
         items: [
-          { text: "Yes", conditional: { html: govukInput({ label: { text: "Container or trailer number", classes: "govuk-label--s" }, hint: { text: "Enter the container identification number, or the trailer registration number or number plate." }, id: "container-number", name: "container-number", classes: "govuk-input--width-10" }) + govukInput({ label: { text: "Seal number", classes: "govuk-label--s" }, hint: { text: "Enter the seal number on the official certificate or any other seal mentioned in the accompanying documents." }, id: "seal-number", name: "seal-number", classes: "govuk-input--width-10" }) + govukCheckboxes({ name: "official-seal", items: [{ text: "Official seal", hint: { text: "An official seal is affixed under the supervision of the competent authority issuing the certificate." } }] }) + '<p class="govuk-body"><a href="#" class="govuk-link">Add another container or trailer</a></p>' } },
+          { text: "Yes", conditional: { html: govukInput({ label: { text: "Container or trailer number", classes: "govuk-label--s" }, hint: { text: "Enter the container identification number, or the trailer registration number or number plate. Container numbers follow the format: 3 letters, then U, J or Z, then 7 digits (for example, AAAZ1234567)." }, id: "container-number", name: "container-number", classes: "govuk-input--width-10" }) + govukInput({ label: { text: "Seal number", classes: "govuk-label--s" }, hint: { text: "Enter the seal number on the official certificate or any other seal mentioned in the accompanying documents." }, id: "seal-number", name: "seal-number", classes: "govuk-input--width-10" }) + govukCheckboxes({ name: "official-seal", items: [{ text: "Official seal", hint: { text: "An official seal is affixed under the supervision of the competent authority issuing the certificate." } }] }) + '<br>' + '<p class="govuk-body"><a href="#" class="govuk-link">Add another container or trailer</a></p>' } },
           { text: "No" }
         ]
       }) }}
 
-      {{ govukInput({ label: { text: "Transport document reference", classes: "govuk-label--m" }, id: "transport-doc-ref", name: "transport-doc-ref", 
-        hint: { text: "Enter the reference number on the air waybill, bill of lading, sea waybill, road consignment note (CMR) or other transport document." } }) }}
-
       {{ govukDateInput({
         id: "arrival-date",
         namePrefix: "arrival-date",
-        fieldset: { legend: { text: "Estimated arrival at port of entry", classes: "govuk-fieldset__legend--m" } },
+        fieldset: { legend: { text: "Estimated arrival", classes: "govuk-fieldset__legend--m" } },
         hint: { text: "For example, 27 3 2023" },
         items: [
           { name: "day", classes: "govuk-input--width-2" },
@@ -71,4 +197,73 @@
     </div>
   </div>
 </div>
+{% endblock %}
+
+{% block pageScripts %}
+  {{ super() }}
+  <script src="https://cdn.jsdelivr.net/npm/accessible-autocomplete@2.0.4/dist/accessible-autocomplete.min.js"></script>
+  <script>
+    (function () {
+      function enhance (id) {
+        var selectEl = document.querySelector('#' + id)
+        if (!selectEl || typeof accessibleAutocomplete === 'undefined') return
+        accessibleAutocomplete.enhanceSelectElement({
+          autoselect: true,
+          showAllValues: false,
+          placeholder: 'Type to search',
+          minLength: 1,
+          selectElement: selectEl
+        })
+      }
+      enhance('border-control-post')
+      enhance('dispatch-country')
+
+      var cardsContainer = document.getElementById('transport-cards')
+      var templatesContainer = document.getElementById('transport-templates')
+      var addSelect = document.getElementById('add-transport-type')
+      var addButton = document.getElementById('add-transport-button')
+      var cardCount = 0
+
+      var typeLabels = {
+        airplane: 'Airplane',
+        railway: 'Railway',
+        'road-vehicle': 'Road vehicle',
+        vessel: 'Vessel'
+      }
+
+      if (addButton && addSelect && cardsContainer && templatesContainer) {
+        addButton.addEventListener('click', function () {
+          var type = addSelect.value
+          var template = templatesContainer.querySelector('[data-template="' + type + '"]')
+          if (!template) return
+          cardCount++
+
+          var html = template.outerHTML.replace(/__N__/g, cardCount)
+          cardsContainer.insertAdjacentHTML('beforeend', html)
+
+          var newCard = cardsContainer.lastElementChild
+          var heading = newCard.querySelector('.govuk-summary-card__title-wrapper h3')
+          if (heading) heading.textContent = typeLabels[type]
+
+          newCard.querySelectorAll('input[type="text"], input:not([type])').forEach(function (input) {
+            input.value = ''
+          })
+          newCard.querySelectorAll('select').forEach(function (select) {
+            select.selectedIndex = 0
+          })
+          newCard.querySelectorAll('.autocomplete-wrapper select').forEach(function (select) {
+            enhance(select.id)
+          })
+        })
+      }
+
+      cardsContainer.addEventListener('click', function (e) {
+        var link = e.target.closest('.chedd-remove-transport-link')
+        if (!link) return
+        e.preventDefault()
+        var card = link.closest('.govuk-summary-card')
+        if (card) card.remove()
+      })
+    })()
+  </script>
 {% endblock %}

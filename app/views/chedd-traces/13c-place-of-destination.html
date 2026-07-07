@@ -1,0 +1,17 @@
+{% extends "layouts/_base.html" %}
+
+{% block content %}
+<div class="govuk-width-container">
+  <div class="govuk-grid-row">
+    <div class="govuk-grid-column-full">
+      <p class="chedd-ref">DRAFT.GB.2026.0900608 - CHED-D</p>
+      <span class="govuk-caption-l">Consignment addresses</span>
+      <h1 class="govuk-heading-l">Place of destination</h1>
+      <p class="govuk-body">This is where the consignment will be sent for final unloading, and must be in Great Britain. This is usually the same as the consignee or importer address — you can select a different address if needed.</p>
+
+      {% set addressFieldName = "place-of-destination" %}
+      {% include "includes/consignment-address-search.njk" %}
+    </div>
+  </div>
+</div>
+{% endblock %}

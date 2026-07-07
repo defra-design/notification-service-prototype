@@ -1,62 +1,92 @@
 {#
-  Shared "search and select an address" pattern used by the CHED-A consignment
-  address screens (place of origin, consignor, consignee, importer).
+  Shared "search and select an address" pattern used by the CHED-A and CHED-D
+  consignment address screens (place of origin, consignor, consignee, importer,
+  place of destination).
   Set `addressFieldName` before including, e.g. {% set addressFieldName = "place-of-origin" %}
+  Pages with a wired-up GET/POST route should also pass: results, total, totalPages,
+  page, searchTerm. Without those, the include falls back to a static example list
+  so pages not yet wired up (e.g. some CHED-A screens) still display as before.
 #}
-<div class="govuk-form-group">
-  <label class="govuk-label govuk-label--s" for="{{ addressFieldName }}-search">Search</label>
-  <div class="govuk-hint">Name, address or country</div>
-  <input class="govuk-input govuk-input--width-20" id="{{ addressFieldName }}-search" name="{{ addressFieldName }}-search" type="text">
-</div>
+{% from "govuk/components/button/macro.njk" import govukButton %}
+{% from "govuk/components/pagination/macro.njk" import govukPagination %}
 
-<h2 class="govuk-heading-m">Select an address</h2>
-<p class="govuk-body-s chedd-muted">Showing 5 out of 40 results</p>
+{% set fallbackResults = [
+  { id: "fallback-1", name: "Danish Meat Export ApS", address: "Vesterbrogade 12, 1620 Copenhagen", country: "Denmark" },
+  { id: "fallback-2", name: "Portuguese Livestock Lda", address: "Rua Augusta 250, 1100-053 Lisbon", country: "Portugal" },
+  { id: "fallback-3", name: "Romanian Agri Exports SRL", address: "Bulevardul Unirii 22, 03083 Bucharest", country: "Romania" },
+  { id: "fallback-4", name: "Slovak Farm Export", address: "Obchodná 2, 811 06 Bratislava", country: "Slovakia" },
+  { id: "fallback-5", name: "Finnish Livestock Oy", address: "Mannerheimintie 10, 00100 Helsinki", country: "Finland" }
+] %}
+{% set displayResults = results if results is defined else fallbackResults %}
+{% set displayTotal = total if total is defined else 40 %}
 
-<table class="govuk-table">
-  <thead class="govuk-table__head">
-    <tr class="govuk-table__row">
-      <th class="govuk-table__header" scope="col"></th>
-      <th class="govuk-table__header" scope="col">Name</th>
-      <th class="govuk-table__header" scope="col">Address</th>
-      <th class="govuk-table__header" scope="col">Country</th>
-      <th class="govuk-table__header" scope="col"></th>
-    </tr>
-  </thead>
-  <tbody class="govuk-table__body">
-    {% for a in [
-      { name: "Danish Meat Export ApS", address: "Vesterbrogade 12, 1620 Copenhagen", country: "Denmark" },
-      { name: "Portuguese Livestock Lda", address: "Rua Augusta 250, 1100-053 Lisbon", country: "Portugal" },
-      { name: "Romanian Agri Exports SRL", address: "Bulevardul Unirii 22, 03083 Bucharest", country: "Romania" },
-      { name: "Slovak Farm Export", address: "Obchodná 2, 811 06 Bratislava", country: "Slovakia" },
-      { name: "Finnish Livestock Oy", address: "Mannerheimintie 10, 00100 Helsinki", country: "Finland" }
-    ] %}
-    <tr class="govuk-table__row">
-      <td class="govuk-table__cell"><input class="govuk-radios__input" type="radio" name="{{ addressFieldName }}" id="{{ addressFieldName }}-{{ loop.index }}" value="{{ a.name }}" style="position: static; opacity: 1;"></td>
-      <td class="govuk-table__cell">{{ a.name }}</td>
-      <td class="govuk-table__cell">{{ a.address }}</td>
-      <td class="govuk-table__cell">{{ a.country }}</td>
-      <td class="govuk-table__cell"><a class="govuk-link" href="#">View details</a></td>
-    </tr>
-    {% endfor %}
-  </tbody>
-</table>
-
-<nav class="govuk-pagination" aria-label="Pagination">
-  <ul class="govuk-pagination__list">
-    <li class="govuk-pagination__item govuk-pagination__item--current">
-      <a class="govuk-link govuk-pagination__link" href="#" aria-label="Page 1" aria-current="page">1</a>
-    </li>
-    <li class="govuk-pagination__item">
-      <a class="govuk-link govuk-pagination__link" href="#" aria-label="Page 2">2</a>
-    </li>
-    <li class="govuk-pagination__item govuk-pagination__item--ellipses">&ctdot;</li>
-    <li class="govuk-pagination__item">
-      <a class="govuk-link govuk-pagination__link" href="#" aria-label="Page 8">8</a>
-    </li>
-  </ul>
-  <div class="govuk-pagination__next">
-    <a class="govuk-link govuk-pagination__link" href="#">
-      <span class="govuk-pagination__link-title">Next</span>
-    </a>
+<form method="get">
+  <div class="govuk-form-group">
+    <label class="govuk-label govuk-label--s" for="{{ addressFieldName }}-search">Search</label>
+    <div class="govuk-hint">Name, address or country</div>
+    <div class="chedd-search-field">
+      <input class="govuk-input chedd-search-field__input" id="{{ addressFieldName }}-search" name="{{ addressFieldName }}-search" type="text" value="{{ searchTerm or '' }}">
+      <button class="chedd-search-field__button" type="submit">
+        <svg class="chedd-search-field__icon" width="20" height="20" viewBox="0 0 27 27" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
+          <circle cx="12.0161" cy="11.0161" r="8.51613" stroke="currentColor" stroke-width="3"></circle>
+          <line x1="17.8394" y1="17.3457" x2="26.4194" y2="25.9256" stroke="currentColor" stroke-width="3"></line>
+        </svg>
+        <span class="govuk-visually-hidden">Search</span>
+      </button>
+    </div>
   </div>
-</nav>
+
+  <h2 class="govuk-heading-m">Select an address</h2>
+  <p class="govuk-body-s chedd-muted">Showing {{ displayResults.length }} out of {{ displayTotal }} results</p>
+
+  <table class="govuk-table">
+    <thead class="govuk-table__head">
+      <tr class="govuk-table__row">
+        <th class="govuk-table__header" scope="col"></th>
+        <th class="govuk-table__header" scope="col">Name</th>
+        <th class="govuk-table__header" scope="col">Address</th>
+        <th class="govuk-table__header" scope="col">Country</th>
+        <th class="govuk-table__header" scope="col"></th>
+      </tr>
+    </thead>
+    <tbody class="govuk-table__body">
+      {% for a in displayResults %}
+      <tr class="govuk-table__row">
+        <td class="govuk-table__cell"><input class="govuk-radios__input" type="radio" name="{{ addressFieldName }}" id="{{ addressFieldName }}-{{ loop.index }}" value="{{ a.id }}" style="position: static; opacity: 1;"></td>
+        <td class="govuk-table__cell">{{ a.name }}</td>
+        <td class="govuk-table__cell">{{ a.address }}</td>
+        <td class="govuk-table__cell">{{ a.country }}</td>
+        <td class="govuk-table__cell"><a class="govuk-link" href="#">View details</a></td>
+      </tr>
+      {% else %}
+      <tr class="govuk-table__row">
+        <td class="govuk-table__cell" colspan="5">No addresses found matching your search.</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  {% if totalPages and totalPages > 1 %}
+    {% set prevHref = "?" + addressFieldName + "-search=" + (searchTerm or '') + "&page=" + (page - 1) %}
+    {% set nextHref = "?" + addressFieldName + "-search=" + (searchTerm or '') + "&page=" + (page + 1) %}
+    {{ govukPagination({
+      landmarkLabel: "Results pagination",
+      previous: page > 1 and {
+        href: prevHref,
+        text: "Previous page",
+        labelText: (page - 1) + " of " + totalPages
+      } or null,
+      next: page < totalPages and {
+        href: nextHref,
+        text: "Next page",
+        labelText: (page + 1) + " of " + totalPages
+      } or null
+    }) }}
+  {% endif %}
+
+  {{ govukButton({
+    text: "Save and continue",
+    classes: "govuk-!-margin-top-6",
+    attributes: { formmethod: "post" }
+  }) }}
+</form>

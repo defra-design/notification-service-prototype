@@ -18,12 +18,14 @@
       <form method="post" novalidate>
 
       <div id="document-cards">
-      <div class="chedd-document-card">
-        <div class="chedd-document-card__header">
-          <h2 class="govuk-heading-m govuk-!-margin-bottom-0">Document 1</h2>
-          <a href="#" class="govuk-link chedd-remove-document-link chedd-hidden">Remove</a>
+      <div class="govuk-summary-card">
+        <div class="govuk-summary-card__title-wrapper">
+          <h2 class="govuk-summary-card__title">Document 1</h2>
+          <div class="govuk-summary-card__actions">
+            <a href="#" class="govuk-link chedd-remove-document-link chedd-hidden">Remove</a>
+          </div>
         </div>
-        <div class="chedd-document-card__body">
+        <div class="govuk-summary-card__content">
 
         {{ govukInput({
           label: { text: "Document number" },
@@ -174,7 +176,7 @@
       var cardCount = 1
 
       function updateRemoveLinksVisibility () {
-        var totalCards = cardsContainer.querySelectorAll('.chedd-document-card').length
+        var totalCards = cardsContainer.querySelectorAll('.govuk-summary-card').length
         cardsContainer.querySelectorAll('.chedd-remove-document-link').forEach(function (link) {
           link.classList.toggle('chedd-hidden', totalCards <= 1)
         })
@@ -182,7 +184,7 @@
 
       // Captured before enhanceAutocomplete mutates card 1's selects, so clones
       // are always built from pristine markup rather than an already-enhanced one.
-      var originalCardHtml = cardsContainer.querySelector('.chedd-document-card').outerHTML
+      var originalCardHtml = cardsContainer.querySelector('.govuk-summary-card').outerHTML
 
       initDropzone('document-1-dropzone')
       enhanceAutocomplete('document-1-type')
@@ -222,7 +224,7 @@
         if (!link) return
         e.preventDefault()
 
-        var card = link.closest('.chedd-document-card')
+        var card = link.closest('.govuk-summary-card')
         if (card) card.remove()
 
         updateRemoveLinksVisibility()
