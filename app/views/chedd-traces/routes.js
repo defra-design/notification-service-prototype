@@ -226,4 +226,68 @@ module.exports = function (router) {
 
     res.redirect('/chedd-traces/05-commodity-add-another')
   })
+
+  // --- Consignment address search (consignor, consignee, place of destination) ---
+  const consignors = require('../../data/consignors.js')
+  const consignees = require('../../data/consignees.js')
+  const placesOfDestination = require('../../data/places-of-destination.js')
+  const ADDRESSES_PER_PAGE = 5
+
+  function searchConsignmentAddresses (req, fieldName, addressBook) {
+    const queryKey = `${fieldName}-search`
+    const searchTerm = (req.query[queryKey] || '').trim().toLowerCase()
+    const page = parseInt(req.query.page, 10) || 1
+
+    let filtered = addressBook
+    if (searchTerm) {
+      filtered = filtered.filter(a =>
+        a.name.toLowerCase().includes(searchTerm) ||
+        a.address.toLowerCase().includes(searchTerm) ||
+        a.country.toLowerCase().includes(searchTerm)
+      )
+    }
+
+    const total = filtered.length
+    const totalPages = Math.max(1, Math.ceil(total / ADDRESSES_PER_PAGE))
+    const pageNum = Math.max(1, Math.min(page, totalPages))
+    const start = (pageNum - 1) * ADDRESSES_PER_PAGE
+
+    return {
+      results: filtered.slice(start, start + ADDRESSES_PER_PAGE),
+      total,
+      totalPages,
+      page: pageNum,
+      searchTerm: req.query[queryKey] || ''
+    }
+  }
+
+  router.get('/chedd-traces/13a-consignor-or-exporter', (req, res) => {
+    res.render('chedd-traces/13a-consignor-or-exporter', searchConsignmentAddresses(req, 'consignor-or-exporter', consignors))
+  })
+
+  router.post('/chedd-traces/13a-consignor-or-exporter', (req, res) => {
+    const selected = consignors.find(a => a.id === req.body['consignor-or-exporter'])
+    if (selected) req.session.data.consignorOrExporter = selected
+    res.redirect('/chedd-traces/13-addresses')
+  })
+
+  router.get('/chedd-traces/13b-consignee', (req, res) => {
+    res.render('chedd-traces/13b-consignee', searchConsignmentAddresses(req, 'consignee', consignees))
+  })
+
+  router.post('/chedd-traces/13b-consignee', (req, res) => {
+    const selected = consignees.find(a => a.id === req.body.consignee)
+    if (selected) req.session.data.consigneeOrImporter = selected
+    res.redirect('/chedd-traces/13-addresses')
+  })
+
+  router.get('/chedd-traces/13c-place-of-destination', (req, res) => {
+    res.render('chedd-traces/13c-place-of-destination', searchConsignmentAddresses(req, 'place-of-destination', placesOfDestination))
+  })
+
+  router.post('/chedd-traces/13c-place-of-destination', (req, res) => {
+    const selected = placesOfDestination.find(a => a.id === req.body['place-of-destination'])
+    if (selected) req.session.data.placeOfDestination = selected
+    res.redirect('/chedd-traces/13-addresses')
+  })
 }
