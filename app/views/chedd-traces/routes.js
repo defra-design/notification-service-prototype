@@ -44,6 +44,51 @@ function transportIdentifier (transport) {
   }
 }
 
+function buildNotificationSummaryViewModel (data) {
+  const { getBcpLabel } = require('../../data/border-control-posts-ched-d.js')
+  const tracesCountries = require('../../data/traces-countries.js')
+  const regionRules = require('../../data/region-of-origin-rules.js')
+
+  const countryText = (value) => {
+    const match = tracesCountries.find(country => country.value === value)
+    return match ? match.text : (value || 'Not provided')
+  }
+
+  const commodities = data.commodities || []
+  const totalNetWeight = commodities.reduce((sum, item) => sum + (parseFloat(item.netWeight) || 0), 0)
+  const totalPackages = commodities.reduce((sum, item) => sum + (parseInt(item.packages, 10) || 0), 0)
+
+  const commodityRegions = commodities
+    .map(item => {
+      const rule = regionRules.find(r => r.commodity === item.commodity && r.country === data.countryOfOriginText)
+      return rule ? { commodityName: item.description || item.commodity, label: rule.label, value: item.regionOfOrigin || 'Not provided' } : null
+    })
+    .filter(Boolean)
+
+  const transports = (data.transports || []).map(transport => ({
+    typeLabel: transportTypeLabels[transport.type] || transport.type,
+    identifier: transportIdentifier(transport),
+    document: transport.document || 'Not provided'
+  }))
+
+  return {
+    importTypeText: importTypeLabelsByImportType[data['import-type']] || 'Not provided',
+    reasonText: reasonLabelsByReason[data.reason] || 'Not provided',
+    destinationCountryText: countryText(data['origin-assigned-country']),
+    commodityIntendedText: commodityIntendedLabels[data['commodity-intended']] || 'Not provided',
+    commodityRegions,
+    totalNetWeight,
+    totalPackages,
+    bcpText: getBcpLabel(data['border-control-post']),
+    transports,
+    trailersText: trailersLabels[data.trailers] || 'Not provided',
+    transportConditionsText: transportConditionsLabels[data['transport-conditions']] || 'Not provided',
+    dispatchCountryText: countryText(data['dispatch-country']),
+    arrivalDateText: formatDayMonthYear(data['arrival-date-day'], data['arrival-date-month'], data['arrival-date-year']) || 'Not provided',
+    arrivalTimeText: (data['arrival-hour'] && data['arrival-minute']) ? `${data['arrival-hour']}:${data['arrival-minute']}` : 'Not provided'
+  }
+}
+
 const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
 
 function formatDayMonthYear (day, month, year) {
@@ -136,8 +181,32 @@ module.exports = function (router) {
   })
 
   router.get('/chedd-traces/07-notification-hub', (req, res) => {
+    const data = req.session.data
+    const commodities = data.commodities || []
+
+    const notStarted = { tag: { text: 'Not started', classes: 'govuk-tag--grey' } }
+    const inProgress = { tag: { text: 'In progress', classes: 'govuk-tag--blue' } }
+    const completed = { tag: { text: 'Completed' } }
+
+    const commodityStatus = commodities.length === 0
+      ? notStarted
+      : commodities.every(item => item.netWeight && item.packages && item.packageType)
+        ? completed
+        : inProgress
+
+    const addressesAnswered = [data.consignorOrExporter, data.consigneeOrImporter, data.placeOfDestination].filter(Boolean).length
+    const addressesStatus = addressesAnswered === 0 ? notStarted : addressesAnswered === 3 ? completed : inProgress
+
     res.render('chedd-traces/07-notification-hub', {
-      commodityCount: (req.session.data.commodities || []).length
+      commodityCount: commodities.length,
+      packageCount: commodities.reduce((sum, item) => sum + (parseInt(item.packages, 10) || 0), 0),
+      originStatus: data.countryOfOrigin ? completed : notStarted,
+      reasonStatus: data.reason ? completed : notStarted,
+      commodityStatus,
+      additionalDetailsStatus: data['commodity-intended'] ? completed : notStarted,
+      documentsStatus: (data.accompanyingDocuments || []).length > 0 ? completed : notStarted,
+      addressesStatus,
+      transportStatus: data['border-control-post'] ? completed : notStarted
     })
   })
 
@@ -166,39 +235,7 @@ module.exports = function (router) {
   })
 
   router.get('/chedd-traces/20-review-notification-draft', (req, res) => {
-    const data = req.session.data
-    const { getBcpLabel } = require('../../data/border-control-posts-ched-d.js')
-    const tracesCountries = require('../../data/traces-countries.js')
-
-    const countryText = (value) => {
-      const match = tracesCountries.find(country => country.value === value)
-      return match ? match.text : (value || 'Not provided')
-    }
-
-    const commodities = data.commodities || []
-    const totalNetWeight = commodities.reduce((sum, item) => sum + (parseFloat(item.netWeight) || 0), 0)
-    const totalPackages = commodities.reduce((sum, item) => sum + (parseInt(item.packages, 10) || 0), 0)
-
-    const transports = (data.transports || []).map(transport => ({
-      typeLabel: transportTypeLabels[transport.type] || transport.type,
-      identifier: transportIdentifier(transport),
-      document: transport.document || 'Not provided'
-    }))
-
-    res.render('chedd-traces/20-review-notification-draft', {
-      importTypeText: importTypeLabelsByImportType[data['import-type']] || 'Not provided',
-      reasonText: reasonLabelsByReason[data.reason] || 'Not provided',
-      commodityIntendedText: commodityIntendedLabels[data['commodity-intended']] || 'Not provided',
-      totalNetWeight,
-      totalPackages,
-      bcpText: getBcpLabel(data['border-control-post']),
-      transports,
-      trailersText: trailersLabels[data.trailers] || 'Not provided',
-      transportConditionsText: transportConditionsLabels[data['transport-conditions']] || 'Not provided',
-      dispatchCountryText: countryText(data['dispatch-country']),
-      arrivalDateText: formatDayMonthYear(data['arrival-date-day'], data['arrival-date-month'], data['arrival-date-year']) || 'Not provided',
-      arrivalTimeText: (data['arrival-hour'] && data['arrival-minute']) ? `${data['arrival-hour']}:${data['arrival-minute']}` : 'Not provided'
-    })
+    res.render('chedd-traces/20-review-notification-draft', buildNotificationSummaryViewModel(req.session.data))
   })
 
   router.get('/chedd-traces/08-commodity', (req, res) => {
@@ -417,6 +454,29 @@ module.exports = function (router) {
   })
 
   router.post('/chedd-traces/21-declaration', (req, res) => {
-    res.redirect('/chedd-traces/23-inspection-not-required')
+    // Mocks the BCP's risk-based selection decision (real-world CHED-Ds are
+    // rarely selected for physical inspection) so repeat runs through the
+    // journey during user testing see some variety in outcome.
+    req.session.data.inspectionRequired = Math.random() < 0.3
+    res.redirect('/chedd-traces/22-review-notification-submitted')
+  })
+
+  router.get('/chedd-traces/22-review-notification-submitted', (req, res) => {
+    const data = req.session.data
+    res.render('chedd-traces/22-review-notification-submitted', Object.assign(
+      buildNotificationSummaryViewModel(data),
+      {
+        nextHref: data.inspectionRequired
+          ? '/chedd-traces/24-inspection-required'
+          : '/chedd-traces/23-inspection-not-required'
+      }
+    ))
+  })
+
+  router.get('/chedd-traces/24-inspection-required', (req, res) => {
+    const { getBcpLabel } = require('../../data/border-control-posts-ched-d.js')
+    res.render('chedd-traces/24-inspection-required', {
+      bcpText: getBcpLabel(req.session.data['border-control-post'])
+    })
   })
 }
