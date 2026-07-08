@@ -415,4 +415,8 @@ module.exports = function (router) {
     if (selected) req.session.data.placeOfDestination = selected
     res.redirect('/chedd-traces/13-addresses')
   })
+
+  router.post('/chedd-traces/21-declaration', (req, res) => {
+    res.redirect('/chedd-traces/23-inspection-not-required')
+  })
 }
