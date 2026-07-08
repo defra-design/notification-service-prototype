@@ -458,7 +458,7 @@ module.exports = function (router) {
     // rarely selected for physical inspection) so repeat runs through the
     // journey during user testing see some variety in outcome.
     req.session.data.inspectionRequired = Math.random() < 0.3
-    res.redirect('/chedd-traces/22-review-notification-submitted')
+    res.redirect('/chedd-traces/24-inspection-required')
   })
 
   router.get('/chedd-traces/22-review-notification-submitted', (req, res) => {
