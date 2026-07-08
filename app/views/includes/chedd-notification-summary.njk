@@ -1,0 +1,282 @@
+{#
+  Shared notification summary body for the chedd-traces journey, used by both
+  20-review-notification-draft.html (draft, editable) and
+  22-review-notification-submitted.html (submitted, read-only).
+  Set `editable = false` before including to hide all "Change" links.
+  Expects the same render vars as the GET /chedd-traces/20-review-notification-draft
+  route (see chedd-traces/routes.js buildNotificationSummaryViewModel).
+#}
+{% set editable = true if editable is not defined else editable %}
+
+<dl class="govuk-summary-list govuk-!-margin-bottom-6">
+  <div class="govuk-summary-list__row">
+    <dt class="govuk-summary-list__key">CHED reference</dt>
+    <dd class="govuk-summary-list__value">DRAFT.GB.2024.7016439</dd>
+    <dd class="govuk-summary-list__actions"><a class="govuk-link" href="#">Copy<span class="govuk-visually-hidden"> CHED reference</span></a></dd>
+  </div>
+  <div class="govuk-summary-list__row">
+    <dt class="govuk-summary-list__key">Customs declaration reference</dt>
+    <dd class="govuk-summary-list__value">GBCHD2024.7016439</dd>
+    <dd class="govuk-summary-list__actions"><a class="govuk-link" href="#">Copy<span class="govuk-visually-hidden"> customs declaration reference</span></a></dd>
+  </div>
+  <div class="govuk-summary-list__row">
+    <dt class="govuk-summary-list__key">Customs document code</dt>
+    <dd class="govuk-summary-list__value">N851</dd>
+    <dd class="govuk-summary-list__actions"><a class="govuk-link" href="#">Copy<span class="govuk-visually-hidden"> customs document code</span></a></dd>
+  </div>
+</dl>
+
+{{ govukWarningText({
+  text: "You must use the correct reference and code on the customs declaration or your consignment will be delayed.",
+  iconFallbackText: "Warning"
+}) }}
+
+<h2 class="govuk-heading-m">About the consignment</h2>
+<dl class="govuk-summary-list govuk-!-margin-bottom-9">
+  <div class="govuk-summary-list__row">
+    <dt class="govuk-summary-list__key">Import type</dt>
+    <dd class="govuk-summary-list__value">{{ importTypeText }}</dd>
+    <dd class="govuk-summary-list__actions">{% if editable %}<a class="govuk-link" href="/chedd-traces/01-what-are-you-importing">Change<span class="govuk-visually-hidden"> import type</span></a>{% endif %}</dd>
+  </div>
+  <div class="govuk-summary-list__row">
+    <dt class="govuk-summary-list__key">Country of origin</dt>
+    <dd class="govuk-summary-list__value">{{ data.countryOfOriginText or 'Not provided' }}</dd>
+    <dd class="govuk-summary-list__actions">{% if editable %}<a class="govuk-link" href="/chedd-traces/02-origin-animal-or-product">Change<span class="govuk-visually-hidden"> country of origin</span></a>{% endif %}</dd>
+  </div>
+  <div class="govuk-summary-list__row">
+    <dt class="govuk-summary-list__key">Country of destination</dt>
+    <dd class="govuk-summary-list__value">{{ destinationCountryText }}</dd>
+    <dd class="govuk-summary-list__actions">{% if editable %}<a class="govuk-link" href="/chedd-traces/03-origin-import">Change<span class="govuk-visually-hidden"> country of destination</span></a>{% endif %}</dd>
+  </div>
+  <div class="govuk-summary-list__row">
+    <dt class="govuk-summary-list__key">Consignment reference number</dt>
+    <dd class="govuk-summary-list__value">{{ data['consignment-ref'] or 'Not provided' }}</dd>
+    <dd class="govuk-summary-list__actions">{% if editable %}<a class="govuk-link" href="/chedd-traces/03-origin-import">Change<span class="govuk-visually-hidden"> consignment reference number</span></a>{% endif %}</dd>
+  </div>
+  <div class="govuk-summary-list__row">
+    <dt class="govuk-summary-list__key">Main reason for importing the consignment</dt>
+    <dd class="govuk-summary-list__value">{{ reasonText }}</dd>
+    <dd class="govuk-summary-list__actions">{% if editable %}<a class="govuk-link" href="/chedd-traces/06-main-reason-importing">Change<span class="govuk-visually-hidden"> main reason for importing the consignment</span></a>{% endif %}</dd>
+  </div>
+</dl>
+
+<h2 class="govuk-heading-m">Description of the goods</h2>
+<table class="govuk-table govuk-!-margin-bottom-6">
+  <caption class="govuk-table__caption govuk-visually-hidden">Commodities in this consignment</caption>
+  <thead class="govuk-table__head">
+    <tr class="govuk-table__row">
+      <th scope="col" class="govuk-table__header">Commodity code</th>
+      <th scope="col" class="govuk-table__header">Description</th>
+      {% if editable %}<th scope="col" class="govuk-table__header govuk-!-text-align-right"><span class="govuk-visually-hidden">Change</span></th>{% endif %}
+    </tr>
+  </thead>
+  <tbody class="govuk-table__body">
+    {% for item in data.commodities %}
+    <tr class="govuk-table__row">
+      <td class="govuk-table__cell">{{ item.code }}</td>
+      <td class="govuk-table__cell">{{ item.description }}</td>
+      {% if editable %}<td class="govuk-table__cell govuk-!-text-align-right"><a class="govuk-link" href="/chedd-traces/08-commodity">Change<span class="govuk-visually-hidden"> {{ item.description }}</span></a></td>{% endif %}
+    </tr>
+    {% else %}
+    <tr class="govuk-table__row">
+      <td class="govuk-table__cell" colspan="{{ 3 if editable else 2 }}">Not provided</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<table class="govuk-table govuk-!-margin-bottom-6">
+  <thead class="govuk-table__head">
+    <tr class="govuk-table__row">
+      <th scope="col" class="govuk-table__header">Net weight</th>
+      <th scope="col" class="govuk-table__header">Packages</th>
+      <th scope="col" class="govuk-table__header">Package type</th>
+    </tr>
+  </thead>
+  <tbody class="govuk-table__body">
+    {% for item in data.commodities %}
+    <tr class="govuk-table__row">
+      <td class="govuk-table__cell">{{ (item.netWeight + ' kg') if item.netWeight else 'Not provided' }}</td>
+      <td class="govuk-table__cell">{{ item.packages or 'Not provided' }}</td>
+      <td class="govuk-table__cell">{{ item.packageTypeText or 'Not provided' }}</td>
+    </tr>
+    {% else %}
+    <tr class="govuk-table__row">
+      <td class="govuk-table__cell" colspan="3">Not provided</td>
+    </tr>
+    {% endfor %}
+    {% if data.commodities.length %}
+    <tr class="govuk-table__row">
+      <td class="govuk-table__cell"><strong>Subtotal</strong></td>
+      <td class="govuk-table__cell">{{ totalNetWeight }} kg</td>
+      <td class="govuk-table__cell">{{ totalPackages }}</td>
+    </tr>
+    {% endif %}
+  </tbody>
+</table>
+
+<dl class="govuk-summary-list govuk-!-margin-bottom-9">
+  <div class="govuk-summary-list__row">
+    <dt class="govuk-summary-list__key">Total net weight</dt>
+    <dd class="govuk-summary-list__value">{{ totalNetWeight }} kg</dd>
+    <dd class="govuk-summary-list__actions"></dd>
+  </div>
+  <div class="govuk-summary-list__row">
+    <dt class="govuk-summary-list__key">Total packages</dt>
+    <dd class="govuk-summary-list__value">{{ totalPackages }}</dd>
+    <dd class="govuk-summary-list__actions"></dd>
+  </div>
+  <div class="govuk-summary-list__row">
+    <dt class="govuk-summary-list__key">Total gross weight</dt>
+    <dd class="govuk-summary-list__value">{{ (data.grossWeight + ' kg') if data.grossWeight else 'Not provided' }}</dd>
+    <dd class="govuk-summary-list__actions"></dd>
+  </div>
+  {% for region in commodityRegions %}
+  <div class="govuk-summary-list__row">
+    <dt class="govuk-summary-list__key">{{ region.label }} ({{ region.commodityName }})</dt>
+    <dd class="govuk-summary-list__value">{{ region.value }}</dd>
+    <dd class="govuk-summary-list__actions">{% if editable %}<a class="govuk-link" href="/chedd-traces/08-commodity">Change<span class="govuk-visually-hidden"> {{ region.label | lower }} for {{ region.commodityName }}</span></a>{% endif %}</dd>
+  </div>
+  {% endfor %}
+</dl>
+
+<h2 class="govuk-heading-m">Additional details</h2>
+<dl class="govuk-summary-list govuk-!-margin-bottom-9">
+  <div class="govuk-summary-list__row">
+    <dt class="govuk-summary-list__key">Commodity intended for</dt>
+    <dd class="govuk-summary-list__value">{{ commodityIntendedText }}</dd>
+    <dd class="govuk-summary-list__actions">{% if editable %}<a class="govuk-link" href="/chedd-traces/09-additional-details">Change<span class="govuk-visually-hidden"> commodity intended for</span></a>{% endif %}</dd>
+  </div>
+</dl>
+
+<h2 class="govuk-heading-m">Documents</h2>
+<dl class="govuk-summary-list govuk-!-margin-bottom-4">
+  <div class="govuk-summary-list__row">
+    <dt class="govuk-summary-list__key">Showing {{ data.accompanyingDocuments.length or 0 }} document{{ 's' if data.accompanyingDocuments.length != 1 else '' }}</dt>
+    <dd class="govuk-summary-list__value"></dd>
+    <dd class="govuk-summary-list__actions">{% if editable %}<a class="govuk-link" href="/chedd-traces/10-accompanying-documents">Change<span class="govuk-visually-hidden"> documents</span></a>{% endif %}</dd>
+  </div>
+</dl>
+
+<table class="govuk-table govuk-!-margin-bottom-9">
+  <thead class="govuk-table__head">
+    <tr class="govuk-table__row">
+      <th scope="col" class="govuk-table__header">Document type</th>
+      <th scope="col" class="govuk-table__header">Document reference</th>
+      <th scope="col" class="govuk-table__header">Date of issue</th>
+      <th scope="col" class="govuk-table__header">Attachments</th>
+    </tr>
+  </thead>
+  <tbody class="govuk-table__body">
+    {% for doc in data.accompanyingDocuments %}
+    <tr class="govuk-table__row">
+      <td class="govuk-table__cell">{{ doc.type or 'Not provided' }}</td>
+      <td class="govuk-table__cell">{{ doc.reference or 'Not provided' }}</td>
+      <td class="govuk-table__cell">{{ doc.date or 'Not provided' }}</td>
+      <td class="govuk-table__cell">{{ doc.attachment or 'Not provided' }}</td>
+    </tr>
+    {% else %}
+    <tr class="govuk-table__row">
+      <td class="govuk-table__cell" colspan="4">Not provided</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<h2 class="govuk-heading-m">Traders</h2>
+<dl class="govuk-summary-list govuk-!-margin-bottom-9">
+  <div class="govuk-summary-list__row">
+    <dt class="govuk-summary-list__key">Consignor or exporter</dt>
+    <dd class="govuk-summary-list__value">
+      {% if data.consignorOrExporter %}{{ data.consignorOrExporter.name }}<br>{{ data.consignorOrExporter.address }}<br>{{ data.consignorOrExporter.country }}{% else %}Not provided{% endif %}
+    </dd>
+    <dd class="govuk-summary-list__actions">{% if editable %}<a class="govuk-link" href="/chedd-traces/13a-consignor-or-exporter">Change<span class="govuk-visually-hidden"> consignor or exporter</span></a>{% endif %}</dd>
+  </div>
+  <div class="govuk-summary-list__row">
+    <dt class="govuk-summary-list__key">Consignee or importer</dt>
+    <dd class="govuk-summary-list__value">
+      {% if data.consigneeOrImporter %}{{ data.consigneeOrImporter.name }}<br>{{ data.consigneeOrImporter.address }}<br>{{ data.consigneeOrImporter.country }}{% else %}Not provided{% endif %}
+    </dd>
+    <dd class="govuk-summary-list__actions"></dd>
+  </div>
+  <div class="govuk-summary-list__row">
+    <dt class="govuk-summary-list__key">Place of destination</dt>
+    <dd class="govuk-summary-list__value">
+      {% if data.placeOfDestination %}{{ data.placeOfDestination.name }}<br>{{ data.placeOfDestination.address }}<br>{{ data.placeOfDestination.country }}{% else %}Not provided{% endif %}
+    </dd>
+    <dd class="govuk-summary-list__actions"></dd>
+  </div>
+</dl>
+
+<h2 class="govuk-heading-m">Transport</h2>
+<dl class="govuk-summary-list govuk-!-margin-bottom-9">
+  <div class="govuk-summary-list__row">
+    <dt class="govuk-summary-list__key">Border Control Post</dt>
+    <dd class="govuk-summary-list__value">{{ bcpText }}</dd>
+    <dd class="govuk-summary-list__actions">{% if editable %}<a class="govuk-link" href="/chedd-traces/14-transport-to-port">Change<span class="govuk-visually-hidden"> transport details</span></a>{% endif %}</dd>
+  </div>
+</dl>
+
+<table class="govuk-table govuk-!-margin-bottom-6">
+  <caption class="govuk-table__caption govuk-visually-hidden">Means of transport</caption>
+  <thead class="govuk-table__head">
+    <tr class="govuk-table__row">
+      <th scope="col" class="govuk-table__header">Means of transport</th>
+      <th scope="col" class="govuk-table__header">Identification</th>
+      <th scope="col" class="govuk-table__header">Document reference</th>
+    </tr>
+  </thead>
+  <tbody class="govuk-table__body">
+    {% for t in transports %}
+    <tr class="govuk-table__row">
+      <td class="govuk-table__cell">{{ t.typeLabel }}</td>
+      <td class="govuk-table__cell">{{ t.identifier }}</td>
+      <td class="govuk-table__cell">{{ t.document }}</td>
+    </tr>
+    {% else %}
+    <tr class="govuk-table__row">
+      <td class="govuk-table__cell" colspan="3">Not provided</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<dl class="govuk-summary-list govuk-!-margin-bottom-9">
+  <div class="govuk-summary-list__row">
+    <dt class="govuk-summary-list__key">Using road trailers or containers?</dt>
+    <dd class="govuk-summary-list__value">{{ trailersText }}</dd>
+    <dd class="govuk-summary-list__actions"></dd>
+  </div>
+  {% if data.trailers == 'yes' %}
+  <div class="govuk-summary-list__row">
+    <dt class="govuk-summary-list__key">Container or trailer number</dt>
+    <dd class="govuk-summary-list__value">{{ data['container-number'] or 'Not provided' }}</dd>
+    <dd class="govuk-summary-list__actions"></dd>
+  </div>
+  <div class="govuk-summary-list__row">
+    <dt class="govuk-summary-list__key">Seal number</dt>
+    <dd class="govuk-summary-list__value">{{ data['seal-number'] or 'Not provided' }}</dd>
+    <dd class="govuk-summary-list__actions"></dd>
+  </div>
+  {% endif %}
+  <div class="govuk-summary-list__row">
+    <dt class="govuk-summary-list__key">Transport conditions</dt>
+    <dd class="govuk-summary-list__value">{{ transportConditionsText }}</dd>
+    <dd class="govuk-summary-list__actions"></dd>
+  </div>
+  <div class="govuk-summary-list__row">
+    <dt class="govuk-summary-list__key">Country of dispatch</dt>
+    <dd class="govuk-summary-list__value">{{ dispatchCountryText }}</dd>
+    <dd class="govuk-summary-list__actions"></dd>
+  </div>
+  <div class="govuk-summary-list__row">
+    <dt class="govuk-summary-list__key">Estimated arrival date at port of entry</dt>
+    <dd class="govuk-summary-list__value">{{ arrivalDateText }}</dd>
+    <dd class="govuk-summary-list__actions"></dd>
+  </div>
+  <div class="govuk-summary-list__row">
+    <dt class="govuk-summary-list__key">Estimated arrival time at port of entry</dt>
+    <dd class="govuk-summary-list__value">{{ arrivalTimeText }}</dd>
+    <dd class="govuk-summary-list__actions"></dd>
+  </div>
+</dl>

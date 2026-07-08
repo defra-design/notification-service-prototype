@@ -25,7 +25,7 @@
         <div class="govuk-grid-column-one-half">
           <div class="chedd-stat-card">
             <div class="chedd-stat-card__top">
-              <p class="chedd-stat-card__value">0</p>
+              <p class="chedd-stat-card__value">{{ packageCount }}</p>
               <p class="chedd-stat-card__label">Packages/boxes</p>
             </div>
             <div class="chedd-stat-card__bottom">
@@ -45,12 +45,12 @@
           {
             title: { text: "Origin of the import" },
             href: "/chedd-traces/02-origin-animal-or-product",
-            status: { tag: { text: "Started", classes: "govuk-tag--blue" } }
+            status: originStatus
           },
           {
             title: { text: "Main reason for importing the consignment" },
-            href: "/chedd-traces/04-main-reason-importing",
-            status: { tag: { text: "Started", classes: "govuk-tag--blue" } }
+            href: "/chedd-traces/06-main-reason-importing",
+            status: reasonStatus
           }
         ]
       }) }}
@@ -62,12 +62,12 @@
           {
             title: { text: "Commodity" },
             href: "/chedd-traces/08-commodity",
-            status: { tag: { text: "To do", classes: "govuk-tag--grey" } }
+            status: commodityStatus
           },
           {
             title: { text: "Additional details" },
             href: "/chedd-traces/09-additional-details",
-            status: { tag: { text: "To do", classes: "govuk-tag--grey" } }
+            status: additionalDetailsStatus
           }
         ]
       }) }}
@@ -79,7 +79,7 @@
           {
             title: { text: "Accompanying documents" },
             href: "/chedd-traces/10-accompanying-documents-upload",
-            status: { tag: { text: "To do", classes: "govuk-tag--grey" } }
+            status: documentsStatus
           }
         ]
       }) }}
@@ -91,7 +91,7 @@
           {
             title: { text: "Addresses" },
             href: "/chedd-traces/13-addresses",
-            status: { tag: { text: "To do", classes: "govuk-tag--grey" } }
+            status: addressesStatus
           }
         ]
       }) }}
@@ -103,7 +103,7 @@
           {
             title: { text: "Transport to the port of entry" },
             href: "/chedd-traces/14-transport-to-port",
-            status: { tag: { text: "To do", classes: "govuk-tag--grey" } }
+            status: transportStatus
           }
         ]
       }) }}

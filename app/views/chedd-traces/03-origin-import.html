@@ -71,7 +71,7 @@
           </div>
         </div>
       </div>
-  
+
       <div class="govuk-radios__item">
         <input class="govuk-radios__input" id="contact-2" name="contact" type="radio" value="phone"">
         <label class="govuk-label govuk-radios__label" for="contact-2">
@@ -110,7 +110,7 @@
         <select class="govuk-select" id="origin-assigned-country" name="origin-assigned-country">
           <option value="" disabled selected></option>
           {% for country in tracesCountries() %}
-          <option value="{{ country.value }}">{{ country.text }}</option>
+          <option value="{{ country.value }}" {% if data['origin-assigned-country'] == country.value %}selected{% endif %}>{{ country.text }}</option>
           {% endfor %}
         </select>
         </div>
@@ -121,6 +121,7 @@
         hint: { text: "Enter any local reference number you want to use to identify this consignment, or leave blank." },
         id: "consignment-ref",
         name: "consignment-ref",
+        value: data['consignment-ref'],
         classes: "govuk-input govuk-input--width-40"
       }) }}
 
