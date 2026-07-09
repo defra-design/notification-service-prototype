@@ -241,7 +241,6 @@ module.exports = function (router) {
   router.get('/chedd-traces/08-commodity', (req, res) => {
     const commoditiesData = require('../../data/commodities-ched-d.js')
     const regionRules = require('../../data/region-of-origin-rules.js')
-    const packageTypes = require('../../data/package-types.js')
     const countryOfOriginText = req.session.data.countryOfOriginText
 
     const commodities = (req.session.data.commodities || []).map(item => {
@@ -260,8 +259,7 @@ module.exports = function (router) {
 
     res.render('chedd-traces/08-commodity', {
       commodities,
-      countryOfOriginText,
-      packageTypeItems: [{ value: '', text: 'Select type of package' }].concat(packageTypes)
+      countryOfOriginText
     })
   })
 
