@@ -936,3 +936,15 @@
     margin-bottom: 0;
   }
 }
+
+.chedd-commodity-fields-row {
+  display: flex;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: govuk-spacing(4);
+
+  .govuk-select,
+  .autocomplete-wrapper {
+    max-width: 300px;
+  }
+}
