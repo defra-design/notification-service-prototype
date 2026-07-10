@@ -210,27 +210,34 @@ module.exports = function (router) {
     })
   })
 
-  router.post('/chedd-traces/14-transport-to-port', (req, res) => {
+  function buildTransportsFromBody (body) {
     const typeFieldPattern = /^transport-(\d+)-type$/
-    const indices = Object.keys(req.body)
+    const indices = Object.keys(body)
       .map(key => key.match(typeFieldPattern))
       .filter(Boolean)
       .map(match => match[1])
       .sort((a, b) => Number(a) - Number(b))
 
-    req.session.data.transports = indices.map(index => {
+    return indices.map(index => {
       const prefix = 'transport-' + index + '-'
-      const values = { type: req.body[prefix + 'type'] }
+      const values = { type: body[prefix + 'type'] }
 
-      Object.keys(req.body).forEach(fieldKey => {
+      Object.keys(body).forEach(fieldKey => {
         if (fieldKey.indexOf(prefix) === 0 && fieldKey !== prefix + 'type') {
-          values[fieldKey.slice(prefix.length)] = req.body[fieldKey]
+          values[fieldKey.slice(prefix.length)] = body[fieldKey]
         }
       })
 
       return values
     })
+  }
 
+  router.post('/chedd-traces/14-transport-to-port', (req, res) => {
+    res.redirect('/chedd-traces/14a-transport')
+  })
+
+  router.post('/chedd-traces/14a-transport', (req, res) => {
+    req.session.data.transports = buildTransportsFromBody(req.body)
     res.redirect('/chedd-traces/20-review-notification-draft')
   })
 
