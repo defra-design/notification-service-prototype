@@ -1,5 +1,6 @@
 {% extends "layouts/main.html" %}
 {% from "govuk/components/breadcrumbs/macro.njk" import govukBreadcrumbs %}
+{% from "govuk/components/notification-banner/macro.njk" import govukNotificationBanner %}
 
 {% set title = "Guidance on importing live animals or animal products" %}
 
@@ -15,6 +16,13 @@
 {% block content %}
 <div class="govuk-grid-row">
   <div class="govuk-grid-column-two-thirds">
+    {% call govukNotificationBanner() %}
+      <p class="govuk-notification-banner__heading">
+        Import rules have changed. This means x and y.
+        <a class="govuk-notification-banner__link" href="#">Call to action lives here</a>.
+      </p>
+    {% endcall %}
+
     <h1 class="govuk-heading-l">Guidance on importing live animals or animal products</h1>
     <p class="govuk-body">Comprehensive rules and guidance for importing animals and animal products to Great Britain, published by the Department for Environment, Food &amp; Rural Affairs and the Animal and Plant Health Agency.</p>
 

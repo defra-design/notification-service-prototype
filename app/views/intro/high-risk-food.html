@@ -1,5 +1,6 @@
 {% extends "layouts/main.html" %}
 {% from "govuk/components/breadcrumbs/macro.njk" import govukBreadcrumbs %}
+{% from "govuk/components/notification-banner/macro.njk" import govukNotificationBanner %}
 
 {% set title = "Importing high risk foods" %}
 
@@ -15,6 +16,13 @@
 {% block content %}
 <div class="govuk-grid-row">
   <div class="govuk-grid-column-two-thirds">
+    {% call govukNotificationBanner() %}
+      <p class="govuk-notification-banner__heading">
+        Import rules have changed. This means x and y.
+        <a class="govuk-notification-banner__link" href="#">Call to action lives here</a>.
+      </p>
+    {% endcall %}
+
     <h1 class="govuk-heading-l">Importing high risk foods</h1>
     <p class="govuk-body">Defining what a high risk product is, guidance on aflatoxin levels in imported food, current EU restrictions and guidance for importing certain produce from non-EU countries.</p>
 

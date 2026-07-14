@@ -1,5 +1,6 @@
 {% extends "layouts/main.html" %}
 {% from "govuk/components/breadcrumbs/macro.njk" import govukBreadcrumbs %}
+{% from "govuk/components/notification-banner/macro.njk" import govukNotificationBanner %}
 
 {% set title = "Importing and exporting plants and plant products" %}
 
@@ -15,6 +16,13 @@
 {% block content %}
 <div class="govuk-grid-row">
   <div class="govuk-grid-column-two-thirds">
+    {% call govukNotificationBanner() %}
+      <p class="govuk-notification-banner__heading">
+        Import rules have changed. This means x and y.
+        <a class="govuk-notification-banner__link" href="#">Call to action lives here</a>.
+      </p>
+    {% endcall %}
+
     <h1 class="govuk-heading-l">Importing and exporting plants and plant products</h1>
     <p class="govuk-body">Guidance on how to import and export plants and plant products to and from the UK.</p>
 
