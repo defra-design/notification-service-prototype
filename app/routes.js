@@ -30,6 +30,29 @@ router.get('/intro/import-goods-into-uk', (req, res) => {
   res.render('intro/import-goods-into-uk')
 })
 
+// Reference replicas of the pages linked from its "licence or certificate" step-nav section
+const licenceGuidancePages = [
+  'animals-and-animal-products',
+  'plants-and-plant-products',
+  'high-risk-food',
+  'veterinary-medicines',
+  'human-medicine',
+  'controlled-drugs',
+  'tissues-and-cells-for-human-application',
+  'waste-shipments',
+  'products-containing-f-gas',
+  'precursor-chemicals',
+  'hazardous-chemicals',
+  'nuclear-material',
+  'guns-knives-swords-and-other-weapons',
+  'weapons-and-goods-for-torture-or-capital-punishment'
+]
+licenceGuidancePages.forEach(page => {
+  router.get(`/intro/${page}`, (req, res) => {
+    res.render(`intro/${page}`)
+  })
+})
+
 router.post('/sign-in', (req, res) => {
   res.redirect('/v1-baseline/dashboard')
 })
