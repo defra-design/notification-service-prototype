@@ -53,6 +53,11 @@ licenceGuidancePages.forEach(page => {
   })
 })
 
+// Reference replica of https://www.gov.uk/guidance/import-of-products-animals-food-and-feed-system
+router.get('/intro/ipaffs', (req, res) => {
+  res.render('intro/ipaffs')
+})
+
 router.post('/sign-in', (req, res) => {
   res.redirect('/v1-baseline/dashboard')
 })
