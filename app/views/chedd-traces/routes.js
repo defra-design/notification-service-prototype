@@ -484,4 +484,11 @@ module.exports = function (router) {
       bcpText: getBcpLabel(req.session.data['border-control-post'])
     })
   })
+
+  router.get('/chedd-traces/24-document-check-required', (req, res) => {
+    const { getBcpLabel } = require('../../data/border-control-posts-ched-d.js')
+    res.render('chedd-traces/24-document-check-required', {
+      bcpText: getBcpLabel(req.session.data['border-control-post'])
+    })
+  })
 }
