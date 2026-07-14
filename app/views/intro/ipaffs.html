@@ -1,5 +1,7 @@
 {% extends "layouts/main.html" %}
 {% from "govuk/components/breadcrumbs/macro.njk" import govukBreadcrumbs %}
+{% from "govuk/components/button/macro.njk" import govukButton %}
+{% from "govuk/components/notification-banner/macro.njk" import govukNotificationBanner %}
 
 {% set title = "Import of products, animals, food and feed system (IPAFFS)" %}
 
@@ -15,6 +17,13 @@
 {% block content %}
 <div class="govuk-grid-row">
   <div class="govuk-grid-column-two-thirds">
+    {% call govukNotificationBanner() %}
+      <p class="govuk-notification-banner__heading">
+        Import rules have changed. Check you're using the right service before you start.
+        <a class="govuk-notification-banner__link" href="/intro/import-goods-into-uk">View the step by step guide</a>.
+      </p>
+    {% endcall %}
+
     <h1 class="govuk-heading-l">Import of products, animals, food and feed system (IPAFFS)</h1>
     <p class="govuk-body">Importers and import agents need to use IPAFFS to notify authorities about imports to Great Britain.</p>
 
@@ -25,7 +34,11 @@
     <h2 class="govuk-heading-m">Create an import notification</h2>
     <p class="govuk-body">Import documents must be in electronic format (for example PDF). Great Britain accepts verifiable PDF GB health certificates from the EU, Iceland, Liechtenstein and Norway for live animals and animal products.</p>
     <p class="govuk-body">Documents must be uploaded to the import notification before submission.</p>
-    <p class="govuk-body"><a class="govuk-link" href="https://import-products-animals-food-feed.service.gov.uk/notification/prd/protected/notifications">Start now</a></p>
+    {{ govukButton({
+      text: "Start now",
+      href: "https://import-products-animals-food-feed.service.gov.uk/notification/prd/protected/notifications",
+      isStartButton: true
+    }) }}
 
     <h2 class="govuk-heading-m">Import rules</h2>
     <p class="govuk-body">Guidance links for specific product categories:</p>
