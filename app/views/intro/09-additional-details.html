@@ -1,0 +1,37 @@
+{% extends "layouts/_base.html" %}
+
+{% block content %}
+<div class="govuk-width-container">
+  <div class="govuk-grid-row">
+    <div class="govuk-grid-column-two-thirds">
+      <p class="chedd-ref">DRAFT.GB.2024.7006103 - CHEDD</p>
+      <span class="govuk-caption-l">Description of the goods</span>
+      <h1 class="govuk-heading-l">Additional details</h1>
+
+      <form method="post" novalidate>
+      {{ govukRadios({
+        name: "commodity-intended",
+        value: data['commodity-intended'],
+        fieldset: { legend: { text: "Commodity intended for", classes: "govuk-fieldset__legend--m" } },
+        hint: { text: "You will find this on the health or phytosanitary certificate (also known as the 'official certificate') if you have one." },
+        items: [
+          { text: "Feedstuff", value: "feedstuff" },
+          { text: "Further process", value: "further-process" },
+          { text: "Human consumption", value: "human-consumption" },
+          { text: "Human consumption after further treatment", value: "human-consumption-after-further-treatment" },
+          { text: "Other", value: "other" },
+          { text: "Sample", value: "sample" },
+          { text: "Trade Sample", value: "trade-sample" }
+        ]
+      }) }}
+
+      <div class="chedd-actions">
+        <button type="submit" class="govuk-button govuk-button--secondary" data-module="govuk-button" formaction="/chedd-traces/07-notification-hub">Save and return to hub</button>
+        <button type="submit" class="govuk-button" data-module="govuk-button">Save and continue</button>
+      </div>
+      </form>
+      <p class="govuk-body"><a href="/chedd-traces/07-notification-hub" class="govuk-link">Cancel and return to hub</a></p>
+    </div>
+  </div>
+</div>
+{% endblock %}

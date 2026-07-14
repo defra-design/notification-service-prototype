@@ -1,0 +1,80 @@
+{% extends "layouts/_base.html" %}
+
+{% block content %}
+<div class="govuk-width-container">
+  <div class="govuk-grid-row">
+    <div class="govuk-grid-column-two-thirds">
+      <p class="chedd-ref">DRAFT.GB.2024.7006103 - CHEDD</p>
+      <span class="govuk-caption-l">Description of the goods</span>
+      <h1 class="govuk-heading-l">Commodity</h1>
+
+      <div class="chedd-card">
+        <form method="post" novalidate>
+          <div class="govuk-form-group">
+            <label class="govuk-label govuk-label--m" for="commodity">
+              Search for a commodity code or description
+            </label>
+            <div id="commodity-hint" class="govuk-hint">
+              For example, Groundnuts, 1202, or Pistachios
+            </div>
+            <div class="autocomplete-wrapper autocomplete-wrapper--42em">
+              <input type="hidden" name="commodity" id="commodity-value" value="">
+              <select class="govuk-select" id="commodity" aria-describedby="commodity-hint">
+                <option value="">Start typing to search</option>
+                {% for opt in commodityOptions %}
+                  <option value="{{ opt.value }}">{{ opt.text }}</option>
+                {% endfor %}
+              </select>
+            </div>
+          </div>
+          <button type="submit" class="govuk-button" data-module="govuk-button">Save and continue</button>
+        </form>
+      </div>
+
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block pageScripts %}
+  <script src="https://cdn.jsdelivr.net/npm/accessible-autocomplete@2.0.4/dist/accessible-autocomplete.min.js"></script>
+  <script>
+    (function () {
+      var selectEl = document.querySelector('#commodity')
+
+      function syncCommodityHidden () {
+        var hid = document.getElementById('commodity-value')
+        var sel = document.getElementById('commodity-select') || selectEl
+        if (hid && sel && sel.tagName === 'SELECT' && sel.value) {
+          hid.value = sel.value
+        }
+      }
+
+      var form = document.querySelector('form')
+      if (form) {
+        form.addEventListener('submit', syncCommodityHidden)
+      }
+
+      if (selectEl && typeof accessibleAutocomplete !== 'undefined') {
+        accessibleAutocomplete.enhanceSelectElement({
+          autoselect: true,
+          showAllValues: false,
+          placeholder: 'Type to search',
+          minLength: 1,
+          selectElement: selectEl,
+          onConfirm: function (query) {
+            var opt = [].filter.call(selectEl.options, function (o) {
+              return (o.textContent || o.innerText) === query
+            })[0]
+            if (opt) opt.selected = true
+            var val = opt ? opt.value : ''
+            var hid = document.getElementById('commodity-value')
+            if (hid && val) hid.value = val
+            syncCommodityHidden()
+          }
+        })
+        selectEl.addEventListener('change', syncCommodityHidden)
+      }
+    })()
+  </script>
+{% endblock %}

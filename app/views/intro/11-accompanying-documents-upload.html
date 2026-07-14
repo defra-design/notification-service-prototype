@@ -1,0 +1,48 @@
+{% extends "layouts/_base.html" %}
+
+{% block content %}
+<div class="govuk-width-container">
+  <div class="govuk-grid-row">
+    <div class="govuk-grid-column-two-thirds">
+      <p class="chedd-ref">DRAFT.GB.2024.7006103 - CHEDD</p>
+      <span class="govuk-caption-l">Documents</span>
+      <h1 class="govuk-heading-l">Accompanying documents</h1>
+
+      <form method="post" novalidate>
+        {{ govukFileUpload({
+          id: "file-upload-1",
+          name: "file-upload-1",
+          label: { text: "Select a file", classes: "govuk-label--m" }
+        }) }}
+
+        <input type="hidden" id="attachment-filename" name="attachment-filename" value="">
+
+        <h2 class="govuk-heading-m">Your file must be:</h2>
+        <ul class="govuk-list govuk-list--bullet">
+          <li>smaller than 10MB</li>
+          <li>larger than 1KB</li>
+          <li>file type must be a DOC, JPEG, PDF, PNG or XLS</li>
+          <li>ZIP files are not allowed for security reasons</li>
+        </ul>
+
+        <button type="submit" class="govuk-button" data-module="govuk-button">Save and continue</button>
+      </form>
+      <p class="govuk-body"><a href="/chedd-traces/07-notification-hub" class="govuk-link">Cancel</a></p>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block pageScripts %}
+  {{ super() }}
+  <script>
+    (function () {
+      var fileInput = document.getElementById('file-upload-1')
+      var filenameField = document.getElementById('attachment-filename')
+      if (!fileInput || !filenameField) return
+      fileInput.addEventListener('change', function () {
+        filenameField.value = fileInput.files.length ? fileInput.files[0].name : ''
+      })
+    })()
+  </script>
+{% endblock %}

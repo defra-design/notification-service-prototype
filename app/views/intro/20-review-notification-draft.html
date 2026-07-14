@@ -1,0 +1,24 @@
+{% extends "layouts/_base.html" %}
+
+{% block content %}
+<div class="govuk-width-container">
+  <div class="govuk-grid-row">
+    <div class="govuk-grid-column-full">
+      <p class="chedd-ref">DRAFT.GB.2024.7006103 - CHEDD</p>
+      <h1 class="govuk-heading-l">Review your notification</h1>
+
+      <div class="govuk-grid-row govuk-!-margin-bottom-4">
+        <div class="govuk-grid-column-one-half"><p class="govuk-body chedd-muted">Last updated 27 September 2024, 15:40<br>by Mark Admin Tester</p></div>
+        <div class="govuk-grid-column-one-half"><p class="govuk-body chedd-muted">Not submitted</p></div>
+      </div>
+
+      {% set editable = true %}
+      {% include "includes/chedd-notification-summary.njk" %}
+
+      <div class="chedd-actions govuk-!-margin-top-6">
+        <a href="/chedd-traces/21-declaration" class="govuk-button" data-module="govuk-button">Save and continue</a>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
