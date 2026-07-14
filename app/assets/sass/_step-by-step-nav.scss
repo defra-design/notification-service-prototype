@@ -1,0 +1,226 @@
+// Replica of the GOV.UK "step by step navigation" component
+// (govuk_publishing_components gem-c-step-nav), hand-built here because it
+// ships only on the live GOV.UK site, not in this kit's govuk-frontend.
+
+.step-nav {
+  margin-bottom: govuk-spacing(6);
+}
+
+.step-nav__controls {
+  text-align: left;
+  margin-bottom: govuk-spacing(2);
+}
+
+.step-nav__show-all {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: none;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  color: $govuk-link-colour;
+  cursor: pointer;
+
+  &:hover .step-nav__show-all-text {
+    color: govuk-shade($govuk-link-colour, 20%);
+  }
+
+  &:focus {
+    outline: $govuk-focus-width solid transparent;
+
+    .step-nav__show-all-text {
+      @include govuk-focused-text;
+    }
+  }
+}
+
+.step-nav__show-all-text {
+  @include govuk-typography-common;
+  @include govuk-font($size: 19);
+  text-decoration: none;
+}
+
+.step-nav__steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.step-nav__step {
+  position: relative;
+  z-index: 0; // establishes a stacking context so the connector line's
+              // negative z-index stays local instead of escaping behind
+              // an ancestor's background
+
+  // Divider lines start level with the title/toggle text, not the circle
+  &::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 35px + govuk-spacing(3);
+    right: 0;
+    border-top: 1px solid $govuk-border-colour;
+  }
+
+  &:last-child::after {
+    content: "";
+    position: absolute;
+    bottom: 0;
+    left: 35px + govuk-spacing(3);
+    right: 0;
+    border-top: 1px solid $govuk-border-colour;
+  }
+
+  // Connecting line running the full height of the step, behind the circle
+  // (the circle's opaque background masks the segment behind the number)
+  &:not(:last-child)::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 17.5px;
+    width: 1px;
+    background: $govuk-border-colour;
+    transform: translateX(-50%);
+    z-index: -1;
+  }
+}
+
+.step-nav__header {
+  margin: 0;
+}
+
+.step-nav__toggle-button {
+  display: flex;
+  align-items: flex-start;
+  width: 100%;
+  background: none;
+  border: 0;
+  margin: 0;
+  padding: govuk-spacing(3) 0;
+  text-align: left;
+  cursor: pointer;
+
+  &:hover .step-nav__title {
+    text-decoration: underline;
+  }
+
+  &:focus {
+    outline: $govuk-focus-width solid transparent;
+
+    .step-nav__title {
+      @include govuk-focused-text;
+    }
+
+    .step-nav__toggle-text {
+      @include govuk-focused-text;
+    }
+  }
+}
+
+.step-nav__circle {
+  position: relative;
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 35px;
+  height: 35px;
+  border-radius: 50%;
+  margin-right: govuk-spacing(3);
+  @include govuk-font($size: 19, $weight: bold);
+}
+
+.step-nav__circle--number {
+  border: 1px solid $govuk-border-colour;
+  color: govuk-colour("black");
+  background: govuk-colour("white");
+}
+
+.step-nav__circle--logic {
+  border: 0;
+  border-radius: 0;
+  color: $govuk-text-colour;
+  background: transparent;
+  font-weight: bold;
+  font-size: 22.8px; // match .step-nav__title
+  line-height: 30px;
+}
+
+.step-nav__content {
+  flex: 1 1 auto;
+  padding-top: 5px;
+}
+
+.step-nav__title {
+  @include govuk-typography-common;
+  font-weight: bold;
+  font-size: 22.8px; // govuk-font(19) base, scaled +50% then -20%
+  line-height: 30px;
+  display: inline; // hugs the text so :focus highlight doesn't stretch full-width
+  color: $govuk-text-colour;
+}
+
+.step-nav__toggle {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: govuk-spacing(1);
+}
+
+.step-nav__toggle-text {
+  @include govuk-typography-common;
+  @include govuk-font($size: 16);
+  color: $govuk-link-colour;
+  text-decoration: none;
+
+  .step-nav__toggle-button[aria-expanded="true"] & {
+    &::before {
+      content: "Hide";
+    }
+  }
+
+  .step-nav__toggle-button[aria-expanded="false"] & {
+    &::before {
+      content: "Show";
+    }
+  }
+}
+
+.step-nav__chevron {
+  flex: none;
+  color: $govuk-link-colour;
+  transition: transform 0.2s ease;
+}
+
+.step-nav__toggle-button[aria-expanded="true"] .step-nav__chevron,
+.step-nav__show-all[aria-expanded="true"] .step-nav__chevron {
+  transform: rotate(180deg);
+}
+
+.step-nav__panel {
+  padding: 0 0 govuk-spacing(4) govuk-spacing(3) + 35px;
+  margin-top: -1 * govuk-spacing(2);
+
+  &[hidden] {
+    display: none;
+  }
+}
+
+.step-nav__paragraph {
+  @include govuk-typography-common;
+  @include govuk-font($size: 19);
+  margin: 0 0 govuk-spacing(3);
+}
+
+.step-nav__list {
+  @include govuk-typography-common;
+  @include govuk-font($size: 19);
+  margin: 0 0 govuk-spacing(3);
+  padding-left: govuk-spacing(4);
+}
+
+.step-nav__list--choice li {
+  margin-bottom: govuk-spacing(1);
+}

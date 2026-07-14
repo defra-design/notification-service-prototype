@@ -25,6 +25,11 @@ router.get('/sign-in', (req, res) => {
   res.render('sign-in')
 })
 
+// Reference replica of https://www.gov.uk/import-goods-into-uk (step by step guidance)
+router.get('/intro/import-goods-into-uk', (req, res) => {
+  res.render('intro/import-goods-into-uk')
+})
+
 router.post('/sign-in', (req, res) => {
   res.redirect('/v1-baseline/dashboard')
 })
