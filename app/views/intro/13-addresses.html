@@ -1,0 +1,68 @@
+{% extends "layouts/_base.html" %}
+{% from "govuk/components/warning-text/macro.njk" import govukWarningText %}
+
+{% block content %}
+<div class="govuk-width-container">
+  <div class="govuk-grid-row">
+    <div class="govuk-grid-column-two-thirds">
+      <p class="chedd-ref">DRAFT.GB.2024.7006103 - CHEDD</p>
+      <span class="govuk-caption-l">Traders</span>
+      <h1 class="govuk-heading-l">Addresses</h1>
+
+      <h2 class="govuk-heading-m">Consignor or exporter</h2>
+      {% if data.consignorOrExporter %}
+        <p class="govuk-body">
+          {{ data.consignorOrExporter.name }}<br>
+          {{ data.consignorOrExporter.address }}<br>
+          {{ data.consignorOrExporter.country }}
+        </p>
+        <p class="govuk-body"><a href="/chedd-traces/13a-consignor-or-exporter" class="govuk-link">Change consignor or exporter</a></p>
+      {% else %}
+        <p class="govuk-hint">This is the sender of the consignment.</p>
+        <p class="govuk-body"><a href="/chedd-traces/13a-consignor-or-exporter" class="govuk-link">Add a consignor or exporter</a></p>
+      {% endif %}
+
+      <h2 class="govuk-heading-m">Consignee or importer</h2>
+      {% if data.consigneeOrImporter %}
+        <p class="govuk-body">
+          {{ data.consigneeOrImporter.name }}<br>
+          {{ data.consigneeOrImporter.address }}<br>
+          {{ data.consigneeOrImporter.country }}
+        </p>
+        <p class="govuk-body"><a href="/chedd-traces/13b-consignee" class="govuk-link">Change consignee or importer</a></p>
+      {% else %}
+        <p class="govuk-hint">This is the receiver or buyer of the consignment being shipped or transported.</p>
+        <p class="govuk-body"><a href="/chedd-traces/13b-consignee" class="govuk-link">Add a consignee or importer</a></p>
+      {% endif %}
+
+      <h2 class="govuk-heading-m">Place of destination</h2>
+      {{ govukWarningText({
+        text: "Providing a false address is an act of fraud",
+        iconFallbackText: "Warning"
+      }) }}
+      {% if data.placeOfDestination %}
+        <p class="govuk-body">
+          {{ data.placeOfDestination.name }}<br>
+          {{ data.placeOfDestination.address }}<br>
+          {{ data.placeOfDestination.country }}
+        </p>
+        <p class="govuk-body"><a href="/chedd-traces/13c-place-of-destination" class="govuk-link">Change place of destination</a></p>
+      {% else %}
+        <p class="govuk-hint">This is where the consignment will be sent for final unloading, and must be in Great Britain. This is usually the same as the consignee or importer address — you can select a different address if needed.</p>
+        <p class="govuk-body"><a href="/chedd-traces/13c-place-of-destination" class="govuk-link">Add a place of destination</a></p>
+      {% endif %}
+
+      {# <h2 class="govuk-heading-m">Operator responsible for consignment</h2>
+      <p class="govuk-hint">This is the business or person responsible for this consignment.</p>
+      <p class="govuk-body"><a href="#" class="govuk-link">Add an operator responsible for the consignment</a></p> #}
+
+      <br>
+      <div class="chedd-actions">
+        <a href="/chedd-traces/07-notification-hub" class="govuk-button govuk-button--secondary" data-module="govuk-button">Save and return to hub</a>
+        <a href="/chedd-traces/14-transport-to-port" class="govuk-button" data-module="govuk-button">Save and continue</a>
+      </div>
+      <p class="govuk-body"><a href="/chedd-traces/07-notification-hub" class="govuk-link">Cancel and return to hub</a></p>
+    </div>
+  </div>
+</div>
+{% endblock %}

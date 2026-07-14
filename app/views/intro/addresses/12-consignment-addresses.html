@@ -1,0 +1,44 @@
+{% extends "layouts/ched-a.html" %}
+{% from "govuk/components/warning-text/macro.njk" import govukWarningText %}
+
+{% block content %}
+<div class="govuk-width-container">
+  <div class="govuk-grid-row">
+    <div class="govuk-grid-column-two-thirds">
+      <p class="chedd-ref">DRAFT.GB.2026.0900608 - CHED-A</p>
+      <h1 class="govuk-heading-l">Consignment addresses</h1>
+
+      {{ govukWarningText({
+        text: "Providing a false address is an act of fraud",
+        iconFallbackText: "Warning"
+      }) }}
+
+      <h2 class="govuk-heading-m">Place of origin</h2>
+      <p class="govuk-body">The address where the animals begin their journey to Great Britain</p>
+      <p class="govuk-body"><a href="/ched-a/13-place-of-origin" class="govuk-link">Add a place of origin</a></p>
+
+      <h2 class="govuk-heading-m">Consignor or exporter</h2>
+      <p class="govuk-body">This is the sender of the consignment.</p>
+      <p class="govuk-body"><a href="/ched-a/14-consignor-or-exporter" class="govuk-link">Add a consignor</a></p>
+
+      <h2 class="govuk-heading-m">Consignee</h2>
+      <p class="govuk-body">This is the receiver or buyer of the consignment being shipped or transported.</p>
+      <p class="govuk-body"><a href="/ched-a/15-consignee" class="govuk-link">Add a consignee</a></p>
+
+      <h2 class="govuk-heading-m">Importer</h2>
+      <p class="govuk-body">This is usually the same as the consignee. You can select a different person if needed.</p>
+      <p class="govuk-body"><a href="/ched-a/16-importer" class="govuk-link">Add an importer</a></p>
+
+      <h2 class="govuk-heading-m">Place of destination</h2>
+      <p class="govuk-body">This is where the animals will be unloaded and accommodated for at least 48 hours. If a health certificate is required, it will show this address.</p>
+      <p class="govuk-body"><a href="/ched-a/17-place-of-destination" class="govuk-link">Add a place of destination</a></p>
+
+      <h2 class="govuk-heading-m">County Parish Holding number (CPH)</h2>
+      <p class="govuk-body">The County Parish Holding (CPH) number identifies the holding where the animals will be kept.</p>
+      <p class="govuk-body"><a href="/ched-a/18-cph-number" class="govuk-link">Add a CPH number</a></p>
+
+      <a href="/ched-a/19-contact-address" class="govuk-button" data-module="govuk-button">Save and continue</a>
+    </div>
+  </div>
+</div>
+{% endblock %}
