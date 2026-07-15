@@ -58,6 +58,15 @@ router.get('/intro/ipaffs', (req, res) => {
   res.render('intro/ipaffs')
 })
 
+// Checker - questions/answers (dummy pages, no logic yet)
+router.get('/intro/checker-questions', (req, res) => {
+  res.render('intro/checker-questions')
+})
+
+router.get('/intro/checker-answers', (req, res) => {
+  res.render('intro/checker-answers')
+})
+
 router.post('/sign-in', (req, res) => {
   res.redirect('/v1-baseline/dashboard')
 })
