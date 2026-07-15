@@ -215,8 +215,9 @@ function filterNotifications (filterData, sourceList, notifications) {
 }
 
 function registerDashboardRoutes (router, basePath, options) {
-  const { templatePath, notifications: notificationsData } = options
+  const { templatePath, notifications: notificationsData, journeyBasePath } = options
   const notifications = notificationsData || require('../data/notifications')
+  const linksBasePath = journeyBasePath || basePath
 
   router.get(`${basePath}/dashboard`, (req, res) => {
     const data = req.session.data || {}
@@ -275,7 +276,7 @@ function registerDashboardRoutes (router, basePath, options) {
     const start = (pageNum - 1) * perPage
     const paginated = normalised.slice(start, start + perPage).map(n => ({
       ...n,
-      viewHref: `${basePath}/notification/${encodeURIComponent(n.reference)}`
+      viewHref: `${linksBasePath}/notification/${encodeURIComponent(n.reference)}`
     }))
 
     req.session.data.resultsCount = total
@@ -337,6 +338,7 @@ function registerDashboardRoutes (router, basePath, options) {
     }
     res.locals.activeFilters = activeFilters
     res.locals.dashboardBasePath = basePath
+    res.locals.journeyBasePath = linksBasePath
 
     res.render(templatePath)
   })
