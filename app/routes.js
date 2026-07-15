@@ -67,8 +67,31 @@ router.get('/intro/checker-answers', (req, res) => {
   res.render('intro/checker-answers')
 })
 
+// Import Notification Service (INS) start page
+router.get('/intro/import-notification-start', (req, res) => {
+  res.render('intro/import-notification-start')
+})
+
+// Defra ID sign in
+router.get('/intro/sign-in', (req, res) => {
+  res.render('intro/sign-in')
+})
+
+router.post('/intro/sign-in', (req, res) => {
+  res.redirect('/intro/dashboard')
+})
+
 router.post('/sign-in', (req, res) => {
-  res.redirect('/v1-baseline/dashboard')
+  res.redirect('/intro/dashboard')
+})
+
+// Dashboard shown after signing in via the intro/Defra ID front door – reuses the
+// same filter/sort/pagination logic as the v1-baseline dashboard, but "Create" and
+// "View" links still point into the v1-baseline journey, which is where those routes live
+const { registerDashboardRoutes } = require('./lib/dashboard.js')
+registerDashboardRoutes(router, '/intro', {
+  templatePath: 'intro/dashboard',
+  journeyBasePath: '/v1-baseline'
 })
 
 // Clear session data and redirect back (useful for resetting prototype state)
