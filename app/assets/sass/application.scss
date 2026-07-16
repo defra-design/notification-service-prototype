@@ -632,14 +632,14 @@
   text-align: left !important;
 }
 
-.govuk-panel-card h1, .govuk-panel-card p, .govuk-panel-card li, .govuk-panel-card a {
+.govuk-panel-card h1, .govuk-panel-card h2, .govuk-panel-card p, .govuk-panel-card li, .govuk-panel-card a {
   color: #fff !important;
 }
 
 .govuk-panel-card button {
   background-color: #fff;
   box-shadow: 0 2px 0 #000;
-  color: #0065bb !important;
+  color: #000 !important;
   font-weight: bold;
 }
 
