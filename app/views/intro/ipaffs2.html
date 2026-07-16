@@ -1,0 +1,43 @@
+{% extends "layouts/main.html" %}
+{% from "govuk/components/breadcrumbs/macro.njk" import govukBreadcrumbs %}
+{% from "govuk/components/button/macro.njk" import govukButton %}
+{% from "govuk/components/notification-banner/macro.njk" import govukNotificationBanner %}
+
+{% set title = "Import of products, animals, food and feed system (IPAFFS)" %}
+
+{% block beforeContent %}
+  {{ govukBreadcrumbs({
+    items: [
+      { text: "Home", href: "#" },
+      { text: "Import goods into the UK: step by step", href: "/intro/import-goods-into-uk" }
+    ]
+  }) }}
+{% endblock %}
+
+{% block content %}
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-two-thirds">
+    {% call govukNotificationBanner() %}
+      <p class="govuk-notification-banner__heading">
+        Import rules have changed. This service will close in July 2027. 
+       Use the <a class="govuk-notification-banner__link" href="/intro/import-notification-start">Import Notification Service</a>.
+      </p>
+    {% endcall %}
+
+<div class="govuk-panel govuk-panel--confirmation govuk-panel-card">
+
+          <h1 class="govuk-heading-l">IPAFFS is closing in July 2027</h1>
+            <p class="govuk-body">This is because:</p>
+            <ul class="govuk-list govuk-list--bullet">
+              <li>what’s changing and why</li>
+              <li>what they’ll have to do to continue to have their needs met in future</li>
+              <li>what will happen to their data, whether you’re passing it on to another service and the rights they have under your organisation’s data protection policy</li>
+            </ul>
+            
+            <p class="govuk-body">Read the <a href="https://grants-ui.dev.cdp-int.defra.cloud/farm-payments/fptt-information#sec-10-get-all-necessary-regulatory-consents-permissions-and-licences-in-place" rel="noreferrer nofollow" target="_blank">guidance on EU/UK reset</a> to see how this affects you.</p>
+
+
+        </div>
+  </div>
+</div>
+{% endblock %}
