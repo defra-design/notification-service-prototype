@@ -39,6 +39,13 @@
         name: "filterCommodity",
         value: data.filterCommodity or ""
       }) }}
+      {{ govukSelect({
+        id: "filterNotificationType",
+        name: "filterNotificationType",
+        label: { text: "Notification type", classes: "govuk-!-font-size-16" },
+        value: data.filterNotificationType or "",
+        items: notificationTypeItems
+      }) }}
       <div class="govuk-form-group">
         <label class="govuk-label govuk-!-font-size-16" for="filterOrigin">Country of origin</label>
         <div class="autocomplete-wrapper autocomplete-wrapper--full">
@@ -129,7 +136,7 @@
     <div class="govuk-!-margin-bottom-4 dashboard-results-bar">
       <p class="govuk-body govuk-!-margin-bottom-0 dashboard-results-count"><strong>{{ data.resultsCount or 3 }} results</strong></p>
       <form method="get" action="{{ dashboardBasePath or basePath or '/v1-baseline' }}/dashboard" class="govuk-form-group govuk-!-margin-0 dashboard-sort-form" id="sort-form">
-        {% for key in ['filterKeyword', 'filterCommodity', 'filterOrigin', 'filterConsignee', 'filterDestination', 'filterStatus', 'filterPeriod', 'filterStartDate', 'filterEndDate'] %}
+        {% for key in ['filterKeyword', 'filterCommodity', 'filterOrigin', 'filterNotificationType', 'filterConsignee', 'filterDestination', 'filterStatus', 'filterPeriod', 'filterStartDate', 'filterEndDate'] %}
         <input type="hidden" name="{{ key }}" value="{{ data[key] or '' }}">
         {% endfor %}
         <div class="govuk-form-group govuk-!-margin-bottom-0 dashboard-sort-controls">
