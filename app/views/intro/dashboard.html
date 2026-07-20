@@ -27,6 +27,13 @@
     <h2 class="govuk-heading-m">Filter notifications</h2>
     <form method="get" novalidate id="filter-form" class="filter-labels-16">
       <input type="hidden" name="filterPeriod" value="{{ data.filterPeriod or '' }}">
+      {{ govukSelect({
+        id: "filterNotificationType",
+        name: "filterNotificationType",
+        label: { text: "Notification type", classes: "govuk-!-font-size-16" },
+        value: data.filterNotificationType or "",
+        items: notificationTypeItems
+      }) }}
       {{ govukInput({
         label: { text: "Keyword or reference", classes: "govuk-!-font-size-16" },
         id: "filterKeyword",
@@ -38,13 +45,6 @@
         id: "filterCommodity",
         name: "filterCommodity",
         value: data.filterCommodity or ""
-      }) }}
-      {{ govukSelect({
-        id: "filterNotificationType",
-        name: "filterNotificationType",
-        label: { text: "Notification type", classes: "govuk-!-font-size-16" },
-        value: data.filterNotificationType or "",
-        items: notificationTypeItems
       }) }}
       <div class="govuk-form-group">
         <label class="govuk-label govuk-!-font-size-16" for="filterOrigin">Country of origin</label>
