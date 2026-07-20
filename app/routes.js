@@ -86,12 +86,138 @@ router.post('/sign-in', (req, res) => {
 })
 
 // Dashboard shown after signing in via the intro/Defra ID front door – reuses the
-// same filter/sort/pagination logic as the v1-baseline dashboard, but "Create" and
-// "View" links still point into the v1-baseline journey, which is where those routes live
+// same filter/sort/pagination logic as the v1-baseline dashboard. "Create" still points
+// into the v1-baseline journey (that's where the create flow lives), but "View" stays
+// within /intro (see notification-details route below) since it uses its own
+// notifications-intro.js dataset (type-prefixed references, see
+// .claude/knowledge/decisions/notification-reference-format.md) rather than v1-baseline's
+// notifications.js, which is kept on the legacy IMP format for design history.
 const { registerDashboardRoutes } = require('./lib/dashboard.js')
+const notificationsIntro = require('./data/notifications-intro.js')
 registerDashboardRoutes(router, '/intro', {
   templatePath: 'intro/dashboard',
-  journeyBasePath: '/v1-baseline'
+  journeyBasePath: '/v1-baseline',
+  viewBasePath: '/intro',
+  notifications: notificationsIntro
+})
+
+// Read-only notification details for a row on the intro dashboard, e.g.
+// /intro/notification/CHEDA.GB.2026.1003455 — reuses the same rich mock-data builders
+// and read-only check-your-answers template as v1-baseline's own notification view
+// (buildFullViewSessionMockFromNotificationRow / buildCheckYourAnswersData / findNotificationRow /
+// deleteNotificationByReference), just called from here rather than from v1-baseline/routes.js,
+// so behaviour (including the Amend/Copy as new/Delete action buttons for a SUBMITTED
+// notification, or "Continue notification" for a draft) matches v1-baseline without touching
+// any v1-baseline file. Amend/Continue hands off into v1-baseline's own create/task-list flow,
+// the same way the dashboard's "Create" button already does, since that's the only place the
+// edit journey exists.
+const {
+  findNotificationRow,
+  deleteNotificationByReference,
+  buildFullViewSessionMockFromNotificationRow,
+  preserveForNotificationListMutation
+} = require('./lib/notification-view-helpers.js')
+const { buildCheckYourAnswersData } = require('./views/v1-baseline/post-hub-routes.js')
+
+function syncFirstCommodityToIntroSession (data) {
+  const commodities = data.commodities || []
+  if (commodities.length === 0) return false
+  const first = commodities[0]
+  data.commodity = first.commodity
+  data.commoditySpecies = first.commoditySpecies || []
+  data.commodityType = first.commodityType || 'domestic'
+  if (first.quantities) {
+    Object.assign(data, first.quantities)
+    ;(first.commoditySpecies || []).forEach(s => {
+      const key = s.replace(/\s+/g, '_').toLowerCase().replace(/[^a-z0-9_]/g, '')
+      const qty = first.quantities[`quantity_${key}`]
+      if (qty !== undefined) data[`animalCount_${key}`] = qty
+      const pkg = first.quantities[`packages_${key}`]
+      if (pkg !== undefined) data[`numberOfPackages_${key}`] = pkg
+    })
+  }
+  return true
+}
+
+function buildIntroNotificationViewData (row, ref) {
+  const sessionLike = buildFullViewSessionMockFromNotificationRow(row)
+  const viewData = buildCheckYourAnswersData(sessionLike, '/intro')
+  const isSubmitted = row.status === 'submitted'
+  viewData.basePath = '/intro'
+  viewData.readOnly = true
+  viewData.readOnlyPageTitle = 'Notification details'
+  viewData.viewPageCaption = isSubmitted ? ref : `${ref} (Draft)`
+  viewData.viewBackLinkHref = '/intro/dashboard'
+  viewData.amendHref = `/intro/notification/${encodeURIComponent(ref)}/amend`
+  viewData.readOnlyPrimaryButtonText = isSubmitted ? 'Amend this notification' : 'Continue notification'
+  viewData.notificationDeleteHref = `/intro/notification/${encodeURIComponent(ref)}/delete`
+  viewData.readOnlyShowCopyAsNew = isSubmitted
+  viewData.copyAsNewHref = isSubmitted ? '#' : null
+  viewData.notificationDateCreatedDisplay = row.dateCreated || 'Not provided'
+  return viewData
+}
+
+// Registered before the generic /intro/notification/:reference route below, otherwise
+// Express would match "deleted" as a :reference value first (same ordering v1-baseline
+// uses for its own /notification/deleted vs /notification/:reference).
+router.get('/intro/notification/deleted', (req, res) => {
+  const data = req.session.data || {}
+  const snapshot = data.deletedNotificationSnapshot
+  if (!snapshot) {
+    return res.redirect('/intro/dashboard')
+  }
+  delete data.deletedNotificationSnapshot
+  res.render('v1-baseline/create/check-your-answers', {
+    ...snapshot,
+    showDeletionSuccessBanner: true,
+    readOnlyHideActions: true,
+    pageTitleOnly: 'Notification deleted',
+    readOnlyIntro: ''
+  })
+})
+
+router.get('/intro/notification/:reference', (req, res) => {
+  const ref = String(req.params.reference || '').trim()
+  const data = req.session.data || {}
+  const found = findNotificationRow(ref, data, notificationsIntro)
+  if (!found || !found.row) {
+    return res.redirect('/intro/dashboard')
+  }
+  res.render('v1-baseline/create/check-your-answers', buildIntroNotificationViewData(found.row, ref))
+})
+
+router.get('/intro/notification/:reference/amend', (req, res) => {
+  const ref = String(req.params.reference || '').trim()
+  const data = req.session.data || {}
+  const found = findNotificationRow(ref, data, notificationsIntro)
+  if (!found || !found.row) {
+    return res.redirect('/intro/dashboard')
+  }
+  req.session.data = preserveForNotificationListMutation(data)
+  const fullSession = buildFullViewSessionMockFromNotificationRow(found.row)
+  if (found.row.dateCreated) fullSession.notificationDateCreated = found.row.dateCreated
+  Object.assign(req.session.data, fullSession)
+  req.session.data.taskListUnlocked = true
+  req.session.data.draftNotificationReference = ref
+  syncFirstCommodityToIntroSession(req.session.data)
+  res.redirect('/v1-baseline/create/task-list')
+})
+
+router.post('/intro/notification/:reference/delete', (req, res) => {
+  const ref = String(req.params.reference || '').trim()
+  const data = req.session.data || {}
+  const found = findNotificationRow(ref, data, notificationsIntro)
+  if (!found || !found.row) {
+    return res.redirect('/intro/dashboard')
+  }
+  const snapshot = buildIntroNotificationViewData(found.row, ref)
+  const result = deleteNotificationByReference(ref, data, notificationsIntro)
+  if (!result.ok) {
+    return res.redirect('/intro/dashboard')
+  }
+  if (!req.session.data) req.session.data = {}
+  req.session.data.deletedNotificationSnapshot = snapshot
+  res.redirect('/intro/notification/deleted')
 })
 
 // Clear session data and redirect back (useful for resetting prototype state)
