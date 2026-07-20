@@ -1,0 +1,62 @@
+//
+// Mock notifications data for the intro dashboard (Defra ID sign-in front door)
+//
+// A separate dataset from ../data/notifications.js (used by the v1-baseline dashboard),
+// so this journey can carry the type-prefixed reference format and notificationType field
+// documented in decisions/notification-reference-format.md, without touching v1-baseline
+// data kept for design history. See app/data/notification-types.js for the type list.
+//
+
+module.exports = [
+  { reference: 'CHEDA.GB.2026.1000608', commodity: 'Bos taurus (0102)', origin: 'France', type: 'CHED A', consignee: 'Macdonald Osborne Inc', consignor: 'Wagner and Matthews', arrival: '8 March 2026', status: 'draft' },
+  { reference: 'CHEDPP.GB.2026.1000145', commodity: 'Equus caballus (0101)', origin: 'Germany', type: 'CHED PP', consignee: 'Tee Inc', consignor: 'MLConsignor', arrival: '6 March 2026', status: 'draft' },
+  { reference: 'GBNAG.GB.2026.1000124', commodity: 'Bos taurus (0102)', origin: 'Poland', type: 'GBN AG', consignee: 'Hewitt and Ballard', consignor: 'Vanna Barr', arrival: '6 March 2026', status: 'submitted' },
+  { reference: 'CHEDA.GB.2026.1000892', commodity: 'Bos taurus (0102)', origin: 'Ireland', type: 'CHED A', consignee: 'Aberdeen Livestock Ltd', consignor: 'Irish Agri Transport Ltd', arrival: '10 March 2026', status: 'submitted' },
+  { reference: 'CHEDPP.GB.2026.1000934', commodity: 'Equus caballus (0101)', origin: 'Spain', type: 'CHED PP', consignee: 'Wales Livestock Co', consignor: 'Spanish Livestock Transport SL', arrival: '12 March 2026', status: 'draft' },
+  { reference: 'GBNAG.GB.2026.1001012', commodity: 'Bos taurus (0102)', origin: 'Netherlands', type: 'GBN AG', consignee: 'Norfolk Cattle Ltd', consignor: 'Dutch Livestock Transport BV', arrival: '5 March 2026', status: 'submitted' },
+  { reference: 'CHEDA.GB.2026.1001145', commodity: 'Equus caballus (0101)', origin: 'Italy', type: 'CHED A', consignee: 'Edinburgh Meat Co', consignor: 'Italian Animal Transport Srl', arrival: '14 March 2026', status: 'draft' },
+  { reference: 'CHEDPP.GB.2026.1001201', commodity: 'Bos taurus (0102)', origin: 'Belgium', type: 'CHED PP', consignee: 'Cambridge Farm Co', consignor: 'Belgian Livestock NV', arrival: '3 March 2026', status: 'submitted' },
+  { reference: 'GBNAG.GB.2026.1001356', commodity: 'Bos taurus (0102)', origin: 'Austria', type: 'GBN AG', consignee: 'Sheffield Livestock Ltd', consignor: 'Austrian Farm Transports', arrival: '9 March 2026', status: 'draft' },
+  { reference: 'CHEDA.GB.2026.1001401', commodity: 'Equus caballus (0101)', origin: 'Portugal', type: 'CHED A', consignee: 'Bristol Livestock Co', consignor: 'Porto Animal Transport', arrival: '11 March 2026', status: 'draft' },
+  { reference: 'CHEDPP.GB.2026.1001450', commodity: 'Bos taurus (0102)', origin: 'Denmark', type: 'CHED PP', consignee: 'Leeds Farm Ltd', consignor: 'Danish Livestock A/S', arrival: '7 March 2026', status: 'submitted' },
+  { reference: 'GBNAG.GB.2026.1001502', commodity: 'Bos taurus (0102)', origin: 'Sweden', type: 'GBN AG', consignee: 'Manchester Cattle Co', consignor: 'Nordic Farm Transport AB', arrival: '15 March 2026', status: 'draft' },
+  { reference: 'CHEDA.GB.2026.1001555', commodity: 'Equus caballus (0101)', origin: 'Czech Republic', type: 'CHED A', consignee: 'Liverpool Meat Ltd', consignor: 'Czech Agri Trans', arrival: '4 March 2026', status: 'submitted' },
+  { reference: 'CHEDPP.GB.2026.1001608', commodity: 'Bos taurus (0102)', origin: 'Romania', type: 'CHED PP', consignee: 'Newcastle Livestock', consignor: 'Romanian Livestock SRL', arrival: '16 March 2026', status: 'draft' },
+  { reference: 'GBNAG.GB.2026.1001655', commodity: 'Bos taurus (0102)', origin: 'Hungary', type: 'GBN AG', consignee: 'Oxford Farm Co', consignor: 'Magyar Animal Transport', arrival: '2 March 2026', status: 'submitted' },
+  { reference: 'CHEDA.GB.2026.1001701', commodity: 'Equus caballus (0101)', origin: 'Greece', type: 'CHED A', consignee: 'York Cattle Ltd', consignor: 'Hellenic Livestock Ltd', arrival: '17 March 2026', status: 'draft' },
+  { reference: 'CHEDPP.GB.2026.1001750', commodity: 'Bos taurus (0102)', origin: 'Finland', type: 'CHED PP', consignee: 'Leicester Livestock', consignor: 'Finnish Farm Transports', arrival: '1 March 2026', status: 'submitted' },
+  { reference: 'GBNAG.GB.2026.1001802', commodity: 'Bos taurus (0102)', origin: 'France', type: 'GBN AG', consignee: 'Derby Meat Co', consignor: 'Lyon Animal Transport', arrival: '18 March 2026', status: 'draft' },
+  { reference: 'CHEDA.GB.2026.1001855', commodity: 'Equus caballus (0101)', origin: 'Germany', type: 'CHED A', consignee: 'Nottingham Farm Ltd', consignor: 'Berlin Horse Transport', arrival: '19 March 2026', status: 'submitted' },
+  { reference: 'CHEDPP.GB.2026.1001908', commodity: 'Bos taurus (0102)', origin: 'Poland', type: 'CHED PP', consignee: 'Plymouth Livestock', consignor: 'Warsaw Cattle Co', arrival: '20 March 2026', status: 'draft' },
+  { reference: 'GBNAG.GB.2026.1001955', commodity: 'Bos taurus (0102)', origin: 'Ireland', type: 'GBN AG', consignee: 'Southampton Cattle', consignor: 'Cork Agri Transport', arrival: '21 March 2026', status: 'submitted' },
+  { reference: 'CHEDA.GB.2026.1002001', commodity: 'Equus caballus (0101)', origin: 'Spain', type: 'CHED A', consignee: 'Portsmouth Farm Ltd', consignor: 'Madrid Animal Services', arrival: '22 March 2026', status: 'draft' },
+  { reference: 'CHEDPP.GB.2026.1002050', commodity: 'Bos taurus (0102)', origin: 'Netherlands', type: 'CHED PP', consignee: 'Reading Livestock Co', consignor: 'Rotterdam Cattle BV', arrival: '23 March 2026', status: 'submitted' },
+  { reference: 'GBNAG.GB.2026.1002102', commodity: 'Bos taurus (0102)', origin: 'Italy', type: 'GBN AG', consignee: 'Swindon Meat Ltd', consignor: 'Milan Livestock Srl', arrival: '24 March 2026', status: 'draft' },
+  { reference: 'CHEDA.GB.2026.1002155', commodity: 'Equus caballus (0101)', origin: 'Belgium', type: 'CHED A', consignee: 'Northampton Cattle', consignor: 'Antwerp Horse Transport', arrival: '25 March 2026', status: 'submitted' },
+  { reference: 'CHEDPP.GB.2026.1002208', commodity: 'Bos taurus (0102)', origin: 'Austria', type: 'CHED PP', consignee: 'Peterborough Livestock', consignor: 'Vienna Farm Transports', arrival: '26 March 2026', status: 'draft' },
+  { reference: 'GBNAG.GB.2026.1002255', commodity: 'Bos taurus (0102)', origin: 'Portugal', type: 'GBN AG', consignee: 'Luton Farm Co', consignor: 'Lisbon Animal Ltd', arrival: '27 March 2026', status: 'submitted' },
+  { reference: 'CHEDA.GB.2026.1002301', commodity: 'Equus caballus (0101)', origin: 'Denmark', type: 'CHED A', consignee: 'Milton Keynes Cattle', consignor: 'Copenhagen Horse A/S', arrival: '28 March 2026', status: 'draft' },
+  { reference: 'CHEDPP.GB.2026.1002350', commodity: 'Bos taurus (0102)', origin: 'Sweden', type: 'CHED PP', consignee: 'Colchester Livestock', consignor: 'Stockholm Cattle AB', arrival: '29 March 2026', status: 'submitted' },
+  { reference: 'GBNAG.GB.2026.1002402', commodity: 'Bos taurus (0102)', origin: 'Czech Republic', type: 'GBN AG', consignee: 'Ipswich Meat Ltd', consignor: 'Prague Agri Transport', arrival: '30 March 2026', status: 'draft' },
+  { reference: 'CHEDA.GB.2026.1002455', commodity: 'Equus caballus (0101)', origin: 'Romania', type: 'CHED A', consignee: 'Norwich Farm Co', consignor: 'Bucharest Livestock', arrival: '31 March 2026', status: 'submitted' },
+  { reference: 'CHEDPP.GB.2026.1002508', commodity: 'Bos taurus (0102)', origin: 'Hungary', type: 'CHED PP', consignee: 'Cambridge Cattle Ltd', consignor: 'Budapest Animal Trans', arrival: '1 April 2026', status: 'draft' },
+  { reference: 'GBNAG.GB.2026.1002555', commodity: 'Bos taurus (0102)', origin: 'Greece', type: 'GBN AG', consignee: 'Southend Livestock', consignor: 'Athens Farm Ltd', arrival: '2 April 2026', status: 'submitted' },
+  { reference: 'CHEDA.GB.2026.1002601', commodity: 'Equus caballus (0101)', origin: 'Finland', type: 'CHED A', consignee: 'Slough Farm Ltd', consignor: 'Helsinki Horse Transport', arrival: '3 April 2026', status: 'draft' },
+  { reference: 'CHEDPP.GB.2026.1002650', commodity: 'Bos taurus (0102)', origin: 'France', type: 'CHED PP', consignee: 'Basildon Cattle Co', consignor: 'Paris Livestock France', arrival: '4 April 2026', status: 'submitted' },
+  { reference: 'GBNAG.GB.2026.1002702', commodity: 'Bos taurus (0102)', origin: 'Germany', type: 'GBN AG', consignee: 'Chelmsford Livestock', consignor: 'Hamburg Cattle GmbH', arrival: '5 April 2026', status: 'draft' },
+  { reference: 'CHEDA.GB.2026.1002755', commodity: 'Equus caballus (0101)', origin: 'Poland', type: 'CHED A', consignee: 'Gloucester Meat Ltd', consignor: 'Krakow Animal Transport', arrival: '6 April 2026', status: 'submitted' },
+  { reference: 'CHEDPP.GB.2026.1002808', commodity: 'Bos taurus (0102)', origin: 'Ireland', type: 'CHED PP', consignee: 'Exeter Farm Co', consignor: 'Dublin Cattle Ltd', arrival: '7 April 2026', status: 'draft' },
+  { reference: 'GBNAG.GB.2026.1002855', commodity: 'Bos taurus (0102)', origin: 'Spain', type: 'GBN AG', consignee: 'Bournemouth Livestock', consignor: 'Barcelona Agri SL', arrival: '8 April 2026', status: 'submitted' },
+  { reference: 'CHEDA.GB.2026.1002901', commodity: 'Equus caballus (0101)', origin: 'Netherlands', type: 'CHED A', consignee: 'Brighton Cattle Ltd', consignor: 'Amsterdam Horse BV', arrival: '9 April 2026', status: 'draft' },
+  { reference: 'CHEDPP.GB.2026.1002950', commodity: 'Bos taurus (0102)', origin: 'Italy', type: 'CHED PP', consignee: 'Hull Livestock Co', consignor: 'Rome Farm Transport Srl', arrival: '10 April 2026', status: 'submitted' },
+  { reference: 'GBNAG.GB.2026.1003002', commodity: 'Bos taurus (0102)', origin: 'Belgium', type: 'GBN AG', consignee: 'Preston Farm Ltd', consignor: 'Brussels Cattle NV', arrival: '11 April 2026', status: 'draft' },
+  { reference: 'CHEDA.GB.2026.1003055', commodity: 'Equus caballus (0101)', origin: 'Austria', type: 'CHED A', consignee: 'Blackpool Livestock', consignor: 'Salzburg Animal Trans', arrival: '12 April 2026', status: 'submitted' },
+  { reference: 'CHEDPP.GB.2026.1003108', commodity: 'Bos taurus (0102)', origin: 'Portugal', type: 'CHED PP', consignee: 'Blackburn Cattle Ltd', consignor: 'Faro Livestock Portugal', arrival: '13 April 2026', status: 'draft' },
+  { reference: 'GBNAG.GB.2026.1003155', commodity: 'Bos taurus (0102)', origin: 'Denmark', type: 'GBN AG', consignee: 'Bradford Farm Co', consignor: 'Aarhus Horse A/S', arrival: '14 April 2026', status: 'submitted' },
+  { reference: 'CHEDA.GB.2026.1003201', commodity: 'Equus caballus (0101)', origin: 'Sweden', type: 'CHED A', consignee: 'Stockport Livestock', consignor: 'Malmo Cattle AB', arrival: '15 April 2026', status: 'draft' },
+  { reference: 'CHEDPP.GB.2026.1003250', commodity: 'Bos taurus (0102)', origin: 'Czech Republic', type: 'CHED PP', consignee: 'Wolverhampton Meat', consignor: 'Brno Agri Transport', arrival: '16 April 2026', status: 'submitted' },
+  { reference: 'GBNAG.GB.2026.1003302', commodity: 'Bos taurus (0102)', origin: 'Romania', type: 'GBN AG', consignee: 'Dudley Farm Ltd', consignor: 'Cluj Livestock SRL', arrival: '17 April 2026', status: 'draft' },
+  { reference: 'CHEDA.GB.2026.1003355', commodity: 'Equus caballus (0101)', origin: 'Hungary', type: 'CHED A', consignee: 'West Bromwich Cattle', consignor: 'Debrecen Animal Trans', arrival: '18 April 2026', status: 'submitted' },
+  { reference: 'CHEDPP.GB.2026.1003408', commodity: 'Bos taurus (0102)', origin: 'Greece', type: 'CHED PP', consignee: 'Coventry Livestock Co', consignor: 'Thessaloniki Farm Ltd', arrival: '19 April 2026', status: 'draft' },
+  { reference: 'GBNAG.GB.2026.1003455', commodity: 'Bos taurus (0102)', origin: 'Finland', type: 'GBN AG', consignee: 'Leicester Cattle Ltd', consignor: 'Tampere Horse Transport', arrival: '20 April 2026', dateCreated: '15 April 2026', status: 'submitted' }
+]

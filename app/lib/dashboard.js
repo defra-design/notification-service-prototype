@@ -215,9 +215,10 @@ function filterNotifications (filterData, sourceList, notifications) {
 }
 
 function registerDashboardRoutes (router, basePath, options) {
-  const { templatePath, notifications: notificationsData, journeyBasePath } = options
+  const { templatePath, notifications: notificationsData, journeyBasePath, viewBasePath } = options
   const notifications = notificationsData || require('../data/notifications')
   const linksBasePath = journeyBasePath || basePath
+  const viewLinksBasePath = viewBasePath || linksBasePath
 
   router.get(`${basePath}/dashboard`, (req, res) => {
     const data = req.session.data || {}
@@ -277,7 +278,7 @@ function registerDashboardRoutes (router, basePath, options) {
     const start = (pageNum - 1) * perPage
     const paginated = normalised.slice(start, start + perPage).map(n => ({
       ...n,
-      viewHref: `${linksBasePath}/notification/${encodeURIComponent(n.reference)}`
+      viewHref: `${viewLinksBasePath}/notification/${encodeURIComponent(n.reference)}`
     }))
 
     req.session.data.resultsCount = total
