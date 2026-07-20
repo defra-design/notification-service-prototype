@@ -102,15 +102,15 @@ registerDashboardRoutes(router, '/intro', {
 })
 
 // Read-only notification details for a row on the intro dashboard, e.g.
-// /intro/notification/CHEDA.GB.2026.1003455 — reuses the same rich mock-data builders
-// and read-only check-your-answers template as v1-baseline's own notification view
+// /intro/notification/CHEDA.GB.2026.1003455 — reuses v1-baseline's rich mock-data builders
 // (buildFullViewSessionMockFromNotificationRow / buildCheckYourAnswersData / findNotificationRow /
-// deleteNotificationByReference), just called from here rather than from v1-baseline/routes.js,
-// so behaviour (including the Amend/Copy as new/Delete action buttons for a SUBMITTED
-// notification, or "Continue notification" for a draft) matches v1-baseline without touching
-// any v1-baseline file. Amend/Continue hands off into v1-baseline's own create/task-list flow,
-// the same way the dashboard's "Create" button already does, since that's the only place the
-// edit journey exists.
+// deleteNotificationByReference) to get the same level of detail as v1-baseline's own
+// notification view, but renders it via intro/notification-details.html — a trimmed,
+// read-only-only fork of v1-baseline/create/check-your-answers.html (2026-07-20) — so this
+// journey's notification details screens can be changed independently of v1-baseline's
+// create-flow check-your-answers page. Amend/Continue still hands off into v1-baseline's own
+// create/task-list flow, the same way the dashboard's "Create" button already does, since
+// that's the only place the edit journey exists.
 const {
   findNotificationRow,
   deleteNotificationByReference,
@@ -167,7 +167,7 @@ router.get('/intro/notification/deleted', (req, res) => {
     return res.redirect('/intro/dashboard')
   }
   delete data.deletedNotificationSnapshot
-  res.render('v1-baseline/create/check-your-answers', {
+  res.render('intro/notification-details', {
     ...snapshot,
     showDeletionSuccessBanner: true,
     readOnlyHideActions: true,
@@ -183,7 +183,7 @@ router.get('/intro/notification/:reference', (req, res) => {
   if (!found || !found.row) {
     return res.redirect('/intro/dashboard')
   }
-  res.render('v1-baseline/create/check-your-answers', buildIntroNotificationViewData(found.row, ref))
+  res.render('intro/notification-details', buildIntroNotificationViewData(found.row, ref))
 })
 
 router.get('/intro/notification/:reference/amend', (req, res) => {
