@@ -2,7 +2,7 @@
 // Shared dashboard logic for notification lists (filter, sort, paginate)
 //
 
-const FILTER_KEYS = ['filterKeyword', 'filterCommodity', 'filterOrigin', 'filterConsignee', 'filterDestination', 'filterStatus', 'filterStartDate', 'filterEndDate', 'filterPeriod']
+const FILTER_KEYS = ['filterKeyword', 'filterCommodity', 'filterOrigin', 'filterNotificationType', 'filterConsignee', 'filterDestination', 'filterStatus', 'filterStartDate', 'filterEndDate', 'filterPeriod']
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
 
@@ -239,6 +239,7 @@ function registerDashboardRoutes (router, basePath, options) {
       keyword: data.filterKeyword,
       commodity: data.filterCommodity,
       origin: data.filterOrigin,
+      notificationType: data.filterNotificationType,
       consignee: data.filterConsignee,
       destination: data.filterDestination,
       status: data.filterStatus,
@@ -287,7 +288,7 @@ function registerDashboardRoutes (router, basePath, options) {
       .filter(k => data[k] != null && data[k] !== '')
       .map(k => `${encodeURIComponent(k)}=${encodeURIComponent(data[k])}`)
     res.locals.dashboardQueryParams = allParams.join('&')
-    const filterParamKeys = ['filterKeyword', 'filterCommodity', 'filterOrigin', 'filterConsignee', 'filterDestination', 'filterStatus']
+    const filterParamKeys = ['filterKeyword', 'filterCommodity', 'filterOrigin', 'filterNotificationType', 'filterConsignee', 'filterDestination', 'filterStatus']
     res.locals.filterQueryBase = filterParamKeys
       .filter(k => data[k])
       .map(k => `${encodeURIComponent(k)}=${encodeURIComponent(data[k])}`)
@@ -298,6 +299,12 @@ function registerDashboardRoutes (router, basePath, options) {
     const euuCountries = ['Iceland', 'Liechtenstein', 'Norway', 'Switzerland']
     const baseOriginCountries = [...euCountries, ...euuCountries]
     res.locals.originCountries = [...new Set([...baseOriginCountries, ...originsFromData])].sort()
+
+    const notificationTypes = require('../data/notification-types.js')
+    res.locals.notificationTypes = notificationTypes
+    res.locals.notificationTypeItems = [{ value: '', text: 'Show all' }].concat(
+      notificationTypes.map(type => ({ value: type, text: type }))
+    )
 
     const hasCustomDates = (data.filterStartDate || '').trim() !== '' || (data.filterEndDate || '').trim() !== ''
     const isDefaultDateRange = !data.filterPeriod && !hasCustomDates
@@ -317,6 +324,9 @@ function registerDashboardRoutes (router, basePath, options) {
     }
     if ((data.filterOrigin || '').trim()) {
       activeFilters.push({ label: 'Country of origin: ' + data.filterOrigin.trim(), clearHref: buildClearUrl('filterOrigin') })
+    }
+    if ((data.filterNotificationType || '').trim()) {
+      activeFilters.push({ label: 'Notification type: ' + data.filterNotificationType.trim(), clearHref: buildClearUrl('filterNotificationType') })
     }
     if ((data.filterConsignee || '').trim()) {
       activeFilters.push({ label: 'Consignee / Consignor: ' + data.filterConsignee.trim(), clearHref: buildClearUrl('filterConsignee') })
