@@ -115,6 +115,7 @@ const {
   findNotificationRow,
   deleteNotificationByReference,
   buildFullViewSessionMockFromNotificationRow,
+  buildPlantNotificationViewData,
   preserveForNotificationListMutation
 } = require('./lib/notification-view-helpers.js')
 const { buildCheckYourAnswersData } = require('./views/v1-baseline/post-hub-routes.js')
@@ -141,12 +142,20 @@ function syncFirstCommodityToIntroSession (data) {
 
 function buildIntroNotificationViewData (row, ref) {
   const sessionLike = buildFullViewSessionMockFromNotificationRow(row)
-  const viewData = buildCheckYourAnswersData(sessionLike, '/intro')
   const isSubmitted = row.status === 'submitted'
+  // row.type is only set for the intro dashboard's mock rows (app/data/notifications-intro.js);
+  // notifications submitted via the real v1-baseline create journey don't set it, since that
+  // journey only ever produces CHED-A-shaped notifications today.
+  const declarationType = row.type || 'CHED A'
+  const isPlantDeclaration = declarationType === 'CHED PP'
+  const viewData = isPlantDeclaration
+    ? buildPlantNotificationViewData(sessionLike, '/intro')
+    : buildCheckYourAnswersData(sessionLike, '/intro')
   viewData.basePath = '/intro'
   viewData.readOnly = true
   viewData.readOnlyPageTitle = 'Notification details'
-  viewData.viewPageCaption = isSubmitted ? ref : `${ref} (Draft)`
+  viewData.declarationType = declarationType
+  viewData.viewPageCaption = isSubmitted ? `${declarationType} · ${ref}` : `${declarationType} · ${ref} (Draft)`
   viewData.viewBackLinkHref = '/intro/dashboard'
   viewData.amendHref = `/intro/notification/${encodeURIComponent(ref)}/amend`
   viewData.readOnlyPrimaryButtonText = isSubmitted ? 'Amend this notification' : 'Continue notification'

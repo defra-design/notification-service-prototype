@@ -221,25 +221,191 @@ function applyDashboardCommodityToFullViewCopy (copy, row) {
   }
 }
 
+function parsePlantCommodityFromDashboardLabel (label) {
+  if (!label || typeof label !== 'string') return { commonName: null, eppoCode: null }
+  const trimmed = label.trim()
+  const paren = trimmed.match(/^(.+?)\s*\(([^)]+)\)\s*$/)
+  if (!paren) return { commonName: trimmed || null, eppoCode: null }
+  return { commonName: paren[1].trim(), eppoCode: paren[2].trim() }
+}
+
+function applyDashboardCommodityToFullViewCopyForPlant (copy, row) {
+  if (!row || !row.commodity || typeof row.commodity !== 'string') return
+  const commoditiesPlants = require('../data/commodities-plants.js')
+  const parsed = parsePlantCommodityFromDashboardLabel(row.commodity.trim())
+  const det = parsed.commonName ? commoditiesPlants[parsed.commonName] : null
+  if (!det) return
+  copy.plantCommodities = [{
+    commonName: det.commonName,
+    eppoCode: det.eppoCode,
+    productType: det.productType,
+    packagingMaterial: det.packagingMaterial,
+    quantity: 500,
+    packageCount: 20,
+    netWeight: '120kg'
+  }]
+}
+
 function buildFullViewSessionMockFromNotificationRow (row) {
-  const base = require('../data/notification-full-view-mock.js')
+  const isPlant = !!row && row.type === 'CHED PP'
+  const base = isPlant
+    ? require('../data/notification-full-view-mock-plant.js')
+    : require('../data/notification-full-view-mock.js')
   const copy = JSON.parse(JSON.stringify(base))
   if (!row || typeof row !== 'object') return copy
   copy.documents = Array.isArray(row.documents)
     ? JSON.parse(JSON.stringify(row.documents))
     : []
-  if (row.origin) copy.countryOfOrigin = row.origin
+  if (row.origin) {
+    copy.countryOfOrigin = row.origin
+    if (isPlant) copy.countryOfDispatch = row.origin
+  }
   if (row.consignor) copy.consignorName = row.consignor
   if (row.consignee) {
     copy.consigneeName = row.consignee
     copy.importerName = row.consignee
     const short = String(row.consignee).replace(/\s+Ltd$/i, '').trim()
-    copy.placeOfDestinationName = `${short} finishing unit`
+    copy.placeOfDestinationName = isPlant ? `${short} distribution centre` : `${short} finishing unit`
   }
   const iso = row.arrival ? ukLongDateToIso(row.arrival) : ''
   if (iso) copy.arrivalDate = iso
-  applyDashboardCommodityToFullViewCopy(copy, row)
+  if (isPlant) {
+    applyDashboardCommodityToFullViewCopyForPlant(copy, row)
+  } else {
+    applyDashboardCommodityToFullViewCopy(copy, row)
+  }
   return copy
+}
+
+// Builds the same shape of read-only view data as buildCheckYourAnswersData()
+// (app/views/v1-baseline/post-hub-routes.js) but for CHED PP (plants/plant products).
+// Deliberately a separate, self-contained function rather than a branch inside
+// buildCheckYourAnswersData: that function is deeply animal-specific (ear tag/microchip/
+// passport identification shapes per species) and shared with the real v1-baseline create
+// journey, which only ever produces CHED-A-shaped notifications -- keeping this fully
+// separate means the plant view can evolve without any risk to that journey.
+function buildPlantNotificationViewData (data, base) {
+  const row = (key, value) => ({ key: { text: key }, value: { text: value } })
+  const rowHtml = (key, html) => ({ key: { text: key }, value: { html } })
+  const escapeHtml = (s) => typeof s !== 'string' ? '' : String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+  const formatAddressHtml = (name, address, country) => {
+    const parts = []
+    if (name) parts.push(`<strong>${escapeHtml(name)}</strong>`)
+    const addrLines = Array.isArray(address) ? address.filter(Boolean) : (address ? String(address).split(',').map(s => s.trim()).filter(Boolean) : [])
+    addrLines.forEach(line => parts.push(escapeHtml(line)))
+    if (country) parts.push(escapeHtml(country))
+    return parts.length ? parts.join('<br>') : 'Not provided'
+  }
+  const documentTypes = require('../data/document-types.js')
+  const getDocumentTypeLabel = (val) => (documentTypes.find(d => d.value === val) || {}).text || val || 'Not provided'
+  const { getBorderPortLabel } = require('../data/uk-border-ports.js')
+
+  const formatDate = (isoDate) => {
+    if (!isoDate || typeof isoDate !== 'string') return isoDate || 'Not provided'
+    const [y, m, d] = isoDate.split('-').map(Number)
+    if (!y || !m || !d) return isoDate
+    const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
+    return `${d} ${months[m - 1]} ${y}`
+  }
+
+  const originRows = [
+    row('Country of origin', data.countryOfOrigin || 'Not provided'),
+    row('Country of dispatch', data.countryOfDispatch || 'Not provided')
+  ]
+  const refNum = (data.consignmentReference || '').trim()
+  if (refNum) originRows.push(row('Your internal reference number', refNum))
+
+  const plantCommodities = Array.isArray(data.plantCommodities) ? data.plantCommodities : []
+  const plantCommodityCards = plantCommodities.map((c) => ({
+    commonName: c.commonName || 'Not provided',
+    eppoCode: c.eppoCode || 'Not provided',
+    productType: c.productType || 'Not provided',
+    packagingMaterial: c.packagingMaterial || 'Not provided',
+    quantitySummaryRows: [
+      row('Product type', c.productType || 'Not provided'),
+      row('Quantity', c.quantity != null ? String(c.quantity) : 'Not provided'),
+      row('Number of packages', c.packageCount != null ? String(c.packageCount) : 'Not provided'),
+      row('Net weight', c.netWeight || 'Not provided'),
+      row('Packaging material', c.packagingMaterial || 'Not provided')
+    ]
+  }))
+
+  const wpmItems = Array.isArray(data.wpm) ? data.wpm : []
+  const wpmRows = wpmItems.map((w) => [
+    { text: w.description || 'Not provided' },
+    { text: w.eppoCode || 'Not provided' },
+    { text: w.count != null ? String(w.count) : 'Not provided' },
+    { text: w.countryOfOrigin || 'Not provided' },
+    { text: w.ispm15Marked || 'Not provided' }
+  ])
+
+  const consignorAddr = formatAddressHtml(data.consignorName, data.consignorAddress, data.consignorCountry)
+  const consigneeAddr = formatAddressHtml(
+    data.consigneeName,
+    [data.consigneeAddressLine1, data.consigneeAddressLine2, data.consigneeTown, data.consigneePostcode].filter(Boolean),
+    null
+  )
+  const importerAddr = formatAddressHtml(
+    data.importerName,
+    [data.importerAddressLine1, data.importerAddressLine2, data.importerTown, data.importerPostcode].filter(Boolean),
+    data.importerCountry
+  )
+  const placeAddr = formatAddressHtml(
+    data.placeOfDestinationName,
+    [data.placeOfDestinationAddressLine1, data.placeOfDestinationAddressLine2, data.placeOfDestinationTown, data.placeOfDestinationPostcode].filter(Boolean),
+    data.placeOfDestinationCountry
+  )
+  const addressRows = [
+    rowHtml('Consignor', consignorAddr),
+    rowHtml('Consignee', consigneeAddr),
+    rowHtml('Importer', importerAddr),
+    rowHtml('Place of destination', placeAddr)
+  ]
+
+  const transporterAddrHtml = formatAddressHtml(
+    null,
+    [data.transporterAddressLine1, data.transporterAddressLine2, data.transporterTown, data.transporterPostcode].filter(Boolean),
+    data.transporterCountry
+  )
+  const transportAndArrivalRows = [
+    row('Transporter name', data.transporterName || 'Not provided'),
+    rowHtml('Transporter address', transporterAddrHtml),
+    row('Type', data.transporterType || 'Not provided'),
+    row('Approval number', data.transporterApprovalNumber || 'Not provided'),
+    row('Port of entry', getBorderPortLabel(data.ukBorderPort)),
+    row('Arrival date at destination', formatDate(data.arrivalDate))
+  ]
+
+  const docs = data.documents || []
+  const cell = (t) => ({ text: String(t ?? '-') })
+  const hasUploadedDocs = docs.some(d => d && String(d.type || '').trim() !== '')
+  let documentsTableRows = docs.filter(d => d.type).map(d => [
+    cell(getDocumentTypeLabel(d.type)),
+    cell(d.reference),
+    cell(d.date ? formatDate(d.date) : '-'),
+    cell((d.attachments && d.attachments.length) ? `${d.attachments.length} attachment${d.attachments.length !== 1 ? 's' : ''}` : '-')
+  ])
+  if (documentsTableRows.length === 0) {
+    documentsTableRows = [[cell('Not yet added'), cell('–'), cell('–'), cell('–')]]
+  }
+
+  const notificationDateCreatedRaw = (data.notificationDateCreated != null && data.notificationDateCreated !== '')
+    ? String(data.notificationDateCreated).trim()
+    : ''
+
+  return {
+    originRows,
+    plantCommodityCards,
+    wpmRows,
+    addressRows,
+    transportAndArrivalRows,
+    documentsTableRows,
+    accompanyingDocumentsNotYetAdded: !hasUploadedDocs,
+    isPlantDeclaration: true,
+    isLivestockConsignment: false,
+    isPetConsignment: false,
+    notificationDateCreatedDisplay: notificationDateCreatedRaw
+  }
 }
 
 function deleteNotificationByReference (reference, data, notificationsStatic) {
@@ -275,5 +441,6 @@ module.exports = {
   preserveForNotificationListMutation,
   seedSessionFromDashboardRow,
   buildFullViewSessionMockFromNotificationRow,
+  buildPlantNotificationViewData,
   deleteNotificationByReference
 }
