@@ -5,6 +5,8 @@
 module.exports = [
   { value: 'itahc', text: 'ITAHC' },
   { value: 'veterinary-health-certificate', text: 'Veterinary health certificate' },
+  { value: 'phytosanitary-certificate', text: 'Phytosanitary certificate' },
+  { value: 'plant-passport', text: 'Plant passport' },
   { value: 'air-waybill', text: 'Air waybill' },
   { value: 'import-permit', text: 'Import permit' },
   { value: 'letter-of-authority-2008-61-ec', text: 'Letter of authority (Directive 2008/61/EC)' },

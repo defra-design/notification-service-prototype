@@ -82,6 +82,54 @@
 
     <div class="check-answers-spacer"></div>
 
+    {% if isPlantDeclaration %}
+    {% if plantCommodityCards and plantCommodityCards.length %}
+    <div id="commodities" class="commodities-section-header govuk-!-margin-bottom-4">
+      <h2 class="govuk-heading-m govuk-!-margin-0">Your commodities</h2>
+    </div>
+    {% for card in plantCommodityCards %}
+    <div class="govuk-summary-card govuk-!-margin-bottom-6">
+      <div class="govuk-summary-card__title-wrapper">
+        <h3 class="govuk-summary-card__title govuk-heading-m">{{ card.commonName }} ({{ card.eppoCode }})</h3>
+      </div>
+      <div class="govuk-summary-card__content">
+        {{ govukSummaryList({ rows: card.quantitySummaryRows }) }}
+      </div>
+    </div>
+    {% endfor %}
+    {% else %}
+    <div id="commodities" class="govuk-summary-card govuk-!-margin-bottom-6">
+      <div class="govuk-summary-card__title-wrapper">
+        <h2 class="govuk-summary-card__title">Your commodities</h2>
+      </div>
+      <div class="govuk-summary-card__content">
+        <p class="govuk-body govuk-!-margin-bottom-0">Not yet provided</p>
+      </div>
+    </div>
+    {% endif %}
+
+    {% if wpmRows and wpmRows.length %}
+    <div class="check-answers-spacer"></div>
+    <div id="wpm" class="govuk-summary-card govuk-!-margin-bottom-6">
+      <div class="govuk-summary-card__title-wrapper">
+        <h2 class="govuk-summary-card__title">Wood packaging material</h2>
+      </div>
+      <div class="govuk-summary-card__content">
+        {{ govukTable({
+          classes: "commodity-details-table",
+          head: [
+            { text: "Description" },
+            { text: "EPPO code" },
+            { text: "Count" },
+            { text: "Country of origin" },
+            { text: "ISPM 15 marked" }
+          ],
+          rows: wpmRows
+        }) }}
+      </div>
+    </div>
+    {% endif %}
+    {% else %}
     {% if commodityIdCards and commodityIdCards.length %}
     <div id="commodities" class="commodities-section-header govuk-!-margin-bottom-4">
       <h2 class="govuk-heading-m govuk-!-margin-0">Your commodities</h2>
@@ -209,9 +257,11 @@
       </div>
     </div>
     {% endif %}
+    {% endif %}
 
     <div class="check-answers-spacer"></div>
 
+    {% if not isPlantDeclaration %}
     {# Additional information details #}
     <div id="additional-details">{{ roSummaryList("Additional information details", additionalAnimalRows) }}</div>
 
@@ -221,6 +271,7 @@
     <div id="import-reasons">{{ roSummaryList("Main reason for importing the animals", importReasonRows) }}</div>
 
     <div class="check-answers-spacer"></div>
+    {% endif %}
 
     {# Addresses #}
     <div id="addresses">{{ roSummaryList("Addresses", addressRows) }}</div>
