@@ -34,12 +34,12 @@ DEMO_SLOWMO=400 npm run test:prototype
 
 ## What it shows
 
-| Walk | Journey covered |
-|---|---|
-| Cattle imported by air | Animal identification, then **every** address section filled — a complete notification |
-| Poultry imported by rail | The transit-countries branch (rail) |
-| Pet cat imported by air | Animal identification and the permanent-address section |
-| Task list | Saving progress to the task list and submitting from there |
+| Walk                     | Journey covered                                                                              |
+| ------------------------ | -------------------------------------------------------------------------------------------- |
+| Cattle imported by air   | Animal identification, then**every** address section filled — a complete notification |
+| Poultry imported by rail | The transit-countries branch (rail)                                                          |
+| Pet cat imported by air  | Animal identification and the permanent-address section                                      |
+| Task list                | Saving progress to the task list and submitting from there                                   |
 
 ## The recording and report
 
