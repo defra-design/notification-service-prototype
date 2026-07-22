@@ -564,6 +564,11 @@
   display: flex;
   align-items: center;
   gap: govuk-spacing(2);
+
+  .govuk-label {
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
 }
 .dashboard-filter-list {
   margin-bottom: 0;
@@ -586,6 +591,168 @@
 }
 .dashboard-card-content .govuk-tag {
   font-size: 16px;
+}
+
+.dashboard-two-divider {
+  border-bottom: 4px solid $govuk-brand-colour;
+  margin-top: 0;
+}
+
+// "Additional filters" accordion styled as a plain link-style toggle (ported from
+// fcp-future-rps's #actions-sort-accordion pattern) rather than the default
+// GOV.UK accordion chrome (show/hide text, +/- icons, top-level controls link).
+#dashboard-two-additional-filters-accordion {
+  &.govuk-accordion {
+    border-top: 0;
+  }
+
+  .govuk-accordion__controls {
+    display: none;
+  }
+
+  .govuk-accordion__section {
+    border-top: 0;
+    border-bottom: 0;
+  }
+
+  .govuk-accordion__section-heading {
+    margin: 0;
+    font-size: inherit;
+    font-weight: 400;
+  }
+
+  .govuk-accordion__section-heading-text,
+  .govuk-accordion__section-heading-text-focus {
+    margin-bottom: 2px !important;
+  }
+
+  .govuk-accordion__section-button {
+    @include govuk-font(19);
+    border-top: 0 !important;
+    font-weight: 400 !important;
+    color: $govuk-link-colour;
+    text-decoration: none;
+
+    &:hover,
+    &:focus {
+      text-decoration: underline;
+    }
+
+    &::before,
+    &::after {
+      display: none !important;
+      content: none !important;
+    }
+  }
+
+  .govuk-accordion__section-toggle,
+  .govuk-accordion__section-toggle-text,
+  .govuk-accordion-nav__chevron {
+    display: none !important;
+  }
+
+  .app-accordion-arrow {
+    display: inline-block;
+    width: 14px;
+    height: 8px;
+    margin-right: 8px;
+    vertical-align: middle;
+
+    &::before {
+      content: "";
+      display: block;
+      width: 14px;
+      height: 8px;
+      background-repeat: no-repeat;
+      background-position: center;
+      background-size: 14px 8px;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='8' viewBox='0 0 14 8' fill='none'%3E%3Cpath d='M1 1L7 7L13 1' stroke='%231d70b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    }
+  }
+
+  .govuk-accordion__section--expanded .app-accordion-arrow::before {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='8' viewBox='0 0 14 8' fill='none'%3E%3Cpath d='M1 7L7 1L13 7' stroke='%231d70b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  }
+
+  #dashboard-two-additional-filters-accordion-content-1 {
+    padding-bottom: 0 !important;
+    margin-bottom: 10px !important;
+  }
+}
+
+.dashboard-two-glance-heading {
+  margin-top: govuk-spacing(6);
+}
+
+.dashboard-two-search-sort-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+
+  .dashboard-sort-controls .govuk-label {
+    font-weight: 400;
+  }
+}
+
+.dashboard-two-filter-radios {
+  display: flex;
+  flex-wrap: wrap;
+  gap: govuk-spacing(6);
+  margin-bottom: govuk-spacing(4);
+}
+
+.dashboard-two-filter-radios .govuk-radios--inline .govuk-radios__item {
+  flex: none;
+}
+
+.dashboard-two-filter-radios .govuk-radios__label {
+  white-space: nowrap;
+  font-size: 16px;
+}
+
+.dashboard-two-glance {
+  margin-top: govuk-spacing(4);
+}
+
+.dashboard-two-glance__title--error {
+  color: $govuk-error-colour;
+}
+
+.dashboard-two-glance__figure {
+  @include govuk-font(48, $weight: bold);
+  color: $govuk-brand-colour;
+  margin: 0 0 govuk-spacing(2) 0;
+}
+
+.dashboard-two-glance__figure--error {
+  color: $govuk-error-colour;
+}
+
+.dashboard-two-card {
+  border-left: 4px solid $govuk-border-colour;
+}
+
+.dashboard-two-card--error {
+  border-left-color: $govuk-error-colour;
+}
+
+.dashboard-two-card__type {
+  color: $govuk-secondary-text-colour;
+}
+
+.dashboard-two-card__error {
+  color: $govuk-error-colour;
+  font-weight: 700;
+  margin-bottom: govuk-spacing(3);
+}
+
+.dashboard-two-status {
+  color: $govuk-secondary-text-colour;
+}
+
+.dashboard-two-status--completed {
+  color: $govuk-success-colour;
+  font-weight: 700;
 }
 
 .region-code-row {

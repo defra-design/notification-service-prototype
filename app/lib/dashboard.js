@@ -367,5 +367,6 @@ module.exports = {
   ensureDateCreated,
   formatTodayUkDateLabel,
   arrivalMatchesFilterRange,
-  rebuildSessionPreservingSubmittedAndFilters
+  rebuildSessionPreservingSubmittedAndFilters,
+  parseArrivalDate
 }
