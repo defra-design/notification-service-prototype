@@ -5,5 +5,8 @@
 module.exports = [
   'CHED A',
   'CHED PP',
-  'GBN AG'
+  'GBN AG',
+  'GBN PP',
+  'GBN NNS',
+  'GBN IUU'
 ]

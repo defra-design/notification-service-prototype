@@ -174,7 +174,9 @@ function buildIntroNotificationViewData (row, ref) {
   // notifications submitted via the real v1-baseline create journey don't set it, since that
   // journey only ever produces CHED-A-shaped notifications today.
   const declarationType = row.type || 'CHED A'
-  const isPlantDeclaration = declarationType === 'CHED PP'
+  // GBN PP and GBN NNS reuse the CHED PP plant shape -- see
+  // .claude/knowledge/decisions/gbn-types-reuse-existing-shapes.md
+  const isPlantDeclaration = ['CHED PP', 'GBN PP', 'GBN NNS'].includes(declarationType)
   const viewData = isPlantDeclaration
     ? buildPlantNotificationViewData(sessionLike, '/intro')
     : buildCheckYourAnswersData(sessionLike, '/intro')
