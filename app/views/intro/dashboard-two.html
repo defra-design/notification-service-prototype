@@ -187,42 +187,40 @@
             }) }}
           </div>
         </div>
+        <div class="dashboard-two-filter-radios">
+          <div class="dashboard-two-filter-radios__group">
+            {{ govukRadios({
+              classes: "govuk-radios--inline govuk-radios--small",
+              idPrefix: "filterActionNeeded",
+              name: "filterActionNeeded",
+              fieldset: { legend: { text: "Needs action to avoid delays", classes: "govuk-fieldset__legend--s" } },
+              value: filterActionNeeded,
+              items: [
+                { value: "today", text: "Today (" + filterCounts.today + ")" },
+                { value: "next-3-days", text: "Next 3 days (" + filterCounts.next3Days + ")" },
+                { value: "already-delayed", text: "Already delayed (" + filterCounts.alreadyDelayed + ")" }
+              ]
+            }) }}
+          </div>
+          <div class="dashboard-two-filter-radios__group">
+            {{ govukRadios({
+              classes: "govuk-radios--inline govuk-radios--small",
+              idPrefix: "filterStatusChange",
+              name: "filterStatusChange",
+              fieldset: { legend: { text: "Status changes", classes: "govuk-fieldset__legend--s" } },
+              value: filterStatusChange,
+              items: [
+                { value: "last-24-hours", text: "Last 24 hours (" + filterCounts.last24Hours + ")" },
+                { value: "last-3-days", text: "Last 3 days (" + filterCounts.last3Days + ")" }
+              ]
+            }) }}
+          </div>
+        </div>
         {{ govukButton({
           text: "Apply filters",
           classes: "govuk-!-margin-bottom-0"
         }) }}
       </div>
-    </div>
-  </div>
-  
-
-  <div class="dashboard-two-filter-radios govuk-!-margin-top-6">
-    <div class="dashboard-two-filter-radios__group">
-      {{ govukRadios({
-        classes: "govuk-radios--inline govuk-radios--small",
-        idPrefix: "filterActionNeeded",
-        name: "filterActionNeeded",
-        fieldset: { legend: { text: "Needs action to avoid delays", classes: "govuk-fieldset__legend--s" } },
-        value: filterActionNeeded,
-        items: [
-          { value: "today", text: "Today (" + filterCounts.today + ")" },
-          { value: "next-3-days", text: "Next 3 days (" + filterCounts.next3Days + ")" },
-          { value: "already-delayed", text: "Already delayed (" + filterCounts.alreadyDelayed + ")" }
-        ]
-      }) }}
-    </div>
-    <div class="dashboard-two-filter-radios__group">
-      {{ govukRadios({
-        classes: "govuk-radios--inline govuk-radios--small",
-        idPrefix: "filterStatusChange",
-        name: "filterStatusChange",
-        fieldset: { legend: { text: "Status changes", classes: "govuk-fieldset__legend--s" } },
-        value: filterStatusChange,
-        items: [
-          { value: "last-24-hours", text: "Last 24 hours (" + filterCounts.last24Hours + ")" },
-          { value: "last-3-days", text: "Last 3 days (" + filterCounts.last3Days + ")" }
-        ]
-      }) }}
     </div>
   </div>
 
