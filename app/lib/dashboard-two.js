@@ -11,12 +11,21 @@ const { parseArrivalDate, getDateRangeForFilterPeriod, arrivalMatchesFilterRange
 const STATUS_CYCLE = ['Completed', 'Submitted', 'Action required']
 const PER_PAGE = 6
 
+// GBN PP and GBN NNS have no sourced field spec of their own (see
+// .claude/knowledge/decisions/gbn-types-reuse-existing-shapes.md) so they render
+// through the same plant-shaped card/view as CHED PP. GBN IUU has no spec either,
+// but its subject matter (marine catch) doesn't fit the "Plants"/"Live animals"
+// label, so it gets its own label while still reusing the animal-shaped data.
+const PLANT_TYPES = ['CHED PP', 'GBN PP', 'GBN NNS']
+
 function typeLabelFor (row) {
-  return row.type === 'CHED PP' ? 'Plants' : 'Live animals'
+  if (PLANT_TYPES.includes(row.type)) return 'Plants'
+  if (row.type === 'GBN IUU') return 'Marine fish'
+  return 'Live animals'
 }
 
 function numberOfAnimalsFor (row, index) {
-  if (row.type === 'CHED PP') return null
+  if (PLANT_TYPES.includes(row.type) || row.type === 'GBN IUU') return null
   const digits = row.reference.replace(/\D/g, '')
   return ((parseInt(digits.slice(-2), 10) || 0) + index) % 30 + 2
 }
