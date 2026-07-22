@@ -101,6 +101,20 @@ registerDashboardRoutes(router, '/intro', {
   notifications: notificationsIntro
 })
 
+// "Dashboard two" — a visual design exploration of the intro dashboard (at-a-glance
+// summary tiles, combined search/filter bar, status and inspection tags) built over
+// the same notifications-intro.js dataset as /intro/dashboard above, via its own
+// view-model builder in lib/dashboard-two.js (the fields it needs — type label,
+// status text, inspection flag — aren't part of the shared registerDashboardRoutes()
+// model). See app/views/intro/dashboard-two.html.
+const { buildDashboardTwoViewData } = require('./lib/dashboard-two.js')
+router.get('/intro/dashboard-two', (req, res) => {
+  const viewData = buildDashboardTwoViewData(notificationsIntro, req.query, '/intro')
+  res.render('intro/dashboard-two', Object.assign(viewData, {
+    createHref: '/v1-baseline/create/new'
+  }))
+})
+
 // Read-only notification details for a row on the intro dashboard, e.g.
 // /intro/notification/CHEDA.GB.2026.1003455 — reuses v1-baseline's rich mock-data builders
 // (buildFullViewSessionMockFromNotificationRow / buildCheckYourAnswersData / findNotificationRow /
