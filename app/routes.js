@@ -115,6 +115,19 @@ router.get('/intro/dashboard-two', (req, res) => {
   }))
 })
 
+// Figma design-to-code test pages — generated from the "Notification dashboard" Figma
+// file (nodes 1:1088 and 1:1589), which are two identical frames of this same
+// dashboard-two design. Kept as separate routes/templates purely to prove out the
+// Figma MCP -> code pipeline; not linked from the main journey.
+for (const n of [1, 2]) {
+  router.get(`/intro/dashboard-figma-${n}`, (req, res) => {
+    const viewData = buildDashboardTwoViewData(notificationsIntro, req.query, '/intro', `dashboard-figma-${n}`)
+    res.render(`intro/dashboard-figma-${n}`, Object.assign(viewData, {
+      createHref: '/v1-baseline/create/new'
+    }))
+  })
+}
+
 // Read-only notification details for a row on the intro dashboard, e.g.
 // /intro/notification/CHEDA.GB.2026.1003455 — reuses v1-baseline's rich mock-data builders
 // (buildFullViewSessionMockFromNotificationRow / buildCheckYourAnswersData / findNotificationRow /

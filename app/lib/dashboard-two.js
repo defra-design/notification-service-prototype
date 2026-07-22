@@ -50,7 +50,7 @@ function buildPaginationItems (page, totalPages, buildHref) {
   }
 }
 
-function buildDashboardTwoViewData (notifications, query, basePath) {
+function buildDashboardTwoViewData (notifications, query, basePath, viewPath = 'dashboard-two') {
   const enriched = notifications.map((row, index) => enrichRow(row, index, basePath))
 
   const filterKeyword = (query.filterKeyword || '').trim()
@@ -129,7 +129,7 @@ function buildDashboardTwoViewData (notifications, query, basePath) {
       .filter(([, v]) => v)
       .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
     params.push(`page=${targetPage}`)
-    return `${basePath}/dashboard-two?${params.join('&')}`
+    return `${basePath}/${viewPath}?${params.join('&')}`
   }
 
   const glance = {
