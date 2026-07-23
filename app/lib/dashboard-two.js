@@ -30,7 +30,7 @@ function numberOfAnimalsFor (row, index) {
   return ((parseInt(digits.slice(-2), 10) || 0) + index) % 30 + 2
 }
 
-function enrichRow (row, index, basePath) {
+function enrichRow (row, index, basePath, viewPath) {
   const typeLabel = typeLabelFor(row)
   const statusText = STATUS_CYCLE[index % STATUS_CYCLE.length]
   return {
@@ -40,7 +40,9 @@ function enrichRow (row, index, basePath) {
     hasError: statusText === 'Action required',
     inspectionRequired: typeLabel === 'Plants' && index % 2 === 0,
     numberOfAnimals: numberOfAnimalsFor(row, index),
-    viewHref: `${basePath}/notification/${encodeURIComponent(row.reference)}`
+    // `from` tells the read-only notification view which dashboard variant to send
+    // the "Back" link to -- see viewBackLinkHref in app/routes.js.
+    viewHref: `${basePath}/notification/${encodeURIComponent(row.reference)}?from=${encodeURIComponent(viewPath)}`
   }
 }
 
@@ -60,7 +62,7 @@ function buildPaginationItems (page, totalPages, buildHref) {
 }
 
 function buildDashboardTwoViewData (notifications, query, basePath, viewPath = 'dashboard-two') {
-  const enriched = notifications.map((row, index) => enrichRow(row, index, basePath))
+  const enriched = notifications.map((row, index) => enrichRow(row, index, basePath, viewPath))
 
   const filterKeyword = (query.filterKeyword || '').trim()
   const filterActionNeeded = query.filterActionNeeded || ''
