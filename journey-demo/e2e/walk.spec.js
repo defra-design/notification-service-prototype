@@ -2,111 +2,58 @@ const { test, expect } = require('@playwright/test')
 const journeyHelpers = require('./journey')
 
 const {
-  JOURNEYS,
   pause,
   resetSession,
+  goToIntroIndexAndStartJourney,
+  followAnimalsAndAnimalProductsGuidance,
+  goToImportNotificationServiceFromGuidance,
   fillImportNotificationStart,
   fillSignIn,
-  goToCreateFromDashboard,
-  fillOrigin,
-  fillCommodity,
-  fillCommoditySpecies,
-  fillAnimalIdentification,
-  fillCommodityHub,
-  goToAdditionalAnimalDetailsFromTaskList,
-  fillAdditionalAnimalDetails,
-  fillImportReason,
-  fillAddresses,
-  fillAddressCph,
-  fillPermanentAddresses,
-  fillTransportAndArrival,
-  fillAccompanyingDocuments,
-  submitCheckYourAnswers,
-  fillDeclaration,
-  readConfirmationReference,
-  viewSubmittedNotificationFromIntroDashboard
+  viewNotificationFromDashboard,
+  viewNotificationFromDashboardTwo,
+  goBackToDashboard
 } = journeyHelpers
 
-// One demo walk per journey variant, starting from the /intro front door. The
-// video + trace are the deliverable; the assertions pin the URL at each step so
-// the walk fails fast (with a useful error-context snapshot) if a page or field
-// name has drifted, and confirm the journey reached confirmation and that the
-// submitted notification is visible back inside /intro.
-for (const journey of JOURNEYS) {
-  test.describe(`walk — ${journey.label}`, () => {
-    test('signs in via /intro, creates a notification end to end, and views it back on the /intro dashboard', async ({ page }) => {
-      await resetSession(page)
+// Two demo walks, both confined entirely to pages under app/views/intro/* — no
+// /v1-baseline/create/* page is ever visited. The video + trace are the
+// deliverable; the assertions pin the URL/heading at each step so the walk
+// fails fast (with a useful error-context snapshot) if a page or link has
+// drifted.
 
-      // --- /intro front door ---
-      await fillImportNotificationStart(page)
-      await fillSignIn(page)
-      await goToCreateFromDashboard(page)
-
-      // --- /v1-baseline/create/* — section 1: commodity + origin ---
-      await fillOrigin(page, journey)
-      await fillCommodity(page, journey)
-      if (!journey.commodity.skipSpeciesPage) {
-        await fillCommoditySpecies(page, journey)
-      }
-      await fillAnimalIdentification(page, journey)
-      await fillCommodityHub(page)
-
-      // --- task list (first visit, unlocked by finishing the first commodity) ---
-      await goToAdditionalAnimalDetailsFromTaskList(page)
-
-      // --- remainder of the journey chains on automatically from here ---
-      await fillAdditionalAnimalDetails(page, journey)
-      await fillImportReason(page, journey)
-      await fillAddresses(page, journey)
-
-      if (journey.addressBranch === 'cph') {
-        await fillAddressCph(page, journey)
-      } else {
-        await fillPermanentAddresses(page)
-      }
-
-      await fillTransportAndArrival(page, journey)
-      await fillAccompanyingDocuments(page, journey)
-      await submitCheckYourAnswers(page)
-      await fillDeclaration(page)
-
-      const reference = await readConfirmationReference(page)
-      expect(reference).toMatch(/^IMP\.GB\.\d{4}\.\d+$/)
-
-      // --- close the loop back inside /intro ---
-      await viewSubmittedNotificationFromIntroDashboard(page, reference)
-      await expect(page.getByRole('heading', { name: 'Notification details' })).toBeVisible()
-      await pause(page, 1500)
-    })
-  })
-}
-
-// A short second walk that shows another of /intro's own routes — opening an
-// existing mock notification straight from the dashboard in its read-only
-// view — without needing to fill the whole create form again.
-test.describe('walk — /intro dashboard: view an existing notification', () => {
-  test('opens a submitted mock notification from the dashboard in read-only view', async ({ page }) => {
-    const reference = 'CHEDA.GB.2026.1000892'
-
+test.describe('walk — /intro guidance to sign-in and dashboard', () => {
+  test('follows the step-by-step guidance through to sign-in, then views an existing notification on the /intro dashboard', async ({ page }) => {
     await resetSession(page)
-    await page.goto('/intro/dashboard')
-    await pause(page, 1300)
 
-    // The dataset paginates at 20 rows, so filter to this reference rather than
-    // assuming it falls on page 1.
-    await page.locator('#filterKeyword').fill(reference)
-    await pause(page, 400)
-    await page.getByRole('button', { name: 'Search filters' }).click()
-    await pause(page, 1300)
+    // --- step-by-step guidance replica ---
+    await goToIntroIndexAndStartJourney(page)
+    await followAnimalsAndAnimalProductsGuidance(page)
+    await goToImportNotificationServiceFromGuidance(page)
 
-    const card = page.locator('.govuk-summary-card', { hasText: reference })
-    await card.scrollIntoViewIfNeeded()
-    await pause(page, 400)
-    await card.getByRole('link', { name: 'View' }).click()
-    await pause(page, 1300)
+    // --- INS start page -> sign in -> dashboard ---
+    await fillImportNotificationStart(page)
+    await fillSignIn(page)
+    await expect(page).toHaveURL(/\/intro\/dashboard$/)
 
-    await expect(page).toHaveURL(new RegExp(`/intro/notification/${reference.replace(/\./g, '\\.')}$`))
+    // --- view an existing (CHED A) mock notification, then return ---
+    await viewNotificationFromDashboard(page, 'CHEDA.GB.2026.1000608')
     await expect(page.getByRole('heading', { name: 'Notification details' })).toBeVisible()
+    await pause(page, 1500)
+
+    await goBackToDashboard(page)
+    await pause(page, 800)
+  })
+})
+
+test.describe('walk — /intro dashboard-two: search, filter, and view a plant notification', () => {
+  test('filters dashboard-two to a CHED PP notification and opens its read-only plant view', async ({ page }) => {
+    await resetSession(page)
+
+    await viewNotificationFromDashboardTwo(page, 'CHEDPP.GB.2026.1000145')
+    await expect(page.getByRole('heading', { name: 'Notification details' })).toBeVisible()
+
+    // Confirms this reference rendered through the plant-specific view (EPPO-coded
+    // commodity table), not the animal/CHED-A shaped one.
+    await expect(page.getByText('EPPO code')).toBeVisible()
     await pause(page, 1500)
   })
 })

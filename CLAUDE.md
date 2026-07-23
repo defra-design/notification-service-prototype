@@ -62,6 +62,7 @@ When building pages, always follow these principles from the GDS Design System a
 - Mock dashboard rows live in `app/data/notifications.js`; a fully-populated example notification lives in `app/data/notification-full-view-mock.js`
 - In-progress notification data lives in `req.session.data` (commodities array, addresses, transport, etc.) and is only converted to a "submitted" notification row on final submission
 - Store temporary UI state flags in session (e.g. `taskListErrorList`, `deletedNotificationSnapshot`) and delete them immediately after the page that consumes them has read them
+- **Notification reference numbers:** GBN-type notifications (`GBN AG`, `GBN PP`, `GBN NNS`, `GBN IUU`) use the agreed `GBN-{CODE}-{YY}-{6-char Crockford base32}` format (e.g. `GBN-AG-26-7K8M2P`) — generate/format these via `app/lib/notification-reference.js`, never hand-format the string. See `.claude/knowledge/decisions/gbn-reference-format-2026-07-23.md` before touching any reference-number field. CHED A/CHED P/CHED-D/CHED PP references are a different, real TRACES-sourced format (not this scheme) and legacy `v1-baseline` still deliberately uses `IMP.GB.{year}.{7-digit number}` — see `.claude/knowledge/reference/notification-reference-number-formats.md` for the full picture before assuming any journey's reference format.
 
 ---
 
