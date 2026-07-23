@@ -13,10 +13,10 @@ const { expect } = require('@playwright/test')
 // The audience is non-technical product owners: type like a person and pause on
 // each new page so the walk-through is easy to follow. (waitForTimeout is
 // deliberate here — pacing IS the point of this suite, not a race workaround.)
-const TYPE_DELAY = 70    // ms per character while typing
-const FIELD_PAUSE = 450  // ms after filling or choosing a field
-const STEP_PAUSE = 1300  // ms after the page changes, to take it in
-const SCROLL_PAUSE = 350 // ms for the scroll-to-centre to settle
+const TYPE_DELAY = 90    // ms per character while typing
+const FIELD_PAUSE = 550  // ms after filling or choosing a field
+const STEP_PAUSE = 1600  // ms after the page changes, to take it in
+const SCROLL_PAUSE = 400 // ms for the scroll-to-centre to settle
 
 function pause (page, ms) {
   return page.waitForTimeout(ms)
@@ -51,9 +51,10 @@ async function fillText (page, name, value) {
 
 // Clicks the page's primary forward button/link, whichever label this app uses
 // for it on /intro pages. "Start journey" (index.html) is a plain <a>, but
-// "Start now" and "Sign in" are both rendered via the govukButton macro, which
-// always sets role="button" even on an <a> — so match both roles for all three.
-const PRIMARY_ACTION_NAME = /start journey|start now|sign in/i
+// "Start now", "Sign in" and "Continue" are all rendered via the govukButton
+// macro (or a plain <button type="submit"> styled the same way), which always
+// sets role="button" even on an <a> — so match both roles for all four.
+const PRIMARY_ACTION_NAME = /start journey|start now|sign in|continue/i
 async function clickContinue (page) {
   const button = page
     .getByRole('link', { name: PRIMARY_ACTION_NAME })
@@ -93,14 +94,34 @@ async function followAnimalsAndAnimalProductsGuidance (page) {
   await pause(page, STEP_PAUSE) // -> /intro/animals-and-animal-products
 }
 
-// That licence-guidance page itself links on to the Import Notification
-// Service start page.
-async function goToImportNotificationServiceFromGuidance (page) {
+// That licence-guidance page's notification banner links on to the 'Checker'
+// service — real users are routed through this before reaching the Import
+// Notification Service start page, rather than following the plain "Import
+// Notification Service (INS)" link further down the same page.
+async function goToCheckerFromGuidance (page) {
   await expect(page).toHaveURL(/\/intro\/animals-and-animal-products$/)
   await expect(page.getByRole('heading', { name: 'Guidance on importing live animals or animal products' })).toBeVisible()
   await pause(page, STEP_PAUSE)
-  await clickAt(page.getByRole('link', { name: 'Import Notification Service (INS)' }))
-  await pause(page, STEP_PAUSE) // -> /intro/import-notification-start
+  await clickAt(page.getByRole('link', { name: 'Check which service to use and read guidance' }))
+  await pause(page, STEP_PAUSE) // -> /intro/checker-questions
+}
+
+// Checker - questions: a single "Continue" button through to the answers page
+// (no actual questions are asked yet in this prototype).
+async function continueThroughCheckerQuestions (page) {
+  await expect(page).toHaveURL(/\/intro\/checker-questions$/)
+  await expect(page.getByRole('heading', { name: 'Checker service' })).toBeVisible()
+  await pause(page, STEP_PAUSE)
+  await clickContinue(page) // "Continue" -> /intro/checker-answers
+}
+
+// Checker - guidance and signposting: submits on to the Import Notification
+// Service start page.
+async function continueThroughCheckerAnswers (page) {
+  await expect(page).toHaveURL(/\/intro\/checker-answers$/)
+  await expect(page.getByRole('heading', { name: 'Checker - guidance and signposting' })).toBeVisible()
+  await pause(page, STEP_PAUSE)
+  await clickContinue(page) // "Continue" -> /intro/import-notification-start
 }
 
 async function fillImportNotificationStart (page) {
@@ -148,12 +169,14 @@ async function viewNotificationFromDashboardTwo (page, reference) {
   await expect(page).toHaveURL(/\/intro\/notification\//)
 }
 
-// The notification-details read-only page's back link returns to the
-// (original) /intro dashboard.
-async function goBackToDashboard (page) {
+// The notification-details read-only page's back link returns to whichever
+// dashboard variant it was reached from (see the `from` query param each
+// dashboard's viewHref carries, and viewBackLinkHref in app/routes.js) --
+// defaults to the original /intro/dashboard, matching viewNotificationFromDashboard.
+async function goBackToDashboard (page, dashboardPath = '/intro/dashboard') {
   await clickAt(page.getByRole('link', { name: 'Back' }))
   await pause(page, STEP_PAUSE)
-  await expect(page).toHaveURL(/\/intro\/dashboard$/)
+  await expect(page).toHaveURL(new RegExp(`${dashboardPath.replace(/\//g, '\\/')}$`))
 }
 
 module.exports = {
@@ -163,7 +186,9 @@ module.exports = {
   resetSession,
   goToIntroIndexAndStartJourney,
   followAnimalsAndAnimalProductsGuidance,
-  goToImportNotificationServiceFromGuidance,
+  goToCheckerFromGuidance,
+  continueThroughCheckerQuestions,
+  continueThroughCheckerAnswers,
   fillImportNotificationStart,
   fillSignIn,
   viewNotificationFromDashboard,

@@ -6,10 +6,11 @@ const {
   resetSession,
   goToIntroIndexAndStartJourney,
   followAnimalsAndAnimalProductsGuidance,
-  goToImportNotificationServiceFromGuidance,
+  goToCheckerFromGuidance,
+  continueThroughCheckerQuestions,
+  continueThroughCheckerAnswers,
   fillImportNotificationStart,
   fillSignIn,
-  viewNotificationFromDashboard,
   viewNotificationFromDashboardTwo,
   goBackToDashboard
 } = journeyHelpers
@@ -20,26 +21,30 @@ const {
 // fails fast (with a useful error-context snapshot) if a page or link has
 // drifted.
 
-test.describe('walk — /intro guidance to sign-in and dashboard', () => {
-  test('follows the step-by-step guidance through to sign-in, then views an existing notification on the /intro dashboard', async ({ page }) => {
+test.describe('walk — /intro guidance to sign-in and dashboard-two', () => {
+  test('follows the step-by-step guidance through to sign-in, then views an existing notification on dashboard-two', async ({ page }) => {
     await resetSession(page)
 
     // --- step-by-step guidance replica ---
     await goToIntroIndexAndStartJourney(page)
     await followAnimalsAndAnimalProductsGuidance(page)
-    await goToImportNotificationServiceFromGuidance(page)
+    await goToCheckerFromGuidance(page)
+    await continueThroughCheckerQuestions(page)
+    await continueThroughCheckerAnswers(page)
 
-    // --- INS start page -> sign in -> dashboard ---
+    // --- INS start page -> sign in -> dashboard two ---
     await fillImportNotificationStart(page)
     await fillSignIn(page)
-    await expect(page).toHaveURL(/\/intro\/dashboard$/)
+    await expect(page).toHaveURL(/\/intro\/dashboard-two$/)
 
     // --- view an existing (CHED A) mock notification, then return ---
-    await viewNotificationFromDashboard(page, 'CHEDA.GB.2026.1000608')
+    await viewNotificationFromDashboardTwo(page, 'CHEDA.GB.2026.1000608')
     await expect(page.getByRole('heading', { name: 'Notification details' })).toBeVisible()
     await pause(page, 1500)
 
-    await goBackToDashboard(page)
+    // The read-only view's "Back" link returns to whichever dashboard variant it
+    // was reached from -- dashboard-two here, since that's where sign-in now lands.
+    await goBackToDashboard(page, '/intro/dashboard-two')
     await pause(page, 800)
   })
 })

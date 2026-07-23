@@ -78,7 +78,7 @@ router.get('/intro/sign-in', (req, res) => {
 })
 
 router.post('/intro/sign-in', (req, res) => {
-  res.redirect('/intro/dashboard')
+  res.redirect('/intro/dashboard-two')
 })
 
 router.post('/sign-in', (req, res) => {
@@ -167,7 +167,17 @@ function syncFirstCommodityToIntroSession (data) {
   return true
 }
 
-function buildIntroNotificationViewData (row, ref) {
+// Dashboard variants that can link into a notification's read-only view -- see the
+// `from` query param each one's viewHref carries (app/lib/dashboard.js,
+// app/lib/dashboard-two.js). Whitelisted rather than trusted directly off the query
+// string since it's used to build a redirect path.
+const INTRO_DASHBOARD_VARIANTS = ['dashboard', 'dashboard-two', 'dashboard-figma-1', 'dashboard-figma-2']
+
+function introDashboardFrom (from) {
+  return INTRO_DASHBOARD_VARIANTS.includes(from) ? from : 'dashboard'
+}
+
+function buildIntroNotificationViewData (row, ref, from) {
   const sessionLike = buildFullViewSessionMockFromNotificationRow(row)
   const isSubmitted = row.status === 'submitted'
   // row.type is only set for the intro dashboard's mock rows (app/data/notifications-intro.js);
@@ -180,15 +190,16 @@ function buildIntroNotificationViewData (row, ref) {
   const viewData = isPlantDeclaration
     ? buildPlantNotificationViewData(sessionLike, '/intro')
     : buildCheckYourAnswersData(sessionLike, '/intro')
+  const safeFrom = introDashboardFrom(from)
   viewData.basePath = '/intro'
   viewData.readOnly = true
   viewData.readOnlyPageTitle = 'Notification details'
   viewData.declarationType = declarationType
   viewData.viewPageCaption = isSubmitted ? `${declarationType} · ${ref}` : `${declarationType} · ${ref} (Draft)`
-  viewData.viewBackLinkHref = '/intro/dashboard'
+  viewData.viewBackLinkHref = `/intro/${safeFrom}`
   viewData.amendHref = `/intro/notification/${encodeURIComponent(ref)}/amend`
   viewData.readOnlyPrimaryButtonText = isSubmitted ? 'Amend this notification' : 'Continue notification'
-  viewData.notificationDeleteHref = `/intro/notification/${encodeURIComponent(ref)}/delete`
+  viewData.notificationDeleteHref = `/intro/notification/${encodeURIComponent(ref)}/delete?from=${encodeURIComponent(safeFrom)}`
   viewData.readOnlyShowCopyAsNew = isSubmitted
   viewData.copyAsNewHref = isSubmitted ? '#' : null
   viewData.notificationDateCreatedDisplay = row.dateCreated || 'Not provided'
@@ -221,7 +232,7 @@ router.get('/intro/notification/:reference', (req, res) => {
   if (!found || !found.row) {
     return res.redirect('/intro/dashboard')
   }
-  res.render('intro/notification-details', buildIntroNotificationViewData(found.row, ref))
+  res.render('intro/notification-details', buildIntroNotificationViewData(found.row, ref, req.query.from))
 })
 
 router.get('/intro/notification/:reference/amend', (req, res) => {
@@ -248,7 +259,7 @@ router.post('/intro/notification/:reference/delete', (req, res) => {
   if (!found || !found.row) {
     return res.redirect('/intro/dashboard')
   }
-  const snapshot = buildIntroNotificationViewData(found.row, ref)
+  const snapshot = buildIntroNotificationViewData(found.row, ref, req.query.from)
   const result = deleteNotificationByReference(ref, data, notificationsIntro)
   if (!result.ok) {
     return res.redirect('/intro/dashboard')

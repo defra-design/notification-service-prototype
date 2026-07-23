@@ -278,7 +278,10 @@ function registerDashboardRoutes (router, basePath, options) {
     const start = (pageNum - 1) * perPage
     const paginated = normalised.slice(start, start + perPage).map(n => ({
       ...n,
-      viewHref: `${viewLinksBasePath}/notification/${encodeURIComponent(n.reference)}`
+      // `from` tells the /intro read-only notification view which dashboard to send
+      // the "Back" link to -- see viewBackLinkHref in app/routes.js. Harmless on
+      // v1-baseline's own dashboard, whose notification view doesn't read it.
+      viewHref: `${viewLinksBasePath}/notification/${encodeURIComponent(n.reference)}?from=dashboard`
     }))
 
     req.session.data.resultsCount = total
