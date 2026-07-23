@@ -1,99 +1,13 @@
 //
-// Page-object helpers for the notification journey demo walk.
+// Page-object helpers for the /intro journey demo walk.
 //
-// This walk starts at the /intro front door (the guidance page a real trader lands on),
-// signs in, lands on the /intro dashboard, then drives the full /v1-baseline/create/*
-// notification-creation journey with realistic typed/selected data through to
-// confirmation, then returns to /intro to close the loop.
-//
-// Data-driven variants exercise two of the create journey's conditional branches:
-//   - cattle (Cow, Bos taurus) → explicit commodity + species picker pages, ear
-//     tag/passport animal identification, livestock CPH address branch
-//   - cat (Felis catus)        → commodity+species chosen in one typeahead pick (skips
-//     the species page), pet microchip/passport/tattoo identification, the pet
-//     permanent-address branch instead of CPH
+// Scoped entirely to pages under app/views/intro/* — the guidance/step-by-step
+// pages, the sign-in front door, and both dashboard variants. Nothing here
+// drives the /v1-baseline/create/* notification-creation journey; "Create"
+// links on the dashboards lead out of /intro and are deliberately not
+// followed.
 //
 const { expect } = require('@playwright/test')
-
-const JOURNEYS = [
-  {
-    id: 'cattle-cph',
-    label: 'Cattle from Germany — commodity/species pages, livestock CPH address branch',
-    consignmentReference: 'DEMO-CATTLE-001',
-    country: 'Germany',
-    commodity: {
-      search: 'Cow',
-      option: 'Cow (0102)',
-      skipSpeciesPage: false,
-      speciesValue: 'Bos taurus',
-      speciesLabel: 'Bos taurus',
-      speciesKey: 'bos_taurus'
-    },
-    identification: {
-      type: 'default',
-      animals: [
-        { earTag: '123456000001', passport: 'UK 123456 7 00001' },
-        { earTag: '123456000002', passport: 'UK 123456 7 00002' }
-      ],
-      packages: '1'
-    },
-    certifiedFor: 'breeding-production',
-    unweanedAnimals: 'no',
-    importReason: 'internal-market',
-    internalMarketPurpose: 'breeding',
-    placeOfOrigin: { search: 'Bovine Exports', match: 'Bovine Exports GmbH' },
-    consignor: { search: 'Bovine Exports', match: 'Bovine Exports GmbH' },
-    consignee: { search: 'Aberdeen Livestock', match: 'Aberdeen Livestock Ltd' },
-    importerSameAsConsignee: true,
-    placeOfDestination: { search: 'Aberdeen Balai', match: 'Aberdeen Balai Centre' },
-    contactAddress: { search: 'Animal and Plant', match: 'Animal and Plant Health Agency' },
-    addressBranch: 'cph',
-    cphNumber: '12/345/6789',
-    transporter: { search: 'Aberdeen Livestock', match: 'Aberdeen Livestock Ltd' },
-    port: { search: 'Heathrow', option: 'Heathrow Airport' },
-    arrivalInDays: 21,
-    documentType: 'veterinary-health-certificate',
-    documentReference: 'CHED-CATTLE-2026-001',
-    documentIssuedDaysAgo: 5
-  },
-  {
-    id: 'cat-permanent-address',
-    label: 'Pet cat from France — single typeahead pick, pet identification, permanent-address branch',
-    consignmentReference: 'DEMO-PET-002',
-    country: 'France',
-    commodity: {
-      search: 'Felis catus',
-      option: 'Cat (Felis catus)',
-      skipSpeciesPage: true,
-      speciesLabel: 'Felis catus',
-      speciesKey: 'felis_catus'
-    },
-    identification: {
-      type: 'pet',
-      animals: [
-        { microchip: '982000123456701', passport: 'GBR-PPT-CAT-001', tattoo: 'TATCAT-1' }
-      ],
-      packages: '1'
-    },
-    certifiedFor: 'pets',
-    unweanedAnimals: null,
-    importReason: 're-entry',
-    internalMarketPurpose: null,
-    placeOfOrigin: { search: 'AgriLivestock', match: 'AgriLivestock France SARL' },
-    consignor: { search: 'AgriLivestock', match: 'AgriLivestock France SARL' },
-    consignee: { search: 'Bristol Animal', match: 'Bristol Animal Imports' },
-    importerSameAsConsignee: true,
-    placeOfDestination: { search: 'Bristol Quarantine', match: 'Bristol Quarantine Facility' },
-    contactAddress: { search: 'Cathcart', match: '100, Cathcart' },
-    addressBranch: 'permanent',
-    transporter: { search: 'Bristol Animal', match: 'Bristol Animal Imports' },
-    port: { search: 'Bristol', option: 'Bristol Airport' },
-    arrivalInDays: 14,
-    documentType: 'import-permit',
-    documentReference: 'PET-IMPORT-2026-002',
-    documentIssuedDaysAgo: 10
-  }
-]
 
 // --- pacing ---------------------------------------------------------------
 // The audience is non-technical product owners: type like a person and pause on
@@ -122,11 +36,6 @@ async function clickAt (locator) {
   await locator.click()
 }
 
-async function checkAt (locator) {
-  await scrollTo(locator)
-  await locator.check()
-}
-
 // Types a value character by character into a text box, as a person would.
 async function typeInto (locator, value) {
   await scrollTo(locator)
@@ -135,109 +44,67 @@ async function typeInto (locator, value) {
   await locator.pressSequentially(String(value), { delay: TYPE_DELAY })
 }
 
-// --- low-level primitives -------------------------------------------------
-
 async function fillText (page, name, value) {
   await typeInto(page.locator(`input[name="${name}"]`).first(), value)
   await pause(page, FIELD_PAUSE)
 }
 
-async function fillTextById (page, id, value) {
-  await typeInto(page.locator(`#${id}`), value)
-  await pause(page, FIELD_PAUSE)
-}
-
-// Native date inputs (type="date") don't play nicely with character-by-character
-// typing across locales — Playwright's fill() handles the yyyy-mm-dd value
-// directly regardless of the browser's display locale.
-async function fillDateInput (locator, isoDate) {
-  await scrollTo(locator)
-  await locator.fill(isoDate)
-  await pause(locator.page(), FIELD_PAUSE)
-}
-
-async function pickRadio (page, name, value) {
-  await checkAt(page.locator(`input[name="${name}"][value="${value}"]`))
-  await pause(page, FIELD_PAUSE)
-}
-
-async function pickCheckbox (page, name, value) {
-  await checkAt(page.locator(`input[name="${name}"][value="${value}"]`))
-  await pause(page, FIELD_PAUSE)
-}
-
-async function selectValue (page, id, value) {
-  const select = page.locator(`#${id}`)
-  await scrollTo(select)
-  await select.selectOption(value)
-  await pause(page, FIELD_PAUSE)
-}
-
-// Clicks the page's primary forward button, whichever label this app uses for it
-// ("Save and continue" on most create-journey pages, "Confirm and submit" on
-// check-your-answers, "Submit notification" on declaration, plain "Continue" on
-// the commodity hub, "Sign in"/"Start now" on the intro front door).
+// Clicks the page's primary forward button/link, whichever label this app uses
+// for it on /intro pages. "Start journey" (index.html) is a plain <a>, but
+// "Start now" and "Sign in" are both rendered via the govukButton macro, which
+// always sets role="button" even on an <a> — so match both roles for all three.
+const PRIMARY_ACTION_NAME = /start journey|start now|sign in/i
 async function clickContinue (page) {
   const button = page
-    .getByRole('button', { name: /save and continue|continue|accept and submit|confirm and submit|submit notification|sign in|start now/i })
+    .getByRole('link', { name: PRIMARY_ACTION_NAME })
+    .or(page.getByRole('button', { name: PRIMARY_ACTION_NAME }))
     .first()
   await clickAt(button)
   await pause(page, STEP_PAUSE)
 }
 
-// Drives one of this app's accessible-autocomplete-enhanced fields (country of
-// origin, commodity/species search, port of entry): types the search term one
-// key at a time (the widget filters its list on each input event), then clicks
-// the matching rendered option, which writes the value the server reads.
-async function pickFromAutocomplete (page, fieldId, searchText, optionExactText) {
-  const input = page.locator(`#${fieldId}`)
-  const option = page.getByRole('option', { name: optionExactText, exact: true })
-  await scrollTo(input)
-  await input.click()
-  await input.fill('')
-  await input.pressSequentially(searchText, { delay: TYPE_DELAY })
-  try {
-    await option.waitFor({ state: 'visible', timeout: 4000 })
-  } catch {
-    // The widget's blur/debounce timer can occasionally close the list before we
-    // click. Re-trigger a render while keeping focus (no blur): delete and retype
-    // the last character.
-    await input.press('Backspace')
-    await input.pressSequentially(searchText.slice(-1), { delay: TYPE_DELAY })
-    await option.waitFor({ state: 'visible', timeout: 8000 })
-  }
-  await clickAt(option)
-  await pause(page, FIELD_PAUSE)
-}
-
-// Searches one of the address "add a ..." lookup pages by name and selects the
-// matching row. All of these pages are plain GET search forms (not autocomplete
-// widgets) with a table of results and a "Select" link per row.
-async function searchAndSelectAddress (page, { nameFieldId = 'searchName', search, match }) {
-  await typeInto(page.locator(`#${nameFieldId}`), search)
-  await pause(page, FIELD_PAUSE)
-  await clickAt(page.getByRole('button', { name: 'Search' }))
-  await pause(page, STEP_PAUSE)
-  const row = page.locator('tr', { hasText: match })
-  await clickAt(row.getByRole('link', { name: 'Select', exact: true }))
-  await pause(page, STEP_PAUSE)
-}
-
-function isoDateInDays (days) {
-  const d = new Date()
-  d.setDate(d.getDate() + days)
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-}
-
-// --- front door (/intro) ---------------------------------------------------
+// --- /intro walk ------------------------------------------------------------
 
 async function resetSession (page) {
   await page.goto('/clear-data')
   await pause(page, 400)
 }
 
+// /intro's own index page — a menu of the journey's key entry points.
+async function goToIntroIndexAndStartJourney (page) {
+  await page.goto('/intro')
+  await expect(page.getByRole('heading', { name: 'Product introduction' })).toBeVisible()
+  await pause(page, STEP_PAUSE)
+  await clickContinue(page) // "Start journey" -> /intro/import-goods-into-uk
+}
+
+// The step-by-step guidance replica page links out to one licence-guidance
+// page per goods category (animals and animal products, plants and plant
+// products, etc.) — follow the "animals and animal products" one.
+async function followAnimalsAndAnimalProductsGuidance (page) {
+  await expect(page).toHaveURL(/\/intro\/import-goods-into-uk$/)
+  await expect(page.getByRole('heading', { name: 'Import goods into the UK: step by step' })).toBeVisible()
+  await pause(page, STEP_PAUSE)
+  // The licence-guidance links (including "animals and animal products") sit
+  // inside Step 6's collapsed step-nav panel, so expand every step first.
+  await clickAt(page.getByRole('button', { name: 'Show all steps' }))
+  await pause(page, FIELD_PAUSE)
+  await clickAt(page.getByRole('link', { name: 'animals and animal products' }))
+  await pause(page, STEP_PAUSE) // -> /intro/animals-and-animal-products
+}
+
+// That licence-guidance page itself links on to the Import Notification
+// Service start page.
+async function goToImportNotificationServiceFromGuidance (page) {
+  await expect(page).toHaveURL(/\/intro\/animals-and-animal-products$/)
+  await expect(page.getByRole('heading', { name: 'Guidance on importing live animals or animal products' })).toBeVisible()
+  await pause(page, STEP_PAUSE)
+  await clickAt(page.getByRole('link', { name: 'Import Notification Service (INS)' }))
+  await pause(page, STEP_PAUSE) // -> /intro/import-notification-start
+}
+
 async function fillImportNotificationStart (page) {
-  await page.goto('/intro/import-notification-start')
+  await expect(page).toHaveURL(/\/intro\/import-notification-start$/)
   await pause(page, STEP_PAUSE)
   await clickContinue(page) // "Start now" -> /intro/sign-in
 }
@@ -250,187 +117,9 @@ async function fillSignIn (page) {
   await clickContinue(page) // "Sign in" -> /intro/dashboard
 }
 
-async function goToCreateFromDashboard (page) {
-  await expect(page).toHaveURL(/\/intro\/dashboard$/)
-  await pause(page, STEP_PAUSE)
-  // Rendered as a govukButton(href: ...), i.e. an <a role="button">, not a plain link.
-  await clickAt(page.getByRole('button', { name: 'Create an import notification' }))
-  await pause(page, STEP_PAUSE) // -> /v1-baseline/create/origin
-}
-
-// --- create journey (/v1-baseline/create/*) --------------------------------
-
-async function fillOrigin (page, journey) {
-  await expect(page).toHaveURL(/\/create\/origin$/)
-  await pickFromAutocomplete(page, 'countryOfOrigin', journey.country, journey.country)
-  await pickRadio(page, 'regionOfOriginRequired', 'no')
-  await fillText(page, 'consignmentReference', journey.consignmentReference)
-  await clickContinue(page)
-}
-
-async function fillCommodity (page, journey) {
-  await expect(page).toHaveURL(/\/create\/commodity$/)
-  await pickFromAutocomplete(page, 'commodity', journey.commodity.search, journey.commodity.option)
-  await clickContinue(page)
-}
-
-async function fillCommoditySpecies (page, journey) {
-  await expect(page).toHaveURL(/\/create\/commodity-species/)
-  await pickCheckbox(page, 'commoditySpecies', journey.commodity.speciesValue)
-  await clickContinue(page)
-}
-
-async function fillAnimalIdentification (page, journey) {
-  await expect(page).toHaveURL(/\/create\/animal-identification$/)
-  const { type, animals, packages } = journey.identification
-  const key = journey.commodity.speciesKey
-  const speciesLabel = journey.commodity.speciesLabel
-
-  // Add extra animal rows up front (client-side clone via "Add another X").
-  for (let i = 1; i < animals.length; i++) {
-    await clickAt(page.getByRole('link', { name: `Add another ${speciesLabel}` }))
-    await pause(page, FIELD_PAUSE)
-  }
-
-  for (let i = 0; i < animals.length; i++) {
-    const n = i + 1
-    const animal = animals[i]
-    if (type === 'pet') {
-      await fillTextById(page, `microchip-microchip_${key}_${n}`, animal.microchip)
-      await fillTextById(page, `passport-passport_${key}_${n}`, animal.passport)
-      await fillTextById(page, `tattoo-tattoo_${key}_${n}`, animal.tattoo)
-    } else {
-      await fillTextById(page, `ear-tag-earTag_${key}_${n}`, animal.earTag)
-      await fillTextById(page, `passport-passport_${key}_${n}`, animal.passport)
-    }
-  }
-
-  await fillTextById(page, `numberOfPackages_${key}`, packages)
-  await clickContinue(page) // -> /create/commodity-hub
-}
-
-async function fillCommodityHub (page) {
-  await expect(page).toHaveURL(/\/create\/commodity-hub$/)
-  await clickAt(page.getByRole('button', { name: 'Continue', exact: true }))
-  await pause(page, STEP_PAUSE) // -> /create/task-list
-}
-
-async function goToAdditionalAnimalDetailsFromTaskList (page) {
-  await expect(page).toHaveURL(/\/create\/task-list$/)
-  await clickAt(page.getByRole('link', { name: 'Additional animal details' }))
-  await pause(page, STEP_PAUSE)
-}
-
-async function fillAdditionalAnimalDetails (page, journey) {
-  await expect(page).toHaveURL(/\/create\/additional-animal-details$/)
-  await pickRadio(page, 'animalsCertifiedFor', journey.certifiedFor)
-  if (journey.unweanedAnimals) {
-    await pickRadio(page, 'unweanedAnimals', journey.unweanedAnimals)
-  }
-  await clickContinue(page)
-}
-
-async function fillImportReason (page, journey) {
-  await expect(page).toHaveURL(/\/create\/import-reason$/)
-  await pickRadio(page, 'importReason', journey.importReason)
-  if (journey.internalMarketPurpose) {
-    await pickRadio(page, 'internalMarketPurpose', journey.internalMarketPurpose)
-  }
-  await clickContinue(page)
-}
-
-async function fillAddresses (page, journey) {
-  await expect(page).toHaveURL(/\/create\/addresses$/)
-
-  await clickAt(page.getByRole('link', { name: 'Add a place of origin' }))
-  await pause(page, STEP_PAUSE)
-  await searchAndSelectAddress(page, { nameFieldId: 'poSearchName', ...journey.placeOfOrigin })
-  await expect(page).toHaveURL(/\/create\/addresses/)
-
-  await clickAt(page.getByRole('link', { name: 'Add a consignor' }))
-  await pause(page, STEP_PAUSE)
-  await searchAndSelectAddress(page, journey.consignor)
-  await expect(page).toHaveURL(/\/create\/addresses/)
-
-  await clickAt(page.getByRole('link', { name: 'Add a consignee' }))
-  await pause(page, STEP_PAUSE)
-  await searchAndSelectAddress(page, journey.consignee)
-  await expect(page).toHaveURL(/\/create\/addresses/)
-
-  if (journey.importerSameAsConsignee) {
-    await clickAt(page.getByRole('link', { name: 'Same as consignee' }))
-    await pause(page, STEP_PAUSE)
-  }
-
-  await clickAt(page.getByRole('link', { name: 'Add a place of destination' }))
-  await pause(page, STEP_PAUSE)
-  await searchAndSelectAddress(page, journey.placeOfDestination)
-  await expect(page).toHaveURL(/\/create\/addresses/)
-
-  await clickAt(page.getByRole('link', { name: 'Add a contact address for consignment' }))
-  await pause(page, STEP_PAUSE)
-  await searchAndSelectAddress(page, journey.contactAddress)
-  await expect(page).toHaveURL(/\/create\/addresses/)
-
-  await clickContinue(page)
-}
-
-async function fillAddressCph (page, journey) {
-  await expect(page).toHaveURL(/\/create\/address-cph$/)
-  await fillText(page, 'cphNumber', journey.cphNumber)
-  await clickContinue(page)
-}
-
-async function fillPermanentAddresses (page) {
-  await expect(page).toHaveURL(/\/create\/permanent-addresses-for-animals$/)
-  await pickRadio(page, 'permanentAddressSameAsPOD', 'yes')
-  await clickContinue(page)
-}
-
-async function fillTransportAndArrival (page, journey) {
-  await expect(page).toHaveURL(/\/create\/transport-and-arrival$/)
-  await clickAt(page.getByRole('link', { name: 'Add a transporter' }))
-  await pause(page, STEP_PAUSE)
-  await searchAndSelectAddress(page, journey.transporter)
-  await expect(page).toHaveURL(/\/create\/transport-and-arrival$/)
-
-  await pickFromAutocomplete(page, 'ukBorderPort', journey.port.search, journey.port.option)
-  await fillDateInput(page.locator('#arrivalDate'), isoDateInDays(journey.arrivalInDays))
-  await clickContinue(page)
-}
-
-async function fillAccompanyingDocuments (page, journey) {
-  await expect(page).toHaveURL(/\/create\/accompanying-documents$/)
-  await selectValue(page, 'document-type-0', journey.documentType)
-  await fillText(page, 'documentReference_0', journey.documentReference)
-  await fillDateInput(page.locator('#document-date-0'), isoDateInDays(-journey.documentIssuedDaysAgo))
-  await clickContinue(page) // -> /create/check-your-answers
-}
-
-async function submitCheckYourAnswers (page) {
-  await expect(page).toHaveURL(/\/create\/check-your-answers$/)
-  await pause(page, STEP_PAUSE)
-  await clickContinue(page) // "Confirm and submit" -> /create/declaration
-}
-
-async function fillDeclaration (page) {
-  await expect(page).toHaveURL(/\/create\/declaration$/)
-  await checkAt(page.locator('#declaration-accepted'))
-  await pause(page, FIELD_PAUSE)
-  await clickContinue(page) // "Submit notification" -> /create/confirmation
-}
-
-async function readConfirmationReference (page) {
-  await expect(page).toHaveURL(/\/create\/confirmation$/)
-  await pause(page, STEP_PAUSE)
-  const reference = (await page.locator('#reference-number').textContent() || '').trim()
-  return reference
-}
-
-// Closes the loop back inside /intro: lands on the dashboard, filters to the
-// notification just submitted (session data is shared between /intro and
-// /v1-baseline, so it already appears there) and opens its read-only view.
-async function viewSubmittedNotificationFromIntroDashboard (page, reference) {
+// Filters the (original) /intro dashboard to a specific reference and opens
+// its read-only view.
+async function viewNotificationFromDashboard (page, reference) {
   await page.goto('/intro/dashboard')
   await pause(page, STEP_PAUSE)
   await typeInto(page.locator('#filterKeyword'), reference)
@@ -438,36 +127,46 @@ async function viewSubmittedNotificationFromIntroDashboard (page, reference) {
   await pause(page, STEP_PAUSE)
   const card = page.locator('.govuk-summary-card', { hasText: reference })
   await expect(card).toBeVisible()
-  await clickAt(card.getByRole('link', { name: 'View' }))
+  await clickAt(card.getByRole('link', { name: 'View', exact: true }))
   await pause(page, STEP_PAUSE)
   await expect(page).toHaveURL(/\/intro\/notification\//)
 }
 
+// Same idea, but against the "dashboard two" design exploration, whose search
+// box submits via an icon-only button and whose card link reads "View
+// notification" rather than plain "View".
+async function viewNotificationFromDashboardTwo (page, reference) {
+  await page.goto('/intro/dashboard-two')
+  await pause(page, STEP_PAUSE)
+  await typeInto(page.locator('#filterKeyword'), reference)
+  await clickAt(page.getByRole('button', { name: 'Search', exact: true }))
+  await pause(page, STEP_PAUSE)
+  const card = page.locator('.dashboard-two-card', { hasText: reference })
+  await expect(card).toBeVisible()
+  await clickAt(card.getByRole('link', { name: 'View notification' }))
+  await pause(page, STEP_PAUSE)
+  await expect(page).toHaveURL(/\/intro\/notification\//)
+}
+
+// The notification-details read-only page's back link returns to the
+// (original) /intro dashboard.
+async function goBackToDashboard (page) {
+  await clickAt(page.getByRole('link', { name: 'Back' }))
+  await pause(page, STEP_PAUSE)
+  await expect(page).toHaveURL(/\/intro\/dashboard$/)
+}
+
 module.exports = {
-  JOURNEYS,
   pause,
   scrollTo,
   clickAt,
-  checkAt,
   resetSession,
+  goToIntroIndexAndStartJourney,
+  followAnimalsAndAnimalProductsGuidance,
+  goToImportNotificationServiceFromGuidance,
   fillImportNotificationStart,
   fillSignIn,
-  goToCreateFromDashboard,
-  fillOrigin,
-  fillCommodity,
-  fillCommoditySpecies,
-  fillAnimalIdentification,
-  fillCommodityHub,
-  goToAdditionalAnimalDetailsFromTaskList,
-  fillAdditionalAnimalDetails,
-  fillImportReason,
-  fillAddresses,
-  fillAddressCph,
-  fillPermanentAddresses,
-  fillTransportAndArrival,
-  fillAccompanyingDocuments,
-  submitCheckYourAnswers,
-  fillDeclaration,
-  readConfirmationReference,
-  viewSubmittedNotificationFromIntroDashboard
+  viewNotificationFromDashboard,
+  viewNotificationFromDashboardTwo,
+  goBackToDashboard
 }
