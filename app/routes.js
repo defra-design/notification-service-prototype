@@ -67,6 +67,17 @@ router.get('/intro/checker-answers', (req, res) => {
   res.render('intro/checker-answers')
 })
 
+// Which notification type - shown after "Create a new notification" on dashboard-two,
+// before handing off into the v1-baseline create flow (see createHref below)
+router.get('/intro/check-notification-type', (req, res) => {
+  res.render('intro/check-notification-type')
+})
+
+router.post('/intro/check-notification-type', (req, res) => {
+  req.session.data.notificationType = req.body.notificationType
+  res.redirect('/v1-baseline/create/new')
+})
+
 // Import Notification Service (INS) start page
 router.get('/intro/import-notification-start', (req, res) => {
   res.render('intro/import-notification-start')
@@ -111,7 +122,7 @@ const { buildDashboardTwoViewData } = require('./lib/dashboard-two.js')
 router.get('/intro/dashboard-two', (req, res) => {
   const viewData = buildDashboardTwoViewData(notificationsIntro, req.query, '/intro')
   res.render('intro/dashboard-two', Object.assign(viewData, {
-    createHref: '/v1-baseline/create/new'
+    createHref: '/intro/check-notification-type'
   }))
 })
 
