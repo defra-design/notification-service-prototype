@@ -247,9 +247,9 @@ function applyDashboardCommodityToFullViewCopyForPlant (copy, row) {
 }
 
 function buildFullViewSessionMockFromNotificationRow (row) {
-  // GBN PP reuses the CHED PP plant shape -- see
+  // GBN PP and GBN NNS reuse the CHED PP plant shape -- see
   // .claude/knowledge/decisions/gbn-types-reuse-existing-shapes.md
-  const isPlant = !!row && ['CHED PP', 'GBN PP'].includes(row.type)
+  const isPlant = !!row && ['CHED PP', 'GBN PP', 'GBN NNS'].includes(row.type)
   const base = isPlant
     ? require('../data/notification-full-view-mock-plant.js')
     : require('../data/notification-full-view-mock.js')

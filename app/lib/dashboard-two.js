@@ -37,13 +37,12 @@ function getDateRangeForDatePreset (preset, now = new Date()) {
   }
 }
 
-// GBN PP has no sourced field spec of its own (see
-// .claude/knowledge/decisions/gbn-types-reuse-existing-shapes.md) so it renders
+// GBN PP and GBN NNS have no sourced field spec of their own (see
+// .claude/knowledge/decisions/gbn-types-reuse-existing-shapes.md) so they render
 // through the same plant-shaped card/view as CHED PP. GBN IUU has no spec either,
 // but its subject matter (marine catch) doesn't fit the "Plants"/"Live animals"
 // label, so it gets its own label while still reusing the animal-shaped data.
-// GBN NNS was removed 2026-07-27 -- stakeholder confirmed it's the same as GBN PP.
-const PLANT_TYPES = ['CHED PP', 'GBN PP']
+const PLANT_TYPES = ['CHED PP', 'GBN PP', 'GBN NNS']
 
 function typeLabelFor (row) {
   if (PLANT_TYPES.includes(row.type)) return 'Plants'
