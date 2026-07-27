@@ -11,6 +11,32 @@ const { parseArrivalDate, getDateRangeForFilterPeriod, arrivalMatchesFilterRange
 const STATUS_CYCLE = ['Completed', 'Submitted', 'Action required']
 const PER_PAGE = 6
 
+function toYyyyMmDd (d) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+// "By date" quick presets on the dashboard-two additional filters panel -- these
+// look forward from today (upcoming arrivals) rather than the backward-looking
+// "last N days" presets getDateRangeForFilterPeriod handles for other dashboards.
+function getDateRangeForDatePreset (preset, now = new Date()) {
+  if (!preset) return null
+  const start = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  const end = new Date(start)
+  switch (preset) {
+    case 'today':
+      return { filterStartDate: toYyyyMmDd(start), filterEndDate: toYyyyMmDd(end) }
+    case 'tomorrow':
+      start.setDate(start.getDate() + 1)
+      end.setDate(end.getDate() + 1)
+      return { filterStartDate: toYyyyMmDd(start), filterEndDate: toYyyyMmDd(end) }
+    case 'next-7-days':
+      end.setDate(end.getDate() + 7)
+      return { filterStartDate: toYyyyMmDd(start), filterEndDate: toYyyyMmDd(end) }
+    default:
+      return null
+  }
+}
+
 // GBN PP and GBN NNS have no sourced field spec of their own (see
 // .claude/knowledge/decisions/gbn-types-reuse-existing-shapes.md) so they render
 // through the same plant-shaped card/view as CHED PP. GBN IUU has no spec either,
@@ -72,13 +98,14 @@ function buildDashboardTwoViewData (notifications, query, basePath, viewPath = '
   const filterStatus = query.filterStatus || ''
   const filterNotificationType = query.filterNotificationType || ''
   const filterPeriod = query.filterPeriod || ''
+  const filterDatePreset = query.filterDatePreset || ''
   const sort = query.sort === 'arrival-asc' ? 'arrival-asc' : 'arrival-desc'
 
   // A quick date preset overrides any manually-entered start/end date, matching
   // the behaviour of the main /intro/dashboard filter panel.
-  const periodRange = getDateRangeForFilterPeriod(filterPeriod)
-  const filterStartDate = periodRange ? periodRange.filterStartDate : (query.filterStartDate || '').trim()
-  const filterEndDate = periodRange ? periodRange.filterEndDate : (query.filterEndDate || '').trim()
+  const dateRange = getDateRangeForDatePreset(filterDatePreset) || getDateRangeForFilterPeriod(filterPeriod)
+  const filterStartDate = dateRange ? dateRange.filterStartDate : (query.filterStartDate || '').trim()
+  const filterEndDate = dateRange ? dateRange.filterEndDate : (query.filterEndDate || '').trim()
 
   let filtered = enriched
   const keyword = filterKeyword.toLowerCase()
@@ -91,10 +118,10 @@ function buildDashboardTwoViewData (notifications, query, basePath, viewPath = '
     filtered = filtered.filter(n => n.origin.toLowerCase().includes(filterOrigin.toLowerCase()))
   }
   if (filterStatus) {
-    filtered = filtered.filter(n => n.status === filterStatus)
+    filtered = filtered.filter(n => n.statusText === filterStatus)
   }
   if (filterNotificationType) {
-    filtered = filtered.filter(n => n.type === filterNotificationType)
+    filtered = filtered.filter(n => n.typeLabel === filterNotificationType)
   }
   if (filterStartDate || filterEndDate) {
     filtered = filtered.filter(n => arrivalMatchesFilterRange(n.arrival, filterStartDate, filterEndDate))
@@ -132,6 +159,7 @@ function buildDashboardTwoViewData (notifications, query, basePath, viewPath = '
     filterStatus,
     filterNotificationType,
     filterPeriod,
+    filterDatePreset,
     filterStartDate,
     filterEndDate
   }
@@ -154,9 +182,19 @@ function buildDashboardTwoViewData (notifications, query, basePath, viewPath = '
   const originsFromData = [...new Set(enriched.map(n => n.origin).filter(Boolean))]
   const originCountries = [...new Set([...euCountries, ...euuCountries, ...originsFromData])].sort()
 
-  const notificationTypes = require('../data/notification-types.js')
+  // "By type" and "Status" filter options are built from the labels actually shown
+  // on the notification cards (typeLabel, statusText) rather than the underlying
+  // raw type code / draft-submitted status fields, so the dropdown values always
+  // match what a user can see on the page.
+  const TYPE_LABEL_ORDER = ['Live animals', 'Plants', 'Marine fish']
+  const presentTypeLabels = new Set(enriched.map(n => n.typeLabel))
   const notificationTypeItems = [{ value: '', text: 'All' }].concat(
-    notificationTypes.map(type => ({ value: type, text: type }))
+    TYPE_LABEL_ORDER.filter(label => presentTypeLabels.has(label)).map(label => ({ value: label, text: label }))
+  )
+
+  const presentStatuses = new Set(enriched.map(n => n.statusText))
+  const notificationStatusItems = [{ value: '', text: 'All' }].concat(
+    STATUS_CYCLE.filter(status => presentStatuses.has(status)).map(status => ({ value: status, text: status }))
   )
 
   return {
@@ -181,10 +219,12 @@ function buildDashboardTwoViewData (notifications, query, basePath, viewPath = '
     filterStatus,
     filterNotificationType,
     filterPeriod,
+    filterDatePreset,
     filterStartDate,
     filterEndDate,
     originCountries,
     notificationTypeItems,
+    notificationStatusItems,
     sort
   }
 }
