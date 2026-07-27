@@ -6,11 +6,15 @@
 // without touching v1-baseline data kept for design history. See app/data/notification-types.js
 // for the type list.
 //
-// GBN AG/PP/NNS/IUU rows use the agreed GBN-{CODE}-{YY}-{6-char Crockford base32} reference
+// GBN AG/PP/IUU rows use the agreed GBN-{CODE}-{YY}-{6-char Crockford base32} reference
 // format (e.g. GBN-AG-26-7K8M2P) generated via app/lib/notification-reference.js -- see
 // .claude/knowledge/decisions/gbn-reference-format-2026-07-23.md. CHED A/CHED PP rows keep
 // their real, TRACES-sourced {TYPE}.GB.{year}.{7-digit number} format -- that's a different,
 // out-of-scope scheme, not a leftover to fix.
+//
+// GBN NNS was removed 2026-07-27 -- stakeholder confirmed it's the same as GBN PP, so the
+// one row that used it was recategorised as GBN PP. See
+// .claude/knowledge/decisions/gbn-nns-merged-into-gbn-pp-2026-07-27.md
 //
 // Each row's documents array uses the shared app/data/document-types.js values so the
 // notification-details page's accompanying-documents table has real data to render
@@ -72,6 +76,6 @@ module.exports = [
   { reference: 'CHEDPP.GB.2026.1003408', commodity: 'Cut roses (ROSAA)', origin: 'Greece', type: 'CHED PP', consignee: 'Coventry Livestock Co', consignor: 'Thessaloniki Farm Ltd', arrival: '19 April 2026', status: 'draft', documents: [{ type: 'veterinary-health-certificate', reference: 'VHC-GR-2026-01049', date: '2026-04-13', attachments: ['veterinary-health-certificate.pdf'] }, { type: 'commercial-invoice', reference: 'INV-TFL-01049', date: '2026-04-14', attachments: ['commercial-invoice.pdf'] }] },
   { reference: 'GBN-AG-26-KFA4J6', commodity: 'Bos taurus (0102)', origin: 'Finland', type: 'GBN AG', consignee: 'Leicester Cattle Ltd', consignor: 'Tampere Horse Transport', arrival: '20 April 2026', dateCreated: '15 April 2026', status: 'submitted', documents: [{ type: 'veterinary-health-certificate', reference: 'VHC-FI-2026-01050', date: '2026-04-14', attachments: ['veterinary-health-certificate.pdf'] }, { type: 'commercial-invoice', reference: 'INV-THT-01050', date: '2026-04-15', attachments: ['commercial-invoice.pdf'] }] },
   { reference: 'GBN-PP-26-WTYJD2', commodity: 'Apples (MABSD)', origin: 'Poland', type: 'GBN PP', consignee: 'Truro Fresh Produce', consignor: 'Gdansk Orchards Sp.', arrival: '22 April 2026', status: 'submitted', documents: [{ type: 'veterinary-health-certificate', reference: 'VHC-PL-2026-01051', date: '2026-04-16', attachments: ['veterinary-health-certificate.pdf'] }, { type: 'commercial-invoice', reference: 'INV-GO-01051', date: '2026-04-17', attachments: ['commercial-invoice.pdf'] }] },
-  { reference: 'GBN-NNS-26-ARW6SJ', commodity: 'Cut roses (ROSAA)', origin: 'Kenya', type: 'GBN NNS', consignee: 'Aberystwyth Florists Ltd', consignor: 'Nairobi Flower Exports', arrival: '23 April 2026', status: 'draft', documents: [{ type: 'veterinary-health-certificate', reference: 'VHC-KE-2026-01052', date: '2026-04-17', attachments: ['veterinary-health-certificate.pdf'] }, { type: 'commercial-invoice', reference: 'INV-NFE-01052', date: '2026-04-18', attachments: ['commercial-invoice.pdf'] }] },
+  { reference: 'GBN-PP-26-QP83CG', commodity: 'Cut roses (ROSAA)', origin: 'Kenya', type: 'GBN PP', consignee: 'Aberystwyth Florists Ltd', consignor: 'Nairobi Flower Exports', arrival: '23 April 2026', status: 'draft', documents: [{ type: 'veterinary-health-certificate', reference: 'VHC-KE-2026-01052', date: '2026-04-17', attachments: ['veterinary-health-certificate.pdf'] }, { type: 'commercial-invoice', reference: 'INV-NFE-01052', date: '2026-04-18', attachments: ['commercial-invoice.pdf'] }] },
   { reference: 'GBN-IUU-26-Q2G7DW', commodity: 'Atlantic cod (0302)', origin: 'Norway', type: 'GBN IUU', consignee: 'Grimsby Seafood Ltd', consignor: 'Bergen Fisheries AS', arrival: '24 April 2026', status: 'submitted', documents: [{ type: 'veterinary-health-certificate', reference: 'VHC-NO-2026-01053', date: '2026-04-18', attachments: ['veterinary-health-certificate.pdf'] }, { type: 'commercial-invoice', reference: 'INV-BF-01053', date: '2026-04-19', attachments: ['commercial-invoice.pdf'] }] }
 ]
