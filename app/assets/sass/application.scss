@@ -604,6 +604,8 @@
 #dashboard-two-additional-filters-accordion {
   &.govuk-accordion {
     border-top: 0;
+    background-color: #f3f2f1;
+    padding: govuk-spacing(4);
   }
 
   .govuk-accordion__controls {
@@ -674,9 +676,13 @@
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='8' viewBox='0 0 14 8' fill='none'%3E%3Cpath d='M1 7L7 1L13 7' stroke='%231d70b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
   }
 
+  .govuk-accordion__section-header {
+    padding-top: 0;
+  }
+
   #dashboard-two-additional-filters-accordion-content-1 {
     padding-bottom: 0 !important;
-    margin-bottom: 10px !important;
+    margin-bottom: 0 !important;
   }
 }
 
@@ -699,6 +705,16 @@
   flex-wrap: wrap;
   gap: govuk-spacing(6);
   margin-bottom: govuk-spacing(4);
+}
+
+.dashboard-two-additional-filters__group {
+  border-left: 1px solid $govuk-border-colour;
+  padding-left: govuk-spacing(4);
+
+  &:first-child {
+    border-left: 0;
+    padding-left: 1em;
+  }
 }
 
 .dashboard-two-filter-radios .govuk-radios--inline .govuk-radios__item {
