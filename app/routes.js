@@ -67,6 +67,10 @@ router.get('/intro/checker-answers', (req, res) => {
   res.render('intro/checker-answers')
 })
 
+router.get('/intro/checker-answers2', (req, res) => {
+  res.render('intro/checker-answers2')
+})
+
 // Which notification type - shown after "Create a new notification" on dashboard-two,
 // before handing off into the v1-baseline create flow (see createHref below)
 router.get('/intro/check-notification-type', (req, res) => {
@@ -75,6 +79,9 @@ router.get('/intro/check-notification-type', (req, res) => {
 
 router.post('/intro/check-notification-type', (req, res) => {
   req.session.data.notificationType = req.body.notificationType
+  if (req.body.notificationType === 'not-sure') {
+    return res.redirect('/intro/checker-questions2')
+  }
   res.redirect('/v1-baseline/create/new')
 })
 
