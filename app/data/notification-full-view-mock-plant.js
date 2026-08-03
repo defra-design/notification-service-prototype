@@ -13,12 +13,12 @@ module.exports = {
   countryOfDispatch: 'Netherlands',
   consignmentReference: 'NL-EXP-2026-2201',
   plantCommodities: [
-    { commonName: 'Cut tulips', eppoCode: 'TULGE', productType: 'Cut flowers', quantity: 500, packageCount: 20, netWeight: '120kg', packagingMaterial: 'Cardboard box' }
+    { commonName: 'Chrysanthemums', eppoCode: 'CHYSX', productType: 'Cut flowers', quantity: 500, packageCount: 20, netWeight: '120kg', packagingMaterial: 'Cardboard box' }
   ],
   wpm: [
     { description: 'Pine wood pallets', eppoCode: 'PIUSY', count: 20, countryOfOrigin: 'Netherlands', ispm15Marked: 'Yes' }
   ],
-  consignorName: 'Delta Bulb Exporters BV',
+  consignorName: 'Delta Flower Exporters BV',
   consignorAddress: ['Bloemenweg 22', '2181 Aalsmeer'],
   consignorCountry: 'Netherlands',
   consigneeName: 'Midlands Garden Wholesale Ltd',

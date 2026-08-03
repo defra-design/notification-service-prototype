@@ -9,11 +9,19 @@
 // EPPO codes here are illustrative (right format, plausible values) rather than verified
 // against the live EPPO database -- fine for prototype purposes, flag if exact codes matter.
 //
+// riskCategoryEu / riskCategoryRow (plain English, e.g. "High risk") are sourced from
+// .claude/knowledge/reference/plant-risk-categorisation-btom.md (DEFRA plant health portal,
+// digested 2026-08-03) -- only "High risk" and "Medium risk A" commodities actually require
+// a CHED PP pre-notification in the real BTOM system, so every commodity in this file should
+// be one of those two tiers for at least one origin group. See
+// .claude/knowledge/decisions/plant-commodity-risk-realism-2026-08-03.md for why "Cut tulips"
+// (Medium risk B -- no CHED PP required at all) was replaced with "Chrysanthemums" here.
+//
 
 module.exports = {
-  'Cut tulips': { eppoCode: 'TULGE', commonName: 'Cut tulips', productType: 'Cut flowers', packagingMaterial: 'Cardboard box' },
-  'Cut roses': { eppoCode: 'ROSAA', commonName: 'Cut roses', productType: 'Cut flowers', packagingMaterial: 'Cardboard box' },
-  'Seed potatoes': { eppoCode: 'SOLTU', commonName: 'Seed potatoes', productType: 'Tubers', packagingMaterial: 'Sacks' },
-  'Apples': { eppoCode: 'MABSD', commonName: 'Apples', productType: 'Fresh fruit', packagingMaterial: 'Crates' },
-  'Tomato plants': { eppoCode: 'LYPES', commonName: 'Tomato plants', productType: 'Live plants', packagingMaterial: 'Trays' }
+  'Chrysanthemums': { eppoCode: 'CHYSX', commonName: 'Chrysanthemums', productType: 'Cut flowers', packagingMaterial: 'Cardboard box', riskCategoryEu: 'Low risk', riskCategoryRow: 'Medium risk A' },
+  'Cut roses': { eppoCode: 'ROSAA', commonName: 'Cut roses', productType: 'Cut flowers', packagingMaterial: 'Cardboard box', riskCategoryEu: 'Low risk', riskCategoryRow: 'Medium risk A' },
+  'Seed potatoes': { eppoCode: 'SOLTU', commonName: 'Seed potatoes', productType: 'Tubers', packagingMaterial: 'Sacks', riskCategoryEu: 'High risk', riskCategoryRow: 'High risk (permitted countries only)' },
+  'Apples': { eppoCode: 'MABSD', commonName: 'Apples', productType: 'Fresh fruit', packagingMaterial: 'Crates', riskCategoryEu: 'Low risk', riskCategoryRow: 'Medium risk A' },
+  'Tomato plants': { eppoCode: 'LYPES', commonName: 'Tomato plants', productType: 'Live plants', packagingMaterial: 'Trays', riskCategoryEu: 'Medium risk A', riskCategoryRow: 'Medium risk A' }
 }

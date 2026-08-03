@@ -43,15 +43,24 @@ function getDateRangeForDatePreset (preset, now = new Date()) {
 // but its subject matter (marine catch) doesn't fit the "Plants"/"Live animals"
 // label, so it gets its own label while still reusing the animal-shaped data.
 const PLANT_TYPES = ['CHED PP', 'GBN PP', 'GBN NNS']
+const MARINE_TYPES = ['GBN IUU']
+// CHED A and GBN AG are the only types sourced as individual-animal-identifier /
+// welfare-outcome shaped (see .claude/knowledge/reference/ched-all-types-field-inventory.md).
+// CHED-D and CHED-P are weight/quantity-based with no per-animal tracking at all -- an
+// explicit allow-list here (rather than "everything not plant/marine is an animal")
+// stops a future CHED-D/CHED-P row from silently being shown a fabricated animal count.
+const ANIMAL_TYPES = ['CHED A', 'GBN AG']
 
 function typeLabelFor (row) {
   if (PLANT_TYPES.includes(row.type)) return 'Plants'
-  if (row.type === 'GBN IUU') return 'Marine fish'
-  return 'Live animals'
+  if (MARINE_TYPES.includes(row.type)) return 'Marine fish'
+  if (ANIMAL_TYPES.includes(row.type)) return 'Live animals'
+  console.warn(`dashboard-two: unrecognised notification type "${row.type}" (reference ${row.reference}) -- add it to PLANT_TYPES/MARINE_TYPES/ANIMAL_TYPES in app/lib/dashboard-two.js instead of letting it fall through`)
+  return 'Other'
 }
 
 function numberOfAnimalsFor (row, index) {
-  if (PLANT_TYPES.includes(row.type) || row.type === 'GBN IUU') return null
+  if (!ANIMAL_TYPES.includes(row.type)) return null
   const digits = row.reference.replace(/\D/g, '')
   return ((parseInt(digits.slice(-2), 10) || 0) + index) % 30 + 2
 }
@@ -186,7 +195,7 @@ function buildDashboardTwoViewData (notifications, query, basePath, viewPath = '
   // on the notification cards (typeLabel, statusText) rather than the underlying
   // raw type code / draft-submitted status fields, so the dropdown values always
   // match what a user can see on the page.
-  const TYPE_LABEL_ORDER = ['Live animals', 'Plants', 'Marine fish']
+  const TYPE_LABEL_ORDER = ['Live animals', 'Plants', 'Marine fish', 'Other']
   const presentTypeLabels = new Set(enriched.map(n => n.typeLabel))
   const notificationTypeItems = [{ value: '', text: 'All' }].concat(
     TYPE_LABEL_ORDER.filter(label => presentTypeLabels.has(label)).map(label => ({ value: label, text: label }))
