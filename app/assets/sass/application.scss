@@ -1161,3 +1161,13 @@
     max-width: 300px;
   }
 }
+
+.btom-note {
+  padding: govuk-spacing(4);
+  margin-bottom: govuk-spacing(6);
+  background: govuk-colour("light-grey");
+
+  p:last-child {
+    margin-bottom: 0;
+  }
+}
