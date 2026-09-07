@@ -82,6 +82,21 @@ router.post('/intro/check-notification-type', (req, res) => {
   if (req.body.notificationType === 'not-sure') {
     return res.redirect('/intro/checker-questions2')
   }
+  if (req.body.notificationType === 'marketing-standards') {
+    return res.redirect('/intro/check-notification-type-marketing-standards')
+  }
+  res.redirect('/v1-baseline/create/new')
+})
+
+// "Marketing standards" on check-notification-type is a combined option covering three
+// notification types (MKS EG/PO/FV) -- this sub-question lets the user pick which one,
+// the same way "I'm not sure" branches off into its own question flow above.
+router.get('/intro/check-notification-type-marketing-standards', (req, res) => {
+  res.render('intro/check-notification-type-marketing-standards')
+})
+
+router.post('/intro/check-notification-type-marketing-standards', (req, res) => {
+  req.session.data.notificationType = req.body.notificationType
   res.redirect('/v1-baseline/create/new')
 })
 
