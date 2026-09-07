@@ -133,6 +133,20 @@ router.get('/intro/dashboard-two', (req, res) => {
   }))
 })
 
+// Variant of dashboard-two that hides CHED A and GBN NNS rows -- requested 2026-09-07 to
+// try the dashboard with just the other 7 notification types. Filters the shared
+// notificationsIntro dataset before building the view model, rather than touching
+// dashboard-two.js, so /intro/dashboard-two is unaffected. See
+// app/views/intro/dashboard-two-no-cheda-or-gbnnns.html.
+const HIDDEN_TYPES_NO_CHEDA_OR_GBNNNS = ['CHED A', 'GBN NNS']
+router.get('/intro/dashboard-two-no-cheda-or-gbnnns', (req, res) => {
+  const filteredNotifications = notificationsIntro.filter(n => !HIDDEN_TYPES_NO_CHEDA_OR_GBNNNS.includes(n.type))
+  const viewData = buildDashboardTwoViewData(filteredNotifications, req.query, '/intro', 'dashboard-two-no-cheda-or-gbnnns')
+  res.render('intro/dashboard-two-no-cheda-or-gbnnns', Object.assign(viewData, {
+    createHref: '/intro/check-notification-type'
+  }))
+})
+
 // Figma design-to-code test pages — generated from the "Notification dashboard" Figma
 // file (nodes 1:1088 and 1:1589), which are two identical frames of this same
 // dashboard-two design. Kept as separate routes/templates purely to prove out the
@@ -189,7 +203,7 @@ function syncFirstCommodityToIntroSession (data) {
 // `from` query param each one's viewHref carries (app/lib/dashboard.js,
 // app/lib/dashboard-two.js). Whitelisted rather than trusted directly off the query
 // string since it's used to build a redirect path.
-const INTRO_DASHBOARD_VARIANTS = ['dashboard', 'dashboard-two', 'dashboard-figma-1', 'dashboard-figma-2']
+const INTRO_DASHBOARD_VARIANTS = ['dashboard', 'dashboard-two', 'dashboard-two-no-cheda-or-gbnnns', 'dashboard-figma-1', 'dashboard-figma-2']
 
 function introDashboardFrom (from) {
   return INTRO_DASHBOARD_VARIANTS.includes(from) ? from : 'dashboard'

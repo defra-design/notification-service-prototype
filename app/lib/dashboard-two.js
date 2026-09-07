@@ -9,7 +9,7 @@
 const { parseArrivalDate, getDateRangeForFilterPeriod, arrivalMatchesFilterRange } = require('./dashboard.js')
 
 const STATUS_CYCLE = ['Completed', 'Submitted', 'Action required']
-const PER_PAGE = 6
+const PER_PAGE = 10
 
 function toYyyyMmDd (d) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
@@ -39,24 +39,72 @@ function getDateRangeForDatePreset (preset, now = new Date()) {
 
 // GBN PP and GBN NNS have no sourced field spec of their own (see
 // .claude/knowledge/decisions/gbn-types-reuse-existing-shapes.md) so they render
-// through the same plant-shaped card/view as CHED PP. GBN IUU has no spec either,
+// through the same plant-shaped card/view as CHED PP. IUU has no spec either,
 // but its subject matter (marine catch) doesn't fit the "Plants"/"Live animals"
 // label, so it gets its own label while still reusing the animal-shaped data.
+// IUU dropped the "GBN" prefix 2026-09-07 -- see
+// .claude/knowledge/decisions/iuu-drops-gbn-prefix-2026-09-07.md.
 const PLANT_TYPES = ['CHED PP', 'GBN PP', 'GBN NNS']
-const MARINE_TYPES = ['GBN IUU']
+const MARINE_TYPES = ['IUU']
 // CHED A and GBN AG are the only types sourced as individual-animal-identifier /
 // welfare-outcome shaped (see .claude/knowledge/reference/ched-all-types-field-inventory.md).
 // CHED-D and CHED-P are weight/quantity-based with no per-animal tracking at all -- an
 // explicit allow-list here (rather than "everything not plant/marine is an animal")
 // stops a future CHED-D/CHED-P row from silently being shown a fabricated animal count.
 const ANIMAL_TYPES = ['CHED A', 'GBN AG']
+// MKS EG/PO/FV (Marketing Standards -- quality/labelling, not animal/plant health, see
+// .claude/knowledge/reference/marketing-standards-mks-types.md) each get their own label
+// rather than folding into Live animals/Plants, the same way IUU got "Marine fish".
+const EGG_TYPES = ['MKS EG']
+const POULTRY_TYPES = ['MKS PO']
+const PRODUCE_TYPES = ['MKS FV']
+
+// Inspection-stage labelling (added 2026-09-07): the dashboard card's inspection tag
+// distinguishes which regime a notification's inspection falls under -- SPS (the GBN/CHED
+// animal & plant health types), IUU (marine catch legality), or MS (Marketing Standards
+// quality/labelling). See .claude/knowledge/decisions/inspection-label-by-regime-2026-09-07.md.
+const SPS_TYPES = ['CHED A', 'CHED PP', 'GBN AG', 'GBN PP', 'GBN NNS']
+
+function inspectionLabelFor (type) {
+  if (SPS_TYPES.includes(type)) return 'SPS inspection'
+  if (MARINE_TYPES.includes(type)) return 'IUU inspection'
+  if (EGG_TYPES.includes(type) || POULTRY_TYPES.includes(type) || PRODUCE_TYPES.includes(type)) return 'MS inspection'
+  return 'Inspection'
+}
+
+// Inspection required/not-required split (added 2026-09-07, see
+// .claude/knowledge/decisions/inspection-status-by-origin-2026-09-07.md): reduced post-2027
+// UK-EU SPS Agreement checks apply only to EU-GB SPS movements (GBN AG, GBN NNS), not to
+// Rest-of-World movements (CHED A, CHED PP, GBN PP -- GBN PP is ROW plant products despite
+// the GBN prefix, see notifications-intro.js) which still face standard third-country
+// border controls. IUU (catch legality) is a separate regime entirely unaffected by the SPS
+// Agreement, so it stays required. Marketing Standards checks (MKS EG/PO/FV) are mostly
+// desk-based document checks rather than physical inspection, so they default to not required.
+const INSPECTION_REQUIRED_TYPES = ['CHED A', 'CHED PP', 'GBN PP', 'IUU']
+
+function inspectionRequiredFor (type) {
+  return INSPECTION_REQUIRED_TYPES.includes(type)
+}
 
 function typeLabelFor (row) {
   if (PLANT_TYPES.includes(row.type)) return 'Plants'
   if (MARINE_TYPES.includes(row.type)) return 'Marine fish'
   if (ANIMAL_TYPES.includes(row.type)) return 'Live animals'
-  console.warn(`dashboard-two: unrecognised notification type "${row.type}" (reference ${row.reference}) -- add it to PLANT_TYPES/MARINE_TYPES/ANIMAL_TYPES in app/lib/dashboard-two.js instead of letting it fall through`)
+  if (EGG_TYPES.includes(row.type)) return 'Eggs'
+  if (POULTRY_TYPES.includes(row.type)) return 'Poultry'
+  if (PRODUCE_TYPES.includes(row.type)) return 'Fresh produce'
+  console.warn(`dashboard-two: unrecognised notification type "${row.type}" (reference ${row.reference}) -- add it to PLANT_TYPES/MARINE_TYPES/ANIMAL_TYPES/EGG_TYPES/POULTRY_TYPES/PRODUCE_TYPES in app/lib/dashboard-two.js instead of letting it fall through`)
   return 'Other'
+}
+
+// Default pageload order: group rows by notification type in this fixed sequence
+// (agreed with the user 2026-09-07) rather than by arrival date. Types not listed here
+// (CHED A, GBN NNS) sort after every listed type, ordered among themselves by arrival.
+const TYPE_SORT_ORDER = ['GBN AG', 'GBN PP', 'CHED PP', 'IUU', 'MKS EG', 'MKS PO', 'MKS FV']
+
+function typeSortRank (type) {
+  const index = TYPE_SORT_ORDER.indexOf(type)
+  return index === -1 ? TYPE_SORT_ORDER.length : index
 }
 
 function numberOfAnimalsFor (row, index) {
@@ -73,7 +121,13 @@ function enrichRow (row, index, basePath, viewPath) {
     typeLabel,
     statusText,
     hasError: statusText === 'Action required',
-    inspectionRequired: typeLabel === 'Plants' && index % 2 === 0,
+    // Shown on every card (not alternated by index, as it was pre-2026-09-07) so the
+    // SPS/IUU/MS inspection-label distinction is visible across all notification types --
+    // the dataset is now one row per type, so there's no duplicate-row variety to alternate over.
+    // Whether it reads "Required" or "Not required" is driven by inspectionRequiredFor()
+    // (origin/regime-based, not random) rather than always "Required".
+    inspectionRequired: inspectionRequiredFor(row.type),
+    inspectionLabel: inspectionLabelFor(row.type),
     numberOfAnimals: numberOfAnimalsFor(row, index),
     // `from` tells the read-only notification view which dashboard variant to send
     // the "Back" link to -- see viewBackLinkHref in app/routes.js.
@@ -108,7 +162,10 @@ function buildDashboardTwoViewData (notifications, query, basePath, viewPath = '
   const filterNotificationType = query.filterNotificationType || ''
   const filterPeriod = query.filterPeriod || ''
   const filterDatePreset = query.filterDatePreset || ''
-  const sort = query.sort === 'arrival-asc' ? 'arrival-asc' : 'arrival-desc'
+  // Pageload default is "type" (grouped by notification type, see TYPE_SORT_ORDER) --
+  // an explicit arrival-date sort only applies once the user picks one from the "Sort
+  // by" control.
+  const sort = ['arrival-asc', 'arrival-desc'].includes(query.sort) ? query.sort : 'type'
 
   // A quick date preset overrides any manually-entered start/end date, matching
   // the behaviour of the main /intro/dashboard filter panel.
@@ -147,6 +204,11 @@ function buildDashboardTwoViewData (notifications, query, basePath, viewPath = '
   }
 
   const sorted = [...filtered].sort((a, b) => {
+    if (sort === 'type') {
+      const rankDiff = typeSortRank(a.type) - typeSortRank(b.type)
+      if (rankDiff !== 0) return rankDiff
+      return (parseArrivalDate(a.arrival) || 0) - (parseArrivalDate(b.arrival) || 0)
+    }
     const ta = parseArrivalDate(a.arrival) || 0
     const tb = parseArrivalDate(b.arrival) || 0
     return sort === 'arrival-asc' ? ta - tb : tb - ta
@@ -195,7 +257,7 @@ function buildDashboardTwoViewData (notifications, query, basePath, viewPath = '
   // on the notification cards (typeLabel, statusText) rather than the underlying
   // raw type code / draft-submitted status fields, so the dropdown values always
   // match what a user can see on the page.
-  const TYPE_LABEL_ORDER = ['Live animals', 'Plants', 'Marine fish', 'Other']
+  const TYPE_LABEL_ORDER = ['Live animals', 'Plants', 'Marine fish', 'Eggs', 'Poultry', 'Fresh produce', 'Other']
   const presentTypeLabels = new Set(enriched.map(n => n.typeLabel))
   const notificationTypeItems = [{ value: '', text: 'All' }].concat(
     TYPE_LABEL_ORDER.filter(label => presentTypeLabels.has(label)).map(label => ({ value: label, text: label }))

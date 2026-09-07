@@ -83,6 +83,7 @@
           classes: "govuk-!-width-auto govuk-!-margin-bottom-0",
           value: sort,
           items: [
+            { value: "type", text: "Notification type" },
             { value: "arrival-desc", text: "Arrival (newest to oldest)" },
             { value: "arrival-asc", text: "Arrival (oldest to newest)" }
           ]
@@ -259,10 +260,14 @@
         <p class="govuk-body govuk-!-margin-0">{{ n.consignor }}</p>
       </div>
       <div class="govuk-grid-column-one-quarter">
-        {% if n.inspectionRequired %}
-        <p class="govuk-body govuk-!-font-weight-bold govuk-!-margin-bottom-1">Inspection</p>
-        <p class="govuk-body govuk-!-margin-0"><span class="govuk-tag govuk-tag--yellow">Required</span></p>
-        {% endif %}
+        <p class="govuk-body govuk-!-font-weight-bold govuk-!-margin-bottom-1">{{ n.inspectionLabel }}</p>
+        <p class="govuk-body govuk-!-margin-0">
+          {% if n.inspectionRequired %}
+          <span class="govuk-tag govuk-tag--yellow">Required</span>
+          {% else %}
+          <span class="govuk-tag govuk-tag--grey">Not required</span>
+          {% endif %}
+        </p>
       </div>
     </div>
   </div>

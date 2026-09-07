@@ -18,6 +18,8 @@ module.exports = [
   { value: 'catch-certificate', text: 'Catch certificate' },
   { value: 'laboratory-sampling-aflatoxin', text: 'Laboratory Sampling results for Aflatoxin (Reg 2019/1793)' },
   { value: 'health-certificate', text: 'Health certificate' },
+  { value: 'certificate-of-conformity', text: 'Certificate of conformity' },
+  { value: 'optional-indications-certificate', text: 'Optional indications certificate' },
   { value: 'journey-log', text: 'Journey log' },
   { value: 'other', text: 'Other' }
 ]

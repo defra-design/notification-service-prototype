@@ -36,27 +36,27 @@
     <h3 class="govuk-heading-s govuk-!-margin-bottom-1 dashboard-two-glance__title dashboard-two-glance__title--error">Action needed</h3>
     <p class="govuk-body-s govuk-!-margin-bottom-2">Notifications need urgent action</p>
     <p class="dashboard-two-glance__figure dashboard-two-glance__figure--error">{{ glance.actionNeeded }}</p>
-    <p class="govuk-body"><a class="govuk-link" href="{{ basePath or '/intro' }}/dashboard-figma-1?filterActionNeeded=today">View actions</a></p>
+    <p class="govuk-body"><a class="govuk-link" href="{{ basePath or '/intro' }}/dashboard-two-no-cheda-or-gbnnns?filterActionNeeded=today">View actions</a></p>
   </div>
   <div class="govuk-grid-column-one-third">
     <h3 class="govuk-heading-s govuk-!-margin-bottom-1 dashboard-two-glance__title">Status change</h3>
     <p class="govuk-body-s govuk-!-margin-bottom-2">Notifications have been updated</p>
     <p class="dashboard-two-glance__figure">{{ glance.statusChange }}</p>
-    <p class="govuk-body"><a class="govuk-link" href="{{ basePath or '/intro' }}/dashboard-figma-1?filterStatusChange=last-3-days">View changes</a></p>
+    <p class="govuk-body"><a class="govuk-link" href="{{ basePath or '/intro' }}/dashboard-two-no-cheda-or-gbnnns?filterStatusChange=last-3-days">View changes</a></p>
   </div>
-  <div class="govuk-grid-column-one-third">
+  {# <div class="govuk-grid-column-one-third">
     <h3 class="govuk-heading-s govuk-!-margin-bottom-1 dashboard-two-glance__title">Chosen for inspection</h3>
     <p class="govuk-body-s govuk-!-margin-bottom-2">Sent to BCP for inspection</p>
     <p class="dashboard-two-glance__figure">{{ glance.inspection }}</p>
-    <p class="govuk-body"><a class="govuk-link" href="{{ basePath or '/intro' }}/dashboard-figma-1">View notifications</a></p>
-  </div>
+    <p class="govuk-body"><a class="govuk-link" href="{{ basePath or '/intro' }}/dashboard-two-no-cheda-or-gbnnns">View notifications</a></p>
+  </div> #}
 </div>
 
 <hr class="govuk-section-break govuk-section-break--visible govuk-!-margin-top-2 govuk-!-margin-bottom-6">
 
 <h2 class="govuk-heading-l">My notifications</h2>
 
-<form method="get" novalidate>
+<form method="get" novalidate action="{{ basePath or '/intro' }}/dashboard-two-no-cheda-or-gbnnns#dashboard-two-additional-filters-accordion">
   <div class="govuk-grid-row dashboard-two-search-sort-row">
     <div class="govuk-grid-column-two-thirds">
       <div class="govuk-form-group govuk-!-margin-bottom-0">
@@ -83,6 +83,7 @@
           classes: "govuk-!-width-auto govuk-!-margin-bottom-0",
           value: sort,
           items: [
+            { value: "type", text: "Notification type" },
             { value: "arrival-desc", text: "Arrival (newest to oldest)" },
             { value: "arrival-asc", text: "Arrival (oldest to newest)" }
           ]
@@ -103,116 +104,54 @@
         </h2>
       </div>
       <div id="dashboard-two-additional-filters-accordion-content-1" class="govuk-accordion__section-content" aria-labelledby="dashboard-two-additional-filters-accordion-heading-1">
-        <div class="govuk-grid-row">
-          <div class="govuk-grid-column-one-third">
-            <div class="govuk-form-group">
-              <label class="govuk-label govuk-label--s" for="filterOrigin">Country of origin</label>
-              <div class="autocomplete-wrapper autocomplete-wrapper--full">
-                <select class="govuk-select" id="filterOrigin" name="filterOrigin">
-                  <option value="">Type country name</option>
-                  {% for country in (originCountries or []) %}
-                    <option value="{{ country }}" {% if filterOrigin == country %}selected{% endif %}>{{ country }}</option>
-                  {% endfor %}
-                </select>
-              </div>
-            </div>
-          </div>
-          <div class="govuk-grid-column-one-third">
-            {{ govukSelect({
-              id: "filterStatus",
-              name: "filterStatus",
-              label: { text: "Status", classes: "govuk-label--s" },
-              classes: "govuk-!-width-full",
-              value: filterStatus,
+        <div class="govuk-grid-row dashboard-two-additional-filters">
+          <div class="govuk-grid-column-one-third dashboard-two-additional-filters__group">
+            {{ govukRadios({
+              idPrefix: "filterDatePreset",
+              name: "filterDatePreset",
+              fieldset: { legend: { text: "By date", classes: "govuk-fieldset__legend--s" } },
+              value: filterDatePreset,
               items: [
-                { value: "", text: "All" },
-                { value: "draft", text: "Draft" },
-                { value: "submitted", text: "Submitted" }
+                { value: "today", text: "Today" },
+                { value: "tomorrow", text: "Tomorrow" },
+                { value: "next-7-days", text: "Next seven days" }
               ]
             }) }}
           </div>
-          <div class="govuk-grid-column-one-third">
-            {{ govukSelect({
-              id: "filterNotificationType",
-              name: "filterNotificationType",
-              label: { text: "Notification type", classes: "govuk-label--s" },
-              value: filterNotificationType,
-              items: notificationTypeItems
-            }) }}
-          </div>
-        </div>
-        <div class="govuk-grid-row">
-          <div class="govuk-grid-column-one-third">
+          <div class="govuk-grid-column-one-third dashboard-two-additional-filters__group">
+            <h3 class="govuk-heading-s govuk-!-margin-bottom-1">Select date range</h3>
+            <p class="govuk-hint govuk-!-margin-top-0">For example, 27/3/2026</p>
             {{ govukInput({
-              label: { text: "Place of destination", classes: "govuk-label--s" },
-              id: "filterDestination",
-              name: "filterDestination",
-              value: filterDestination
-            }) }}
-          </div>
-          <div class="govuk-grid-column-one-third">
-            {{ govukSelect({
-              id: "filterPeriod",
-              name: "filterPeriod",
-              label: { text: "Arrival date", classes: "govuk-label--s" },
-              classes: "govuk-!-width-full",
-              value: filterPeriod,
-              items: [
-                { value: "", text: "All" },
-                { value: "last-1-hour", text: "Last 1 hour" },
-                { value: "last-24-hours", text: "Last 24 hours" },
-                { value: "last-7-days", text: "Last 7 days" },
-                { value: "last-30-days", text: "Last 30 days" }
-              ]
-            }) }}
-          </div>
-          <div class="govuk-grid-column-one-third">
-            {{ govukInput({
-              label: { text: "Start date", classes: "govuk-label--s" },
+              label: { text: "Start date" },
               id: "filterStartDate",
               name: "filterStartDate",
               type: "date",
               value: filterStartDate
             }) }}
-          </div>
-        </div>
-        <div class="govuk-grid-row">
-          <div class="govuk-grid-column-one-third">
             {{ govukInput({
-              label: { text: "End date", classes: "govuk-label--s" },
+              label: { text: "End date" },
               id: "filterEndDate",
               name: "filterEndDate",
               type: "date",
               value: filterEndDate
             }) }}
           </div>
-        </div>
-        <div class="dashboard-two-filter-radios">
-          <div class="dashboard-two-filter-radios__group">
-            {{ govukRadios({
-              classes: "govuk-radios--inline govuk-radios--small",
-              idPrefix: "filterActionNeeded",
-              name: "filterActionNeeded",
-              fieldset: { legend: { text: "Needs action to avoid delays", classes: "govuk-fieldset__legend--s" } },
-              value: filterActionNeeded,
-              items: [
-                { value: "today", text: "Today (" + filterCounts.today + ")" },
-                { value: "next-3-days", text: "Next 3 days (" + filterCounts.next3Days + ")" },
-                { value: "already-delayed", text: "Already delayed (" + filterCounts.alreadyDelayed + ")" }
-              ]
+          <div class="govuk-grid-column-one-third dashboard-two-additional-filters__group">
+            {{ govukSelect({
+              id: "filterNotificationType",
+              name: "filterNotificationType",
+              label: { text: "By type", classes: "govuk-label--s" },
+              classes: "govuk-!-width-full",
+              value: filterNotificationType,
+              items: notificationTypeItems
             }) }}
-          </div>
-          <div class="dashboard-two-filter-radios__group">
-            {{ govukRadios({
-              classes: "govuk-radios--inline govuk-radios--small",
-              idPrefix: "filterStatusChange",
-              name: "filterStatusChange",
-              fieldset: { legend: { text: "Status changes", classes: "govuk-fieldset__legend--s" } },
-              value: filterStatusChange,
-              items: [
-                { value: "last-24-hours", text: "Last 24 hours (" + filterCounts.last24Hours + ")" },
-                { value: "last-3-days", text: "Last 3 days (" + filterCounts.last3Days + ")" }
-              ]
+            {{ govukSelect({
+              id: "filterStatus",
+              name: "filterStatus",
+              label: { text: "Status", classes: "govuk-label--s" },
+              classes: "govuk-!-width-full",
+              value: filterStatus,
+              items: notificationStatusItems
             }) }}
           </div>
         </div>
@@ -221,6 +160,36 @@
           classes: "govuk-!-margin-bottom-0"
         }) }}
       </div>
+    </div>
+  </div>
+
+  <div class="dashboard-two-filter-radios">
+    <div class="dashboard-two-filter-radios__group">
+      {{ govukRadios({
+        classes: "govuk-radios--inline govuk-radios--small",
+        idPrefix: "filterActionNeeded",
+        name: "filterActionNeeded",
+        fieldset: { legend: { text: "Needs action to avoid delays", classes: "govuk-fieldset__legend--s" } },
+        value: filterActionNeeded,
+        items: [
+          { value: "today", text: "Today (" + filterCounts.today + ")" },
+          { value: "next-3-days", text: "Next 3 days (" + filterCounts.next3Days + ")" },
+          { value: "already-delayed", text: "Already delayed (" + filterCounts.alreadyDelayed + ")" }
+        ]
+      }) }}
+    </div>
+    <div class="dashboard-two-filter-radios__group">
+      {{ govukRadios({
+        classes: "govuk-radios--inline govuk-radios--small",
+        idPrefix: "filterStatusChange",
+        name: "filterStatusChange",
+        fieldset: { legend: { text: "Status changes", classes: "govuk-fieldset__legend--s" } },
+        value: filterStatusChange,
+        items: [
+          { value: "last-24-hours", text: "Last 24 hours (" + filterCounts.last24Hours + ")" },
+          { value: "last-3-days", text: "Last 3 days (" + filterCounts.last3Days + ")" }
+        ]
+      }) }}
     </div>
   </div>
 
@@ -238,7 +207,13 @@
       <h3 class="govuk-summary-card__title dashboard-card-title">{{ n.reference }}</h3>
     </div>
     <ul class="govuk-summary-card__actions dashboard-card-actions">
-      <li><a class="govuk-link govuk-!-font-weight-regular" href="{{ n.viewHref }}">View notification</a></li>
+      <li>
+        {% if n.status == "submitted" and not n.hasError %}
+        <a class="govuk-link govuk-!-font-weight-regular" href="#">Copy as new</a> <span class="dashboard-card-separator" aria-hidden="true">|</span> <a class="govuk-link govuk-!-font-weight-regular" href="{{ n.viewHref }}">View</a>
+        {% else %}
+        <a class="govuk-link govuk-!-font-weight-regular" href="{{ n.viewHref }}">View</a>
+        {% endif %}
+      </li>
     </ul>
   </div>
   <div class="govuk-summary-card__content dashboard-card-content">
@@ -305,21 +280,4 @@
 </div>
 {% endif %}
 
-{% endblock %}
-
-{% block pageScripts %}
-  <script src="https://cdn.jsdelivr.net/npm/accessible-autocomplete@2.0.4/dist/accessible-autocomplete.min.js"></script>
-  <script>
-    (function () {
-      var originSelect = document.querySelector('#filterOrigin')
-      if (originSelect && typeof accessibleAutocomplete !== 'undefined') {
-        accessibleAutocomplete.enhanceSelectElement({
-          autoselect: true,
-          defaultValue: originSelect.options[originSelect.selectedIndex] ? originSelect.options[originSelect.selectedIndex].text : '',
-          minLength: 2,
-          selectElement: originSelect
-        })
-      }
-    })()
-  </script>
 {% endblock %}
